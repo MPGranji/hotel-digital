@@ -40,6 +40,20 @@ dotnet run --project backend/src/HotelDigital.Api
 
 Không commit mật khẩu, access token hoặc connection string thật.
 
+## Chạy API bằng Docker
+
+Docker chỉ đóng gói API; frontend tiếp tục chạy bằng Next.js hoặc được triển khai trực tiếp trên Vercel.
+
+Sao chép `backend/.env.example` thành `backend/.env`, sau đó điền connection string của Azure SQL dành cho môi trường local/test:
+
+```powershell
+docker compose --env-file backend/.env up --build
+```
+
+API chạy tại `http://localhost:5080`. Endpoint `/health` kiểm tra tiến trình API; `/health/database` kiểm tra kết nối thật đến Azure SQL.
+
+Connection string chỉ được truyền vào container lúc chạy, không được ghi vào image hoặc commit vào Git. Kết nối đã lưu trong DataGrip không tự động được ứng dụng hoặc container sử dụng.
+
 ## Phạm vi MVP
 
 - Dashboard tổng quan và theo ngày.
