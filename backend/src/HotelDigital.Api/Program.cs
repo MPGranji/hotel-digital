@@ -1,6 +1,9 @@
 using HotelDigital.Api.Data;
+using HotelDigital.Api.Infrastructure.Auditing;
+using HotelDigital.Api.Infrastructure.Authentication;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Identity.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,10 +30,36 @@ if (databaseConnectionString.Contains(
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
+builder.Services.AddScoped<IAuditWriter, AuditWriter>();
 builder.Services.AddDbContext<HotelDbContext>(options =>
 {
     options.UseAzureSql(databaseConnectionString);
 });
+
+var useDevelopmentUser = builder.Environment.IsDevelopment()
+    && builder.Configuration.GetValue<bool>("Authentication:UseDevelopmentUser");
+
+if (useDevelopmentUser)
+{
+    builder.Services
+        .AddAuthentication(DevelopmentAuthenticationHandler.SchemeName)
+        .AddScheme<DevelopmentAuthenticationOptions, DevelopmentAuthenticationHandler>(
+            DevelopmentAuthenticationHandler.SchemeName,
+            _ => { });
+}
+else
+{
+    builder.Services
+        .AddAuthentication()
+        .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
+}
+
+builder.Services.AddAuthorizationBuilder()
+    .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build());
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
@@ -49,13 +78,15 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
 app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 app.MapGet("/health/database", async (
     HotelDbContext db,
     ILogger<Program> logger,
@@ -72,7 +103,7 @@ app.MapGet("/health/database", async (
         logger.LogError(exception, "Azure SQL health check failed.");
         return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
     }
-});
+}).AllowAnonymous();
 app.MapGet("/api", () => Results.Ok(new
 {
     service = "Hotel Digital API",

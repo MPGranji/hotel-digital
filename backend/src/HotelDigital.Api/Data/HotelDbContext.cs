@@ -1,12 +1,124 @@
+using HotelDigital.Api.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace HotelDigital.Api.Data;
 
 public sealed class HotelDbContext(DbContextOptions<HotelDbContext> options) : DbContext(options)
 {
+    public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<RoomType> RoomTypes => Set<RoomType>();
+    public DbSet<Room> Rooms => Set<Room>();
+    public DbSet<Channel> Channels => Set<Channel>();
+    public DbSet<Booking> Bookings => Set<Booking>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("hotel");
-        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<Customer>(entity =>
+        {
+            entity.ToTable("Customer");
+            entity.HasKey(x => x.CustomerId);
+            entity.Property(x => x.CustomerId).HasColumnName("CustomerID");
+            entity.Property(x => x.FullName).HasMaxLength(150);
+            entity.Property(x => x.Phone).HasMaxLength(40).IsUnicode(false);
+            entity.Property(x => x.Email).HasMaxLength(254);
+            entity.Property(x => x.IdentityDocument).HasMaxLength(60);
+            entity.Property(x => x.Nationality).HasMaxLength(80);
+            entity.Property(x => x.Note).HasMaxLength(500);
+            entity.Property(x => x.CreatedAt).HasPrecision(0);
+            entity.Property(x => x.Version).IsRowVersion();
+        });
+
+        modelBuilder.Entity<RoomType>(entity =>
+        {
+            entity.ToTable("RoomType");
+            entity.HasKey(x => x.RoomTypeId);
+            entity.Property(x => x.RoomTypeId).HasColumnName("RoomTypeID");
+            entity.Property(x => x.Code).HasMaxLength(30).IsUnicode(false);
+            entity.Property(x => x.Name).HasMaxLength(100);
+            entity.Property(x => x.ListedPricePerNight).HasPrecision(19, 2);
+        });
+
+        modelBuilder.Entity<Room>(entity =>
+        {
+            entity.ToTable("Room");
+            entity.HasKey(x => x.RoomId);
+            entity.Property(x => x.RoomId).HasColumnName("RoomID");
+            entity.Property(x => x.RoomTypeId).HasColumnName("RoomTypeID");
+            entity.Property(x => x.RoomNumber).HasMaxLength(20).IsUnicode(false);
+            entity.Property(x => x.FloorLabel).HasMaxLength(20);
+            entity.Property(x => x.Note).HasMaxLength(500);
+            entity.Property(x => x.Version).IsRowVersion();
+            entity.HasOne(x => x.RoomType).WithMany(x => x.Rooms).HasForeignKey(x => x.RoomTypeId);
+        });
+
+        modelBuilder.Entity<Channel>(entity =>
+        {
+            entity.ToTable("Channel");
+            entity.HasKey(x => x.ChannelId);
+            entity.Property(x => x.ChannelId).HasColumnName("ChannelID");
+            entity.Property(x => x.Code).HasMaxLength(40).IsUnicode(false);
+            entity.Property(x => x.Name).HasMaxLength(100);
+            entity.Property(x => x.Category).HasMaxLength(15).IsUnicode(false);
+            entity.Property(x => x.CommissionRate).HasPrecision(5, 2);
+            entity.Property(x => x.Note).HasMaxLength(300);
+        });
+
+        modelBuilder.Entity<Booking>(entity =>
+        {
+            entity.ToTable("Booking");
+            entity.HasKey(x => x.BookingId);
+            entity.Property(x => x.BookingId).HasColumnName("BookingID");
+            entity.Property(x => x.BookingCode).HasMaxLength(20).IsUnicode(false).ValueGeneratedOnAddOrUpdate();
+            entity.Property(x => x.LegacyBookingCode).HasMaxLength(50);
+            entity.Property(x => x.RoomId).HasColumnName("RoomID");
+            entity.Property(x => x.CustomerId).HasColumnName("CustomerID");
+            entity.Property(x => x.ChannelId).HasColumnName("ChannelID");
+            entity.Property(x => x.ExternalBookingCode).HasMaxLength(100);
+            entity.Property(x => x.CheckInAt).HasPrecision(0);
+            entity.Property(x => x.CheckOutAt).HasPrecision(0);
+            entity.Property(x => x.Status).HasMaxLength(15).IsUnicode(false);
+            entity.Property(x => x.RoomRevenue).HasPrecision(19, 2);
+            entity.Property(x => x.ServiceRevenue).HasPrecision(19, 2);
+            entity.Property(x => x.SurchargeAmount).HasPrecision(19, 2);
+            entity.Property(x => x.DiscountAmount).HasPrecision(19, 2);
+            entity.Property(x => x.PreviousDebt).HasPrecision(19, 2);
+            entity.Property(x => x.CashAmount).HasPrecision(19, 2);
+            entity.Property(x => x.CardAmount).HasPrecision(19, 2);
+            entity.Property(x => x.TransferAmount).HasPrecision(19, 2);
+            entity.Property(x => x.DebtAmount).HasPrecision(19, 2);
+            entity.Property(x => x.GrossRevenue).HasPrecision(19, 2).ValueGeneratedOnAddOrUpdate();
+            entity.Property(x => x.PaidAmount).HasPrecision(19, 2).ValueGeneratedOnAddOrUpdate();
+            entity.Property(x => x.BalanceDue).HasPrecision(19, 2).ValueGeneratedOnAddOrUpdate();
+            entity.Property(x => x.AverageRoomRate).HasPrecision(19, 2).ValueGeneratedOnAddOrUpdate();
+            entity.Property(x => x.DiscountReason).HasMaxLength(300);
+            entity.Property(x => x.PromotionCode).HasMaxLength(50);
+            entity.Property(x => x.InvoiceNumber).HasMaxLength(50);
+            entity.Property(x => x.Note).HasMaxLength(1000);
+            entity.Property(x => x.CreatedAt).HasPrecision(0);
+            entity.Property(x => x.Version).IsRowVersion();
+            entity.HasOne(x => x.Room).WithMany(x => x.Bookings).HasForeignKey(x => x.RoomId);
+            entity.HasOne(x => x.Customer).WithMany(x => x.Bookings).HasForeignKey(x => x.CustomerId);
+            entity.HasOne(x => x.Channel).WithMany(x => x.Bookings).HasForeignKey(x => x.ChannelId);
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.ToTable("AuditLog");
+            entity.HasKey(x => x.AuditLogId);
+            entity.Property(x => x.AuditLogId).HasColumnName("AuditLogID");
+            entity.Property(x => x.OccurredAtUtc).HasPrecision(0);
+            entity.Property(x => x.ActorObjectId).HasColumnName("ActorObjectID").HasMaxLength(80);
+            entity.Property(x => x.ActorDisplayName).HasMaxLength(150);
+            entity.Property(x => x.ActorEmail).HasMaxLength(254);
+            entity.Property(x => x.ActorRole).HasMaxLength(100);
+            entity.Property(x => x.Action).HasMaxLength(30).IsUnicode(false);
+            entity.Property(x => x.EntityType).HasMaxLength(60).IsUnicode(false);
+            entity.Property(x => x.EntityId).HasColumnName("EntityID").HasMaxLength(80).IsUnicode(false);
+            entity.Property(x => x.ChangesJson).HasColumnType("nvarchar(max)");
+            entity.Property(x => x.CorrelationId).HasColumnName("CorrelationID").HasMaxLength(100);
+        });
     }
 }

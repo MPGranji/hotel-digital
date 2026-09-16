@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { UserMenu } from "@/features/auth/user-menu";
 import { AppNavigation } from "./app-navigation";
 
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
@@ -10,7 +11,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary)]">Hotel Digital</p>
             <p className="text-sm text-[var(--muted)]">Vận hành khách sạn</p>
           </div>
-          <div className="rounded-full bg-slate-100 px-3 py-2 text-sm text-slate-600">Môi trường phát triển</div>
+          <UserMenu />
         </div>
         <AppNavigation />
       </header>

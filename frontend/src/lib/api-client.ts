@@ -1,5 +1,13 @@
 import { env } from "@/lib/env";
 
+type AccessTokenProvider = () => Promise<string>;
+
+let accessTokenProvider: AccessTokenProvider | undefined;
+
+export function setAccessTokenProvider(provider?: AccessTokenProvider) {
+  accessTokenProvider = provider;
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -10,11 +18,13 @@ export class ApiError extends Error {
 }
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const accessToken = await accessTokenProvider?.();
   const response = await fetch(`${env.apiBaseUrl}${path}`, {
     ...init,
     cache: "no-store",
     headers: {
       Accept: "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...init?.headers,
     },
   });

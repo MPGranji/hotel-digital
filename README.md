@@ -54,13 +54,32 @@ API chạy tại `http://localhost:5080`. Endpoint `/health` kiểm tra tiến t
 
 Connection string chỉ được truyền vào container lúc chạy, không được ghi vào image hoặc commit vào Git. Kết nối đã lưu trong DataGrip không tự động được ứng dụng hoặc container sử dụng.
 
-## Phạm vi MVP
+## Phạm vi triển khai hiện tại
 
-- Dashboard tổng quan và theo ngày.
 - Đặt phòng/check-in/check-out.
-- Sổ đặt phòng, nhập và xuất Excel.
+- Sổ đặt phòng.
 - Phòng, khách hàng và kênh đặt phòng.
-- Power BI Embedded.
 - Microsoft Entra ID và audit ở mức MVP.
 
-Xem [kiến trúc](docs/architecture.md) và [quy ước phát triển](docs/development.md) trước khi thêm module.
+Dashboard vận hành, nhập/xuất Excel và Power BI Embedded được để ở giai đoạn tiếp theo sau khi luồng vận hành ổn định.
+
+## Microsoft Entra ID
+
+Môi trường Development dùng danh tính local cố định để phát triển giao diện và API. Test/Production bắt buộc cấu hình:
+
+- `AzureAd__TenantId` và `AzureAd__ClientId` cho API.
+- `NEXT_PUBLIC_ENTRA_TENANT_ID`, `NEXT_PUBLIC_ENTRA_CLIENT_ID` và `NEXT_PUBLIC_ENTRA_API_SCOPE` cho frontend.
+
+Không bật `Authentication__UseDevelopmentUser` ngoài môi trường Development.
+
+## Database cho web
+
+Sau các script schema và view nền, chạy migration audit:
+
+```powershell
+sqlcmd -S "<server>" -d "<database>" -E -I -b -i database/04_web_foundation.sql
+```
+
+API không tự chạy migration. SQL script đã duyệt vẫn là nguồn quản lý schema.
+
+Các feature phải tuân theo ranh giới frontend/backend và Definition of Done trong kế hoạch triển khai đã được duyệt.
