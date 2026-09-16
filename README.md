@@ -16,13 +16,13 @@ hotel-digital/
 ├── docs/                    # Kiến trúc và hướng dẫn phát triển
 ├── infra/                   # Ghi chú/cấu hình triển khai
 ├── .editorconfig
-├── .gitignore
-└── package.json             # npm workspace cho frontend
+└── .gitignore
 ```
 
 ## Chạy frontend
 
 ```powershell
+cd frontend
 npm install
 npm run dev
 ```
