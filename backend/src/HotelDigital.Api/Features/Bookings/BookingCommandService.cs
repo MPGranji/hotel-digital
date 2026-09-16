@@ -87,6 +87,15 @@ public sealed class BookingCommandService(
                     "Đặt phòng đã được người khác cập nhật. Vui lòng tải lại trước khi lưu.");
             }
 
+            if (request.NewCustomer is not null)
+            {
+                auditWriter.Add("CREATE", "Customer", booking.CustomerId.ToString(), new
+                {
+                    fields = new[] { "FullName", "Phone", "Email", "IdentityDocument", "Nationality", "Note" }
+                });
+                await db.SaveChangesAsync(token);
+            }
+
             return true;
         }, cancellationToken);
     }

@@ -39,4 +39,18 @@ public sealed class FoundationTests
         Assert.True(customerVersion?.IsConcurrencyToken);
         Assert.Equal(ValueGenerated.OnAddOrUpdate, bookingVersion?.ValueGenerated);
     }
+
+    [Fact]
+    public void Created_timestamps_are_generated_by_sql_server()
+    {
+        using var db = CreateContext();
+
+        var bookingCreatedAt = db.Model.FindEntityType(typeof(Booking))?.FindProperty(nameof(Booking.CreatedAt));
+        var customerCreatedAt = db.Model.FindEntityType(typeof(Customer))?.FindProperty(nameof(Customer.CreatedAt));
+
+        Assert.Equal(ValueGenerated.OnAdd, bookingCreatedAt?.ValueGenerated);
+        Assert.Equal(ValueGenerated.OnAdd, customerCreatedAt?.ValueGenerated);
+        Assert.Equal("SYSUTCDATETIME()", bookingCreatedAt?.GetDefaultValueSql());
+        Assert.Equal("SYSUTCDATETIME()", customerCreatedAt?.GetDefaultValueSql());
+    }
 }

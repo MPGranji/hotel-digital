@@ -27,7 +27,10 @@ public sealed class HotelDbContext(DbContextOptions<HotelDbContext> options) : D
             entity.Property(x => x.IdentityDocument).HasMaxLength(60);
             entity.Property(x => x.Nationality).HasMaxLength(80);
             entity.Property(x => x.Note).HasMaxLength(500);
-            entity.Property(x => x.CreatedAt).HasPrecision(0);
+            entity.Property(x => x.CreatedAt)
+                .HasPrecision(0)
+                .HasDefaultValueSql("SYSUTCDATETIME()")
+                .ValueGeneratedOnAdd();
             entity.Property(x => x.Version).IsRowVersion();
         });
 
@@ -97,7 +100,10 @@ public sealed class HotelDbContext(DbContextOptions<HotelDbContext> options) : D
             entity.Property(x => x.PromotionCode).HasMaxLength(50);
             entity.Property(x => x.InvoiceNumber).HasMaxLength(50);
             entity.Property(x => x.Note).HasMaxLength(1000);
-            entity.Property(x => x.CreatedAt).HasPrecision(0);
+            entity.Property(x => x.CreatedAt)
+                .HasPrecision(0)
+                .HasDefaultValueSql("SYSUTCDATETIME()")
+                .ValueGeneratedOnAdd();
             entity.Property(x => x.Version).IsRowVersion();
             entity.HasOne(x => x.Room).WithMany(x => x.Bookings).HasForeignKey(x => x.RoomId);
             entity.HasOne(x => x.Customer).WithMany(x => x.Bookings).HasForeignKey(x => x.CustomerId);
