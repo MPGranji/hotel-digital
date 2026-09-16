@@ -30,6 +30,7 @@ GO
 
 IF DATABASE_PRINCIPAL_ID(N'hotel_app') IS NOT NULL
 BEGIN
+    GRANT SELECT,INSERT,UPDATE ON hotel.Channel TO hotel_app;
     GRANT SELECT,INSERT ON hotel.AuditLog TO hotel_app;
     DENY UPDATE,DELETE ON hotel.AuditLog TO hotel_app;
 END;
