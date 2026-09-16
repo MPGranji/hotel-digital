@@ -1,6 +1,10 @@
 using HotelDigital.Api.Data;
+using HotelDigital.Api.Features.Customers;
+using HotelDigital.Api.Features.Bookings;
 using HotelDigital.Api.Infrastructure.Auditing;
 using HotelDigital.Api.Infrastructure.Authentication;
+using HotelDigital.Api.Infrastructure.Errors;
+using HotelDigital.Api.Infrastructure.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
@@ -28,11 +32,16 @@ if (databaseConnectionString.Contains(
 }
 
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddScoped<IAuditWriter, AuditWriter>();
+builder.Services.AddScoped<ITransactionExecutor, TransactionExecutor>();
+builder.Services.AddScoped<CustomerService>();
+builder.Services.AddScoped<BookingQueryService>();
+builder.Services.AddScoped<BookingCommandService>();
 builder.Services.AddDbContext<HotelDbContext>(options =>
 {
     options.UseAzureSql(databaseConnectionString);
@@ -110,6 +119,8 @@ app.MapGet("/api", () => Results.Ok(new
     status = "ready",
     version = "0.1.0"
 }));
+app.MapCustomerEndpoints();
+app.MapBookingEndpoints();
 
 app.Run();
 

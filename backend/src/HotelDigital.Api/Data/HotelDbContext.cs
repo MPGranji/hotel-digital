@@ -68,7 +68,7 @@ public sealed class HotelDbContext(DbContextOptions<HotelDbContext> options) : D
 
         modelBuilder.Entity<Booking>(entity =>
         {
-            entity.ToTable("Booking");
+            entity.ToTable("Booking", table => table.HasTrigger("TR_Booking_PreventRoomOverlap"));
             entity.HasKey(x => x.BookingId);
             entity.Property(x => x.BookingId).HasColumnName("BookingID");
             entity.Property(x => x.BookingCode).HasMaxLength(20).IsUnicode(false).ValueGeneratedOnAddOrUpdate();

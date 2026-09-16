@@ -1,12 +1,8 @@
-import { ModulePlaceholder } from "@/components/shared/module-placeholder";
+import { BookingForm } from "@/features/bookings/booking-form";
 
-export default function BookingsPage() {
-  return (
-    <ModulePlaceholder
-      eyebrow="Vận hành"
-      title="Đặt phòng & Check-in"
-      description="Tạo hoặc cập nhật lượt lưu trú, thông tin khách và thanh toán trên cùng một biểu mẫu."
-      items={["Chọn phòng và thời gian", "Tìm hoặc tạo khách", "Doanh thu và thanh toán", "Thao tác trạng thái"]}
-    />
-  );
+export default async function BookingsPage({
+  searchParams,
+}: Readonly<{ searchParams: Promise<{ bookingId?: string }> }>) {
+  const rawId = Number((await searchParams).bookingId);
+  return <BookingForm bookingId={Number.isInteger(rawId) && rawId > 0 ? rawId : undefined} />;
 }
