@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/HotelDigital.Api/HotelDigital.Api.csproj" />
+  <Project Path="tests/HotelDigital.Api.Tests/HotelDigital.Api.Tests.csproj" />
+</Solution>
