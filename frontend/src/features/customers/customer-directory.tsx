@@ -63,7 +63,7 @@ export function CustomerDirectory() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
+              <table className="min-w-[900px] text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-3">Khách hàng</th><th className="px-3 py-3">Liên hệ</th><th className="px-3 py-3">CCCD/Passport</th><th className="px-3 py-3">Quốc tịch</th><th className="px-3 py-3">Check-in gần nhất</th><th className="px-3 py-3 text-right">Thao tác</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {result.items.map((customer) => (

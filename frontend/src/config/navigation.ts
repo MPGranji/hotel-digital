@@ -1,7 +1,6 @@
 import {
   BedDouble,
   BookOpenText,
-  ChartNoAxesCombined,
   ClipboardPlus,
   ContactRound,
   RadioTower,
@@ -15,7 +14,6 @@ export interface NavigationItem {
 }
 
 export const navigationItems: NavigationItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: ChartNoAxesCombined },
   { href: "/bookings", label: "Đặt phòng & Check-in", icon: ClipboardPlus },
   { href: "/ledger", label: "Sổ đặt phòng", icon: BookOpenText },
   { href: "/rooms", label: "Phòng", icon: BedDouble },

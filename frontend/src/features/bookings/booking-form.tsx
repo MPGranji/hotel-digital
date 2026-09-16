@@ -8,8 +8,8 @@ import { OperationSection } from "./operation-section";
 import { StaySection } from "./stay-section";
 import { useBookingForm } from "./use-booking-form";
 
-export function BookingForm({ bookingId }: Readonly<{ bookingId?: number }>) {
-  const model = useBookingForm(bookingId);
+export function BookingForm({ bookingId, initialRoomId }: Readonly<{ bookingId?: number; initialRoomId?: number }>) {
+  const model = useBookingForm(bookingId, initialRoomId);
   const closed = model.booking?.status === "CHECKED_OUT"
     || model.booking?.status === "CANCELLED"
     || model.booking?.status === "NO_SHOW";

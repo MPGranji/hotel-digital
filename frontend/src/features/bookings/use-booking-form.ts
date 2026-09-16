@@ -22,7 +22,7 @@ import {
 } from "./booking-form-state";
 import type { BookingDetail, BookingOptions } from "./types";
 
-export function useBookingForm(bookingId?: number) {
+export function useBookingForm(bookingId?: number, initialRoomId?: number) {
   const router = useRouter();
   const [form, setForm] = useState<BookingFormState>(createInitialBookingForm);
   const [booking, setBooking] = useState<BookingDetail>();
@@ -42,6 +42,9 @@ export function useBookingForm(bookingId?: number) {
       .then(([loadedOptions, loadedBooking]) => {
         if (!active) return;
         setOptions(loadedOptions);
+        if (!loadedBooking && initialRoomId && loadedOptions.rooms.some((room) => room.id === initialRoomId)) {
+          setForm((current) => ({ ...current, roomId: String(initialRoomId) }));
+        }
         if (loadedBooking) {
           setBooking(loadedBooking);
           setForm(formFromBooking(loadedBooking));
@@ -51,7 +54,7 @@ export function useBookingForm(bookingId?: number) {
       .catch((reason) => setError(getApiErrorMessage(reason, "Không thể tải biểu mẫu đặt phòng.")))
       .finally(() => setLoading(false));
     return () => { active = false; };
-  }, [bookingId]);
+  }, [bookingId, initialRoomId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

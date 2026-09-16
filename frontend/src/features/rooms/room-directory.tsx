@@ -1,0 +1,92 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input, Select } from "@/components/ui/field";
+import { DataMessage, PageHeader, Panel } from "@/components/ui/page";
+import { getApiErrorMessage } from "@/lib/api-client";
+import { formatCurrency, formatDateTime } from "@/lib/format";
+import { getRooms } from "./rooms-api";
+import type { RoomListItem } from "./types";
+
+const statusLabels = {
+  AVAILABLE: "Trống",
+  RESERVED: "Đã đặt",
+  OCCUPIED: "Đang có khách",
+  INACTIVE: "Ngừng hoạt động",
+};
+
+const statusStyles = {
+  AVAILABLE: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  RESERVED: "border-blue-200 bg-blue-50 text-blue-700",
+  OCCUPIED: "border-amber-200 bg-amber-50 text-amber-800",
+  INACTIVE: "border-slate-200 bg-slate-100 text-slate-600",
+};
+
+export function RoomDirectory() {
+  const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [rooms, setRooms] = useState<RoomListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>();
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearch(query.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    let active = true;
+    void getRooms(search, status)
+      .then((data) => { if (active) setRooms(data); })
+      .catch((reason) => setError(getApiErrorMessage(reason, "Không thể tải danh sách phòng.")))
+      .finally(() => setLoading(false));
+    return () => { active = false; };
+  }, [reloadKey, search, status]);
+
+  function refresh() {
+    setLoading(true);
+    setError(undefined);
+    setReloadKey((value) => value + 1);
+  }
+
+  return (
+    <>
+      <PageHeader description="Theo dõi trạng thái hiện tại và lần nhận phòng kế tiếp của 20 phòng vật lý." title="Phòng" />
+      <Panel>
+        <div className="mb-5 flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-center">
+          <Input aria-label="Tìm phòng" className="md:max-w-sm" onChange={(event) => { setQuery(event.target.value); setLoading(true); }} placeholder="Tìm số phòng, hạng phòng hoặc tầng" value={query} />
+          <Select aria-label="Trạng thái phòng" className="md:max-w-xs" onChange={(event) => { setStatus(event.target.value); setLoading(true); }} value={status}><option value="">Tất cả trạng thái</option><option value="AVAILABLE">Trống</option><option value="RESERVED">Đã đặt</option><option value="OCCUPIED">Đang có khách</option><option value="INACTIVE">Ngừng hoạt động</option></Select>
+          <Button className="md:ml-auto" onClick={refresh} variant="secondary">Làm mới</Button>
+        </div>
+        {error ? <DataMessage action={<Button onClick={refresh}>Thử lại</Button>} description={error} title="Không thể tải dữ liệu" /> : loading ? <DataMessage title="Đang tải danh sách phòng…" /> : rooms.length === 0 ? <DataMessage description="Thử thay đổi từ khóa hoặc trạng thái." title="Không có phòng phù hợp" /> : (
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <table className="min-w-[900px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Phòng</th><th className="px-4 py-3">Hạng phòng</th><th className="px-4 py-3">Tầng</th><th className="px-4 py-3 text-right">Giá niêm yết / đêm</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3">Khách / Lịch kế tiếp</th><th className="px-4 py-3 text-right">Thao tác</th></tr></thead>
+              <tbody className="divide-y divide-slate-100">{rooms.map((room) => <RoomRow key={room.id} room={room} />)}</tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+    </>
+  );
+}
+
+function RoomRow({ room }: Readonly<{ room: RoomListItem }>) {
+  const actionHref = room.currentBookingId ? `/bookings?bookingId=${room.currentBookingId}` : `/bookings?roomId=${room.id}`;
+  const actionLabel = room.status === "OCCUPIED" ? "Mở booking" : room.status === "RESERVED" ? "Check-in" : "Tạo đặt phòng";
+  return (
+    <tr className="hover:bg-slate-50">
+      <td className="px-4 py-3 text-base font-bold text-[var(--primary)]">{room.roomNumber}</td>
+      <td className="px-4 py-3"><p className="font-medium text-slate-800">{room.roomTypeName}</p><p className="text-xs text-slate-500">{room.roomTypeCode}</p></td>
+      <td className="px-4 py-3">{room.floorLabel ? `Tầng ${room.floorLabel}` : "—"}</td>
+      <td className="px-4 py-3 text-right font-medium">{room.listedPricePerNight == null ? "Chưa xác nhận" : formatCurrency(room.listedPricePerNight)}</td>
+      <td className="px-4 py-3"><span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${statusStyles[room.status]}`}>{statusLabels[room.status]}</span></td>
+      <td className="px-4 py-3">{room.currentGuestName ? <><p className="font-medium">{room.currentGuestName}</p><p className="text-xs text-slate-500">{room.currentBookingCode}</p></> : <p className="text-slate-500">Kế tiếp: {formatDateTime(room.nextCheckInAt)}</p>}</td>
+      <td className="px-4 py-3 text-right">{room.status !== "INACTIVE" ? <Link className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" href={actionHref}>{actionLabel}</Link> : null}</td>
+    </tr>
+  );
+}
