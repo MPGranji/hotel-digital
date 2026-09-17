@@ -194,43 +194,85 @@ Dashboard chưa đưa vào điều hướng vì mới là placeholder. Khi hoàn
 
 Dashboard mục tiêu nằm trong web app, gồm hai tab vận hành **Tổng quan**, **Theo ngày** và một tab phân tích **Power BI**. Hai tab vận hành sẽ dùng component Next.js và API của hệ thống; tab Power BI nhúng báo cáo quản trị sau khi báo cáo được publish.
 
+#### Nguyên tắc số liệu
+
+Mỗi số liệu phải trả lời một câu hỏi vận hành cụ thể và hiển thị rõ trục thời gian của nó:
+
+- **Công suất** dùng từng `StayDate` trong khoảng nửa mở `[CheckInAt, CheckOutAt)` và chỉ tính phòng vật lý có `CountsTowardOccupancy = 1`.
+- **Giá trị booking** và **ADR booking** gắn với ngày nhận phòng (`CheckInAt`), không gọi là doanh thu kế toán theo ngày.
+- **Tiền thực thu** gắn với `Payment.PaidAt`.
+- **Công nợ/còn thiếu** là số dư giao dịch hiện tại. Chưa có ngày đến hạn nên không được diễn giải thành nợ quá hạn hoặc rủi ro thu hồi.
+- Các KPI cộng dồn chỉ so với khoảng trước có cùng số ngày. KPI snapshot không gắn phần trăm tăng/giảm nếu chưa lưu snapshot lịch sử.
+- Khoảng tháng không đủ ngày, như tháng đầu/cuối của file lịch sử, phải có nhãn `Dữ liệu chưa đủ tháng`; không so tổng tháng trực tiếp.
+
+Trạng thái dùng cho công suất:
+
+- Ngày đã qua: chỉ tính booking thực sự lưu trú (`CHECKED_IN`, `CHECKED_OUT`), loại `CANCELLED` và `NO_SHOW`.
+- Hôm nay và tương lai: hiển thị riêng **đã đặt** (`BOOKED`) và **đang có khách** (`CHECKED_IN`) để phân biệt dự báo với thực tế.
+- Mẫu số là số phòng vật lý đang bán được trừ các `RoomBlock` bảo trì giao với ngày. Nếu cần báo cáo lịch sử sau khi thay đổi trạng thái hoạt động của phòng, phải bổ sung lịch sử hiệu lực của phòng; `Room.IsActive` hiện chỉ phản ánh trạng thái hiện tại.
+
+#### Căn cứ từ dữ liệu lịch sử hiện có
+
+File sáu tháng có 734 booking, 20 phòng vật lý và 139 ngày lưu trú. Sau khi loại `MB-PNL` khỏi công suất:
+
+- Thứ Bảy trung bình có khoảng 12,8 phòng được sử dụng, trong khi thứ Tư khoảng 8,25 phòng; biểu đồ theo thứ có giá trị cho quyết định giá và nhân sự.
+- Nhận phòng tập trung mạnh lúc 14:00-15:00; trả phòng tập trung trong khung 08:00-11:00; phân bố theo giờ có giá trị cho bố trí lễ tân và buồng phòng.
+- Có 37 booking thiếu kênh, 13 booking có giá trị bằng 0 và 119 lượt ở không quá 12 giờ; Dashboard cần có vùng cảnh báo chất lượng dữ liệu thay vì biến các bản ghi này thành tỷ lệ đẹp nhưng khó hành động.
+- Trường `Công nợ` phản ánh cách thanh toán, không có hạn thanh toán. Biểu đồ theo kênh chỉ được ghi là **cơ cấu công nợ**, không được ghi là **nợ xấu** hoặc **nợ quá hạn**.
+
 #### Tab Tổng quan
 
-Bộ lọc mặc định là từ ngày đầu đến ngày cuối của **tháng hiện tại** theo múi giờ Việt Nam; cho phép chọn khoảng ngày khác. Khi tải lại trang, nếu URL không có bộ lọc thì luôn quay về tháng hiện tại.
+Bộ lọc mặc định là từ ngày đầu đến ngày hiện tại của **tháng hiện tại** theo múi giờ Việt Nam; cho phép chọn khoảng ngày khác và lưu bộ lọc vào URL. Không mặc định lấy các ngày tương lai vì sẽ làm thấp giả công suất tháng.
 
-Hiển thị:
+Hàng KPI gồm:
 
-- Tổng số booking trong khoảng ngày.
-- Số đêm phòng đã bán.
-- Số đêm phòng có thể bán.
-- Tỷ lệ lấp đầy.
-- Tổng doanh thu.
-- Đã thanh toán.
-- Công nợ.
-- Còn thiếu.
-- Cơ cấu booking theo nguồn/kênh.
-- Số đêm và doanh thu theo hạng phòng.
-- Cơ cấu khách theo quốc tịch.
+- Đêm phòng đã sử dụng / đêm phòng có thể bán và tỷ lệ lấp đầy.
+- Lượt nhận phòng trong kỳ.
+- Giá trị booking của các lượt nhận phòng trong kỳ và ADR booking.
+- Tiền thực thu trong kỳ theo `PaidAt`.
+- Số dư còn thiếu hiện tại, có nhãn rõ đây là snapshot.
 
-Quy ước thời gian phải hiển thị ngay dưới bộ lọc: doanh thu và số booking được gán theo `CheckInAt`; công suất dùng `StayDate` từ `vRoomNight`. Không cộng trực tiếp các tỷ lệ tháng để tạo tỷ lệ cho một khoảng ngày.
+Tối đa bốn biểu đồ chính; mỗi biểu đồ có một câu hỏi và một hành động đi kèm:
 
-Biểu đồ quốc tịch dùng `Customer.Nationality`; giá trị trống được gom vào `Chưa xác định`. File Excel lịch sử không có cột quốc tịch đáng tin cậy nên tỷ trọng `Chưa xác định` ban đầu sẽ cao và phải được ghi chú trên biểu đồ.
+| Khối | Cách thể hiện | Câu hỏi được trả lời | Quyết định hỗ trợ |
+|---|---|---|---|
+| Công suất theo ngày | Cột `đã sử dụng / có thể bán`, đường trung bình động 7 ngày; trên 62 ngày thì gom theo tuần | Nhu cầu tăng/giảm ở đâu, ngày nào gần hết phòng? | Điều chỉnh giá, mở/đóng inventory và kế hoạch bảo trì |
+| Nhu cầu theo thứ | Cột theo Thứ 2-Chủ nhật, hiển thị trung bình và P90 số phòng sử dụng | Thứ nào có tải cao ổn định, không chỉ do một ngày đột biến? | Xếp ca, vệ sinh phòng và bảng giá theo thứ |
+| Hiệu quả hạng phòng | Bảng xếp hạng có thanh nhỏ cho công suất; cột riêng ADR booking và số lượt nhận phòng | Hạng phòng nào bán tốt, hạng nào giá cao nhưng nhu cầu thấp? | Điều chỉnh bảng giá và cơ cấu phòng; không tính RevPAR khi chưa có doanh thu từng đêm |
+| Hiệu quả kênh | Bảng xếp hạng theo đêm phòng với giá trị booking, ADR booking, tiền đã thu và tỷ lệ công nợ | Kênh nào đem lại sản lượng, mức giá và cơ cấu thanh toán tốt? | Ưu tiên kênh, chính sách đặt cọc và đối soát |
+
+Dưới biểu đồ là bảng **Cần xử lý**, có liên kết đến booking tương ứng: thiếu kênh, giá trị bằng 0, ngày giờ không hợp lệ, ở dài bất thường, còn thiếu tiền và booking dùng pseudo-room. Đây là danh sách hành động, không phải biểu đồ trang trí.
+
+Không đưa các nội dung sau vào Overview mặc định:
+
+- Biểu đồ tròn quốc tịch khi tỷ lệ `Chưa xác định` còn cao; chỉ mở trong Power BI sau khi chất lượng dữ liệu đủ tốt và có nhu cầu marketing/guest service rõ ràng.
+- RevPAR hoặc doanh thu theo `StayDate`, vì booking hiện chỉ lưu tổng `RoomRevenue`; chia đều theo số đêm là một giả định không có chứng từ.
+- Biểu đồ trạng thái booking hoặc phương thức thẻ khi chỉ có một nhóm chiếm tuyệt đối/giá trị bằng 0; dùng cảnh báo dữ liệu nếu cần.
+- Hai trục tung cho các đại lượng khác đơn vị; nếu cần so sánh thì dùng hai biểu đồ nhỏ cùng trục thời gian.
 
 Dashboard vận hành dùng dữ liệu trực tiếp từ API với `cache: no-store`, tự làm mới sau khi tạo/sửa/check-in/check-out và có chu kỳ tải lại cấu hình được, mặc định 30 giây. Đây là dashboard gần thời gian thực của nhân viên.
 
 #### Tab Theo ngày
 
-Người dùng chọn một ngày cụ thể. Màn hình hiển thị:
+Người dùng chọn một ngày cụ thể. Màn hình ưu tiên điều phối ca làm việc, không lặp lại báo cáo quản trị của Overview.
 
-- Tổng phòng vật lý đang hoạt động.
-- Số phòng có khách trong ngày.
-- Số phòng trống trong ngày.
-- Tỷ lệ lấp đầy trong ngày.
-- Số lượt đến trong ngày.
-- Số lượt đi trong ngày.
-- Cơ cấu booking theo nguồn trong ngày.
-- Danh sách phòng có khách: phòng, khách, nguồn, giờ đến, giờ đi, trạng thái.
-- Danh sách phòng trống.
+Hàng KPI gồm: phòng có thể bán, đang có khách, đã đặt chưa đến, bảo trì, còn trống, lượt đến và lượt đi. Với ngày tương lai, nhãn đổi thành **công suất dự kiến**.
+
+Hai biểu đồ có ý nghĩa vận hành:
+
+| Khối | Cách thể hiện | Câu hỏi được trả lời | Hành động |
+|---|---|---|---|
+| Nhịp đến/đi theo giờ | Cột nhóm số lượt đến và đi theo giờ; tự gom khung 2 giờ nếu nhãn chật | Khung giờ nào lễ tân và buồng phòng chịu tải cao nhất? | Xếp ca và ưu tiên dọn phòng trước giờ khách đến |
+| Năng lực theo hạng phòng | Thanh ngang xếp chồng `có khách / đã đặt / bảo trì / còn trống`, luôn kèm số tuyệt đối | Hôm đó còn bán được loại phòng nào và nghẽn ở hạng nào? | Nhận booking mới, đổi phòng hoặc chặn bán đúng hạng |
+
+Các danh sách hành động đặt ngay dưới biểu đồ:
+
+- **Khách đến:** giờ đến, phòng, khách, kênh, trạng thái xác nhận và số tiền còn thiếu.
+- **Khách đi:** giờ đi, phòng, khách, tình trạng thanh toán và trạng thái checkout.
+- **Đang lưu trú:** phòng, khách, giờ đi dự kiến và ghi chú vận hành.
+- **Bảo trì / phòng trống:** lý do chặn phòng và danh sách phòng có thể bán.
+
+Không vẽ cơ cấu kênh/quốc tịch cho một ngày có ít booking. Nếu cần, hiển thị kênh dưới dạng cột trong danh sách khách đến để người dùng vẫn tra cứu được mà không tạo phần trăm nhiễu.
 
 Quy ước tính:
 
@@ -241,6 +283,15 @@ Tỷ lệ lấp đầy = Số phòng có đêm lưu trú trong ngày / Số phò
 `MB-PNL` đã được xác nhận là pseudo-room/master bill, không phải phòng thật. Giá trị này và mọi record có `CountsTowardOccupancy = 0` không tham gia mẫu số công suất, số phòng trống hoặc danh sách phòng vật lý; dữ liệu lịch sử liên quan vẫn được giữ trong sổ cái.
 
 Không đưa “doanh thu trong ngày” vào tab này ở MVP. Booking hiện lưu doanh thu tổng cho cả lượt lưu trú, không lưu doanh thu theo từng ngày; tự chia đều sẽ tạo số liệu có vẻ chính xác nhưng không đúng nguồn.
+
+#### Hợp đồng API và kiểm thử
+
+- `GET /api/dashboard/overview?from=YYYY-MM-DD&to=YYYY-MM-DD&compare=previous` trả một payload gồm `kpis`, `occupancyTrend`, `weekdayProfile`, `roomTypePerformance`, `channelPerformance` và `actionCounts` để trang chỉ cần một request nhất quán.
+- `GET /api/dashboard/daily?date=YYYY-MM-DD` trả `kpis`, `hourlyMovements`, `roomTypeCapacity`, `arrivals`, `departures`, `inHouse`, `maintenance` và `availableRooms`.
+- API trả cả giá trị tuyệt đối và mẫu số; frontend không tự suy diễn công suất hoặc tiền tệ từ nhiều endpoint.
+- Múi giờ nghiệp vụ cố định là `Asia/Ho_Chi_Minh`; API dùng khoảng thời gian nửa mở và trả lại `period` đã chuẩn hóa.
+- Bộ fixture nghiệm thu phải có: booking qua nửa đêm, check-out đúng đầu ngày, phòng bảo trì, pseudo-room, booking hủy/no-show, thiếu kênh và thanh toán một phần.
+- Mỗi KPI được đối chiếu bằng một truy vấn SQL độc lập. Sai lệch làm tròn tiền tối đa 1 VND; số phòng, booking và đêm phòng phải khớp tuyệt đối.
 
 ### 5.2 Đặt phòng & Check-in
 
@@ -500,19 +551,18 @@ Hai thay đổi này là phần database còn thiếu để import qua giao di�
 
 Danh sách khách hiện đã tính các giá trị này bằng projection/query trong API; chỉ tạo view riêng nếu đo đạc cho thấy cần tối ưu báo cáo.
 
-#### `hotel.vDashboardDaily`
+#### Read model Dashboard
 
-- `StayDate`.
-- `ActiveRoomCount`.
-- `OccupiedRoomCount`.
-- `AvailableRoomCount`.
-- `OccupancyRate`.
-- `ArrivalCount`.
-- `DepartureCount`.
+Không lưu sẵn tỷ lệ phần trăm. Tạo view/query ở grain thấp nhất cần dùng để mọi API và Power BI cùng tính từ một nguồn:
 
-Danh sách nguồn và phòng chi tiết có thể truy vấn theo `StayDate`; không cần lưu snapshot hằng ngày.
+- `hotel.vRoomNight`: một dòng cho mỗi booking/phòng/`StayDate`, có `RoomTypeID`, trạng thái booking và cờ phòng vật lý.
+- `hotel.vSellableRoomDay`: một dòng cho mỗi phòng vật lý/ngày, có cờ `IsMaintenanceBlocked` và `IsSellable`.
+- `hotel.vPaymentFact`: một dòng cho mỗi giao dịch với `PaidAt`, phương thức và giá trị; không dùng `Booking.CreatedAt` thay ngày thanh toán.
+- Truy vấn Overview tổng hợp từ ba nguồn trên và bảng booking/channel; truy vấn Theo ngày giữ grain phòng/booking để trả danh sách vận hành.
 
-Read model Dashboard vẫn chưa triển khai.
+Chỉ materialize/snapshot sau khi đo được truy vấn chậm trên dữ liệu thật. Trước mắt thêm index phục vụ `Booking(CheckInAt, CheckOutAt, Status, RoomID)`, `RoomBlock(RoomID, StartAt, EndAt)` và `Payment(PaidAt, BookingID)` nếu execution plan xác nhận cần thiết.
+
+Read model Dashboard và hai endpoint Dashboard vẫn chưa triển khai.
 
 ### 6.4 Bổ sung nhật ký thao tác
 
@@ -629,6 +679,99 @@ Kế hoạch được chuyển từ lịch tuần giả định sang các chặn
 - Chạy integration/E2E cho luồng chính, kiểm thử quyền, responsive và UAT với nhân viên.
 - Chỉ go-live sau khi checklist mục 11 đạt và có phương án rollback.
 
+### Runbook deploy Vercel và Azure
+
+#### Mô hình môi trường
+
+| Môi trường | Frontend | API | Database | Mục đích |
+|---|---|---|---|---|
+| Local | `localhost:3000` | Docker/`localhost:5080` | SQL local hoặc Azure SQL Test | Phát triển, cho phép development user |
+| Staging | Vercel Preview của nhánh `dev` với alias ổn định | App Service slot `staging` | Azure SQL Test | UAT và smoke test, Entra thật, không dùng dữ liệu production |
+| Production | Vercel Production từ `main` | App Service production slot | Azure SQL Production | Vận hành chính thức |
+
+Không cho Vercel Preview ngẫu nhiên của từng PR gọi API/database production. Backend hiện dùng allow-list origin cụ thể, nên chỉ alias staging ổn định được thêm vào CORS. PR preview khác vẫn build để review giao diện; kiểm thử tích hợp chạy qua môi trường staging sau khi merge `dev`.
+
+#### Hạ tầng phải tạo một lần
+
+1. Tạo Resource Group, Azure Container Registry, App Service Plan Linux có hỗ trợ deployment slot, Web App container và slot `staging`.
+2. Tạo Azure SQL Test và Production; bật backup/PITR, auditing và chính sách network. Ưu tiên Private Endpoint/VNet Integration; nếu chưa làm ngay thì firewall chỉ mở các đường đi tối thiểu, không mở toàn Internet.
+3. Bật system-assigned Managed Identity riêng cho production slot và staging slot. Tạo contained database user cho từng identity và chỉ cấp quyền ứng dụng cần dùng; không cấp `db_owner`.
+4. Bật Application Insights, log stream và cảnh báo cho tỷ lệ 5xx, p95 latency, restart, health-check failure và lỗi dependency SQL.
+5. Tạo hai App Registration Entra: SPA frontend và API. Khai báo redirect URI chính xác cho production/staging; expose API scope và chỉ cho nhóm người dùng nội bộ đã duyệt.
+6. Gắn custom domain và HTTPS: `app.<domain>` cho Vercel, `api.<domain>` cho App Service; ép HTTPS và TLS tối thiểu theo chuẩn đang hỗ trợ.
+
+#### Cấu hình runtime
+
+Vercel tách biến cho Preview và Production:
+
+| Biến | Staging | Production |
+|---|---|---|
+| `NEXT_PUBLIC_API_BASE_URL` | URL API staging | `https://api.<domain>` |
+| `NEXT_PUBLIC_ENTRA_CLIENT_ID` | Client ID SPA | Client ID SPA |
+| `NEXT_PUBLIC_ENTRA_TENANT_ID` | Tenant được duyệt | Tenant được duyệt |
+| `NEXT_PUBLIC_ENTRA_API_SCOPE` | Scope API staging | Scope API production |
+| `NEXT_PUBLIC_USE_DEVELOPMENT_USER` | `false` | `false` |
+
+Các biến `NEXT_PUBLIC_*` nằm trong bundle trình duyệt nên không được chứa secret.
+
+App Service cấu hình bằng Application Settings/Connection Strings; các giá trị khác nhau giữa slot phải đánh dấu **deployment slot setting**:
+
+- `ASPNETCORE_ENVIRONMENT=Production`.
+- `ConnectionStrings__HotelDatabase` dùng `Authentication=Active Directory Managed Identity`, không có username/password.
+- `AzureAd__TenantId`, `AzureAd__ClientId`.
+- `Authentication__UseDevelopmentUser=false`.
+- `Cors__AllowedOrigins__0` là origin Vercel của đúng môi trường; thêm index `1`, `2` khi có nhiều origin đã duyệt.
+- `APPLICATIONINSIGHTS_CONNECTION_STRING` và `WEBSITES_PORT=8080`.
+
+Trước production, tách health check thành:
+
+- `/health/live`: tiến trình API sống, không gọi database.
+- `/health/ready`: kiểm tra dependency tối thiểu để nhận traffic, gồm Azure SQL với timeout ngắn.
+
+App Service Health Check dùng `/health/ready`; endpoint hiện có `/health` và `/health/database` chỉ dùng tạm cho smoke test. Production nên chạy ít nhất hai instance nếu cần App Service loại instance lỗi khỏi cân bằng tải mà vẫn phục vụ liên tục.
+
+#### Pipeline phát hành
+
+**Pull request**
+
+1. Chạy `dotnet test`, lint/type-check/build frontend và Docker build API.
+2. Tạo Vercel Preview để review UI; không cấp secret/database production.
+3. Chặn merge nếu CI thất bại hoặc SQL script chưa được review.
+
+**Merge vào `dev`**
+
+1. Build API image một lần, tag bằng commit SHA và push ACR.
+2. Deploy đúng image đó vào App Service slot `staging` bằng GitHub Actions OIDC; không lưu publish profile dài hạn trong repository.
+3. Vercel deploy nhánh `dev` vào alias staging.
+4. Chạy schema script trên Azure SQL Test, smoke `/health/live`, `/health/ready`, login Entra và các luồng booking/check-in/check-out/dashboard.
+5. UAT trên dữ liệu Test; ghi nhận kết quả và commit SHA được duyệt.
+
+**Merge/tag phát hành vào `main`**
+
+1. Khóa release candidate theo commit SHA đã qua UAT; không build lại source khác.
+2. Backup/kiểm tra PITR. Chạy database migration production bằng job riêng có approval, theo nguyên tắc expand-contract và transaction; không tự chạy migration khi API khởi động.
+3. Deploy image vào slot staging, nhưng giữ connection string và CORS theo slot. Chạy smoke test với cấu hình staging.
+4. Swap App Service slot. Kiểm tra `/health/live`, `/health/ready`, một truy vấn đọc và một giao dịch nghiệp vụ kiểm soát được trên production.
+5. Deploy/promote đúng build Vercel đã duyệt lên Production sau khi API tương thích ngược sẵn sàng.
+6. Theo dõi ít nhất 30 phút: 5xx, p95 latency, lỗi Entra/CORS, SQL dependency, login và các thao tác chính.
+
+Thứ tự phát hành mặc định là schema tương thích ngược → API → frontend. Không phát frontend mới trước khi API production hỗ trợ contract mới.
+
+#### Rollback
+
+- API lỗi: swap lại slot hoặc trỏ App Service về image SHA trước; không rebuild image khi rollback.
+- Frontend lỗi: promote deployment Vercel production trước đó.
+- Database: migration phải tương thích với cả hai phiên bản API. Không chạy script `down` tự động; chỉ dùng PITR/restore khi có hỏng dữ liệu và sau khi đã dừng ghi.
+- Sau rollback vẫn chạy smoke test, đối chiếu booking/payment vừa phát sinh và ghi incident/correlation ID.
+
+#### Cổng go-live
+
+- CI xanh, UAT ký xác nhận, 12/12 kiểm tra schema và đối chiếu KPI Dashboard đạt.
+- Development user tắt; Entra login, scope API và CORS đúng hai origin staging/production.
+- Managed Identity truy cập được đúng database; tài khoản ứng dụng không có quyền DDL hoặc `db_owner`.
+- Restore test thành công, cảnh báo đã thử gửi, rollback slot và Vercel đã diễn tập.
+- DNS/HTTPS hoạt động, không có secret trong Git, Vercel bundle, image hoặc log.
+
 ## 11. Tiêu chí nghiệm thu MVP
 
 Trạng thái hiện tại:
@@ -659,12 +802,14 @@ Trạng thái hiện tại:
 
 ### Dashboard
 
-- Khi không có bộ lọc, Dashboard Tổng quan mặc định đúng tháng hiện tại theo giờ Việt Nam.
+- Khi không có bộ lọc, Dashboard Tổng quan mặc định từ đầu tháng đến ngày hiện tại theo giờ Việt Nam.
 - Tab Tổng quan lọc theo khoảng ngày.
-- Tab Theo ngày hiển thị đúng phòng có khách, phòng trống, lượt đến, lượt đi và nguồn booking.
+- KPI/biểu đồ ghi rõ đang dùng `StayDate`, `CheckInAt`, `PaidAt` hay snapshot hiện tại.
+- Tab Theo ngày hiển thị đúng phòng có khách, đã đặt, bảo trì, phòng trống, lượt đến/đi theo giờ và năng lực theo hạng phòng.
 - Dashboard vận hành cập nhật sau thao tác và tự làm mới theo chu kỳ đã cấu hình.
-- Biểu đồ quốc tịch hiển thị đúng nhóm `Chưa xác định`.
 - `MB-PNL` không làm sai tỷ lệ lấp đầy.
+- Không hiển thị RevPAR/doanh thu theo ngày khi chưa có fact doanh thu từng đêm.
+- Tháng thiếu dữ liệu được đánh dấu, công nợ không được mô tả là nợ quá hạn.
 - KPI được đối chiếu với SQL bằng một bộ dữ liệu test cố định.
 
 ### Excel
@@ -691,6 +836,9 @@ Trạng thái hiện tại:
 - Preview deployment không dùng database production.
 - App Service kết nối Azure SQL bằng Managed Identity.
 - Azure SQL không mở kết nối trực tiếp cho frontend/Vercel.
+- Staging và production dùng connection string/CORS tách biệt dưới dạng deployment slot settings.
+- `/health/live` và `/health/ready` hoạt động; App Service Health Check dùng readiness endpoint.
+- Có thể rollback API bằng slot/image SHA và rollback frontend bằng Vercel promotion.
 - Power BI Embedded có license/capacity phù hợp cho môi trường production.
 - Có backup database và log lỗi ứng dụng.
 
@@ -874,6 +1022,9 @@ Một feature chỉ được xem là hoàn tất khi:
 ## 16. Tài liệu kỹ thuật
 
 - [Next.js on Vercel](https://vercel.com/docs/frameworks/full-stack/nextjs)
+- [Vercel deployment environments](https://vercel.com/docs/deployments/environments)
+- [Vercel environment variables](https://vercel.com/docs/environment-variables)
+- [Promote a Vercel deployment](https://vercel.com/docs/deployments/promoting-a-deployment)
 - [Vercel Functions and supported runtimes](https://vercel.com/docs/functions/runtimes)
 - [Next.js documentation](https://nextjs.org/docs)
 - [Next.js project structure](https://nextjs.org/docs/app/getting-started/project-structure)
@@ -890,6 +1041,10 @@ Một feature chỉ được xem là hoàn tất khi:
 - [Entity Framework Core efficient querying](https://learn.microsoft.com/en-us/ef/core/performance/efficient-querying)
 - [Deploy ASP.NET Core with Azure SQL on App Service](https://learn.microsoft.com/en-us/azure/app-service/tutorial-dotnetcore-sqldb-app)
 - [Connect App Service to Azure SQL with Managed Identity](https://learn.microsoft.com/en-us/azure/app-service/tutorial-connect-msi-sql-database)
+- [Deploy App Service with GitHub Actions](https://learn.microsoft.com/en-us/azure/app-service/deploy-github-actions)
+- [Azure App Service Health Check](https://learn.microsoft.com/en-us/azure/app-service/monitor-instances-health-check)
+- [Configure an App Service](https://learn.microsoft.com/en-us/azure/app-service/configure-common)
+- [Azure SQL security best practices](https://learn.microsoft.com/en-us/azure/azure-sql/database/security-best-practice?view=azuresql)
 - [Microsoft Entra ID with ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/azure-active-directory/)
 - [Power BI embedded analytics overview](https://learn.microsoft.com/en-us/power-bi/developer/embedded/embedded-analytics-power-bi)
 - [Embed Power BI for your organization](https://learn.microsoft.com/en-us/power-bi/developer/embedded/embed-sample-for-your-organization)
