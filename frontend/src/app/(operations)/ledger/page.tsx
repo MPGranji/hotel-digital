@@ -9,7 +9,6 @@ export default async function LedgerPage({ searchParams }: Readonly<{ searchPara
     roomId: params.roomId ?? "",
     channelId: params.channelId ?? "",
     status: params.status ?? "",
-    paymentStatus: params.paymentStatus ?? "",
   };
   return <LedgerScreen initialFilters={initialFilters} />;
 }

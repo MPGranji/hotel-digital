@@ -5,6 +5,7 @@ export interface CustomerListItem {
   email?: string;
   identityDocument?: string;
   nationality?: string;
+  isActive: boolean;
   lastCheckInAt?: string;
   stayCount: number;
   version: string;
@@ -18,6 +19,7 @@ export interface CustomerDetail {
   identityDocument?: string;
   nationality?: string;
   note?: string;
+  isActive: boolean;
   createdAt: string;
   version: string;
 }
@@ -29,7 +31,19 @@ export interface CustomerWriteRequest {
   identityDocument: string;
   nationality: string;
   note: string;
+  isActive: boolean;
   version: string | null;
+}
+
+export interface CustomerDuplicateItem {
+  id: number;
+  fullName: string;
+  phone?: string;
+  email?: string;
+  identityDocument?: string;
+  matchStrength: "STRONG" | "POSSIBLE";
+  matchedFields: string[];
+  stayCount: number;
 }
 
 export interface CustomerStay {

@@ -8,11 +8,15 @@ public static class CustomerEndpoints
 
         group.MapGet("/", (
             string? search,
+            bool? isActive,
             int page,
             int pageSize,
             CustomerService service,
             CancellationToken cancellationToken) =>
-            service.GetPageAsync(search, page, pageSize, cancellationToken));
+            service.GetPageAsync(search, isActive, page, pageSize, cancellationToken));
+
+        group.MapPost("/duplicates", (CustomerDuplicateRequest request, CustomerService service, CancellationToken cancellationToken) =>
+            service.FindDuplicatesAsync(request, cancellationToken));
 
         group.MapGet("/{id:long}", (long id, CustomerService service, CancellationToken cancellationToken) =>
             service.GetAsync(id, cancellationToken));
@@ -35,6 +39,13 @@ public static class CustomerEndpoints
             CustomerService service,
             CancellationToken cancellationToken) =>
             service.UpdateAsync(id, request, cancellationToken));
+
+        group.MapPost("/{id:long}/merge", (
+            long id,
+            CustomerMergeRequest request,
+            CustomerService service,
+            CancellationToken cancellationToken) =>
+            service.MergeAsync(id, request.DuplicateCustomerId, cancellationToken));
 
         return endpoints;
     }

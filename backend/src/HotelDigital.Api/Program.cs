@@ -3,6 +3,8 @@ using HotelDigital.Api.Features.Customers;
 using HotelDigital.Api.Features.Bookings;
 using HotelDigital.Api.Features.Rooms;
 using HotelDigital.Api.Features.Channels;
+using HotelDigital.Api.Features.Invoices;
+using HotelDigital.Api.Features.Payments;
 using HotelDigital.Api.Infrastructure.Auditing;
 using HotelDigital.Api.Infrastructure.Authentication;
 using HotelDigital.Api.Infrastructure.Errors;
@@ -45,7 +47,10 @@ builder.Services.AddScoped<CustomerService>();
 builder.Services.AddScoped<BookingQueryService>();
 builder.Services.AddScoped<BookingCommandService>();
 builder.Services.AddScoped<RoomService>();
+builder.Services.AddScoped<RoomCalendarService>();
 builder.Services.AddScoped<ChannelService>();
+builder.Services.AddScoped<InvoiceService>();
+builder.Services.AddScoped<PaymentService>();
 builder.Services.AddDbContext<HotelDbContext>(options =>
 {
     options.UseAzureSql(databaseConnectionString);
@@ -127,6 +132,8 @@ app.MapCustomerEndpoints();
 app.MapBookingEndpoints();
 app.MapRoomEndpoints();
 app.MapChannelEndpoints();
+app.MapInvoiceEndpoints();
+app.MapPaymentEndpoints();
 
 app.Run();
 

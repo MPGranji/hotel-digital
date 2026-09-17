@@ -40,25 +40,80 @@ dotnet run --project backend/src/HotelDigital.Api
 
 Không commit mật khẩu, access token hoặc connection string thật.
 
-## Chạy API bằng Docker
+## Chạy toàn bộ bằng Docker
 
-Docker chỉ đóng gói API; frontend tiếp tục chạy bằng Next.js hoặc được triển khai trực tiếp trên Vercel.
+Docker Compose đóng gói và chạy cả frontend lẫn API. Frontend chờ container API được khởi động và cả hai container tự khởi động lại khi Docker restart.
 
 Sao chép `backend/.env.example` thành `backend/.env`, sau đó điền connection string của Azure SQL dành cho môi trường local/test:
 
 ```powershell
-docker compose --env-file backend/.env up --build
+docker compose --env-file backend/.env up -d --build
 ```
 
-API chạy tại `http://localhost:5080`. Endpoint `/health` kiểm tra tiến trình API; `/health/database` kiểm tra kết nối thật đến Azure SQL.
+Frontend chạy tại `http://localhost:3000`; API chạy tại `http://localhost:5080`. Endpoint `/health` kiểm tra tiến trình API; `/health/database` kiểm tra kết nối thật đến Azure SQL.
 
 Connection string chỉ được truyền vào container lúc chạy, không được ghi vào image hoặc commit vào Git. Kết nối đã lưu trong DataGrip không tự động được ứng dụng hoặc container sử dụng.
+
+Để các container khởi động hoàn toàn tự động, connection string phải dùng cơ chế không cần đăng nhập tương tác, chẳng hạn tài khoản SQL hoặc service principal. `Active Directory Device Code Flow` vẫn yêu cầu đăng nhập lại sau khi container API được tạo mới.
+
+### Nhập dữ liệu lịch sử A26
+
+Importer chỉ đọc sheet `A26 Pham Ngu Lao`, chọn các dòng `CHECKOUT` có `Số hóa đơn` (mã chốt tiền), và mặc định chỉ chạy kiểm tra:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --file "<đường-dẫn-file-xlsx>"
+```
+
+Sau khi xem kết quả dry-run, thêm `--commit` để nhập các dòng hợp lệ. Dòng có tiền âm, ngày không hợp lệ hoặc trùng phòng được giữ ngoài database và liệt kê theo số dòng nguồn. Importer dùng `InvoiceNumber` để bỏ qua booking đã nhập, không ghi file Excel hoặc dữ liệu khách vào repository.
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --file "<đường-dẫn-file-xlsx>" --env-file backend/.env --commit
+```
+
+Nếu database chưa có migration web foundation, có thể áp dụng script đã duyệt trong cùng phiên đăng nhập rồi import:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --file "<đường-dẫn-file-xlsx>" --env-file backend/.env --schema-script database/04_web_foundation.sql --commit
+```
+
+Để chỉ áp dụng một SQL migration đã duyệt mà không chạy importer:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/05_pham_ngu_lao_prices.sql --schema-only --commit
+```
+
+Sau migration giá, áp dụng phần vòng đời khách hàng, booking nhóm và hóa đơn:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/06_customer_groups_invoices.sql --schema-only --commit
+```
+
+Áp dụng ma trận phòng và lịch bảo trì:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/07_room_maintenance.sql --schema-only --commit
+```
+
+Tạo kênh mặc định cho khách đặt trực tiếp tại quầy:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/08_offline_default_channel.sql --schema-only --commit
+```
+
+Thêm lịch sử giao dịch thanh toán và chuyển các khoản thu hiện có sang bảng mới:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/09_payments.sql --schema-only --commit
+```
 
 ## Phạm vi triển khai hiện tại
 
 - Đặt phòng/check-in/check-out.
 - Sổ đặt phòng.
-- Phòng, khách hàng và kênh đặt phòng.
+- CRUD phòng/hạng phòng và kênh đặt phòng theo cơ chế ngừng hoạt động thay vì xóa lịch sử.
+- Khách hàng có dò trùng, gộp hồ sơ và ngừng sử dụng.
+- Một lượt có thể đặt nhiều phòng cùng mã nhóm.
+- Quản lý hóa đơn nháp/đã phát hành/đã hủy, liên kết với booking.
 - Microsoft Entra ID và audit ở mức MVP.
 
 Dashboard vận hành, nhập/xuất Excel và Power BI Embedded được để ở giai đoạn tiếp theo sau khi luồng vận hành ổn định.

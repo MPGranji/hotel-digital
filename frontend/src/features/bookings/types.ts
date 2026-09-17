@@ -9,6 +9,7 @@ export interface BookingCustomerInput {
 
 export interface BookingWriteRequest {
   roomId: number;
+  additionalRoomIds: number[];
   customerId: number | null;
   newCustomer: BookingCustomerInput | null;
   channelId: number;
@@ -35,6 +36,7 @@ export interface BookingWriteRequest {
 export interface BookingDetail extends Omit<BookingWriteRequest, "newCustomer"> {
   id: number;
   bookingCode: string;
+  groupCode?: string;
   roomNumber: string;
   roomTypeName: string;
   customerName: string;
@@ -42,7 +44,6 @@ export interface BookingDetail extends Omit<BookingWriteRequest, "newCustomer"> 
   status: string;
   paidAmount: number;
   grossRevenue: number;
-  balanceDue: number;
   averageRoomRate: number;
   version: string;
 }
@@ -50,6 +51,7 @@ export interface BookingDetail extends Omit<BookingWriteRequest, "newCustomer"> 
 export interface BookingListItem {
   id: number;
   bookingCode: string;
+  groupCode?: string;
   roomNumber: string;
   roomTypeName: string;
   customerId: number;
@@ -65,12 +67,19 @@ export interface BookingListItem {
   grossRevenue: number;
   paidAmount: number;
   debtAmount: number;
-  balanceDue: number;
   status: string;
   version: string;
 }
 
 export interface BookingOptions {
-  rooms: Array<{ id: number; roomNumber: string; roomTypeName: string; listedPricePerNight?: number }>;
+  rooms: Array<{
+    id: number;
+    roomNumber: string;
+    roomTypeCode: string;
+    roomTypeName: string;
+    capacity: number;
+    listedPricePerNight?: number;
+    rates: Array<{ code: string; weekdayPrice: number; weekendPrice: number }>;
+  }>;
   channels: Array<{ id: number; code: string; name: string; category: string }>;
 }

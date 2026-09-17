@@ -9,7 +9,12 @@ public static class BookingValidator
     {
         var errors = new Dictionary<string, string[]>();
         if (request.RoomId <= 0) errors["roomId"] = ["Vui lòng chọn phòng."];
-        if (request.ChannelId <= 0) errors["channelId"] = ["Vui lòng chọn kênh đặt phòng."];
+        if (request.AdditionalRoomIds?.Any(x => x <= 0) == true)
+            errors["additionalRoomIds"] = ["Danh sách phòng bổ sung không hợp lệ."];
+        if (request.AdditionalRoomIds?.Distinct().Count() > 9)
+            errors["additionalRoomIds"] = ["Mỗi nhóm được tạo tối đa 10 phòng trong một lượt."];
+        if (requireVersion && request.AdditionalRoomIds?.Count > 0)
+            errors["additionalRoomIds"] = ["Không thể thêm phòng vào nhóm khi đang sửa một booking. Hãy tạo booking mới cùng nhóm."];
         if (request.CheckOutAt <= request.CheckInAt)
             errors["checkOutAt"] = ["Ngày giờ đi phải sau ngày giờ đến."];
         if (request.BilledNights < 1)

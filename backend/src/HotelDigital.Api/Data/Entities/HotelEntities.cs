@@ -9,9 +9,24 @@ public sealed class Customer
     public string? IdentityDocument { get; set; }
     public string? Nationality { get; set; }
     public string? Note { get; set; }
+    public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public byte[] Version { get; set; } = [];
     public ICollection<Booking> Bookings { get; set; } = [];
+}
+
+public sealed class RoomBlock
+{
+    public long RoomBlockId { get; set; }
+    public int RoomId { get; set; }
+    public DateTime StartAt { get; set; }
+    public DateTime EndAt { get; set; }
+    public string Reason { get; set; } = string.Empty;
+    public string? Note { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public byte[] Version { get; set; } = [];
+    public Room Room { get; set; } = null!;
 }
 
 public sealed class RoomType
@@ -37,6 +52,7 @@ public sealed class Room
     public byte[] Version { get; set; } = [];
     public RoomType RoomType { get; set; } = null!;
     public ICollection<Booking> Bookings { get; set; } = [];
+    public ICollection<RoomBlock> Blocks { get; set; } = [];
 }
 
 public sealed class Channel
@@ -61,6 +77,7 @@ public sealed class Booking
     public long CustomerId { get; set; }
     public int ChannelId { get; set; }
     public string? ExternalBookingCode { get; set; }
+    public string? GroupCode { get; set; }
     public DateTime CheckInAt { get; set; }
     public DateTime CheckOutAt { get; set; }
     public short BilledNights { get; set; }
@@ -87,6 +104,39 @@ public sealed class Booking
     public Room Room { get; set; } = null!;
     public Customer Customer { get; set; } = null!;
     public Channel Channel { get; set; } = null!;
+    public Invoice? Invoice { get; set; }
+    public ICollection<Payment> Payments { get; set; } = [];
+}
+
+public sealed class Payment
+{
+    public long PaymentId { get; set; }
+    public long BookingId { get; set; }
+    public decimal Amount { get; set; }
+    public string Method { get; set; } = string.Empty;
+    public DateTime PaidAt { get; set; }
+    public string? ReferenceCode { get; set; }
+    public string? Note { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public byte[] Version { get; set; } = [];
+    public Booking Booking { get; set; } = null!;
+}
+
+public sealed class Invoice
+{
+    public long InvoiceId { get; set; }
+    public long BookingId { get; set; }
+    public string InvoiceNumber { get; set; } = string.Empty;
+    public DateTime? IssuedAt { get; set; }
+    public string Status { get; set; } = "DRAFT";
+    public decimal GrossAmount { get; set; }
+    public decimal PaidAmount { get; set; }
+    public decimal DebtAmount { get; set; }
+    public decimal BalanceDue { get; set; }
+    public string? Note { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public byte[] Version { get; set; } = [];
+    public Booking Booking { get; set; } = null!;
 }
 
 public sealed class AuditLog

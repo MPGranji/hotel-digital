@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/field";
+import { Input, Select } from "@/components/ui/field";
 import { DataMessage, PageHeader, Panel } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
 import { getApiErrorMessage } from "@/lib/api-client";
@@ -16,6 +16,7 @@ import type { CustomerListItem } from "./types";
 export function CustomerDirectory() {
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
+  const [active, setActive] = useState("true");
   const [page, setPage] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
   const [result, setResult] = useState<PagedResult<CustomerListItem>>();
@@ -30,13 +31,13 @@ export function CustomerDirectory() {
   }, [query]);
 
   useEffect(() => {
-    let active = true;
-    void getCustomers(search, page, 20)
-      .then((data) => { if (active) setResult(data); })
+    let mounted = true;
+    void getCustomers(search, page, 20, active)
+      .then((data) => { if (mounted) setResult(data); })
       .catch((reason) => setError(getApiErrorMessage(reason, "Không thể tải danh sách khách hàng.")))
       .finally(() => setLoading(false));
-    return () => { active = false; };
-  }, [page, reloadKey, search]);
+    return () => { mounted = false; };
+  }, [active, page, reloadKey, search]);
 
   function refresh() {
     setLoading(true);
@@ -52,9 +53,10 @@ export function CustomerDirectory() {
         title="Khách hàng"
       />
       <Panel>
-        <div className="mb-5 flex flex-col gap-3 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-5 flex flex-col gap-3 border-b border-slate-200 pb-5 sm:flex-row sm:items-center">
           <Input aria-label="Tìm khách hàng" className="sm:max-w-md" onChange={(event) => { setQuery(event.target.value); setPage(1); setLoading(true); }} placeholder="Tìm tên, số điện thoại hoặc CCCD/Passport" value={query} />
-          <Button onClick={refresh} variant="secondary">Làm mới</Button>
+          <Select aria-label="Trạng thái khách" className="sm:max-w-xs" onChange={(event) => { setActive(event.target.value); setPage(1); setLoading(true); }} value={active}><option value="true">Đang sử dụng</option><option value="false">Đã ngừng dùng / đã gộp</option><option value="">Tất cả trạng thái</option></Select>
+          <Button className="sm:ml-auto" onClick={refresh} variant="secondary">Làm mới</Button>
         </div>
         {error ? <DataMessage action={<Button onClick={refresh}>Thử lại</Button>} description={error} title="Không thể tải dữ liệu" /> : loading ? (
           <DataMessage title="Đang tải danh sách khách hàng…" />
@@ -62,13 +64,13 @@ export function CustomerDirectory() {
           <DataMessage description="Thử thay đổi từ khóa hoặc thêm hồ sơ mới." title="Chưa có khách hàng phù hợp" />
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="min-w-[900px] text-left text-sm">
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full min-w-[900px] text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-3">Khách hàng</th><th className="px-3 py-3">Liên hệ</th><th className="px-3 py-3">CCCD/Passport</th><th className="px-3 py-3">Quốc tịch</th><th className="px-3 py-3">Check-in gần nhất</th><th className="px-3 py-3 text-right">Thao tác</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {result.items.map((customer) => (
                     <tr className="hover:bg-slate-50" key={customer.id}>
-                      <td className="px-3 py-3"><p className="font-semibold text-slate-900">{customer.fullName}</p><p className="text-xs text-slate-500">ID {customer.id} · {customer.stayCount} lượt lưu trú</p></td>
+                      <td className="px-3 py-3"><p className="font-semibold text-slate-900">{customer.fullName}</p><p className="text-xs text-slate-500">ID {customer.id} · {customer.stayCount} lượt lưu trú · {customer.isActive ? "Đang dùng" : "Ngừng dùng"}</p></td>
                       <td className="px-3 py-3"><p>{customer.phone || "—"}</p><p className="text-xs text-slate-500">{customer.email || ""}</p></td>
                       <td className="px-3 py-3">{customer.identityDocument || "—"}</td>
                       <td className="px-3 py-3">{customer.nationality || "Chưa xác định"}</td>

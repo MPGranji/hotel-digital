@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Field, Input, Textarea } from "@/components/ui/field";
+import { Field, Textarea } from "@/components/ui/field";
 import { SectionTitle } from "@/components/ui/page";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { useBookingForm } from "./use-booking-form";
@@ -15,15 +15,14 @@ export function OperationSection({ model, disabled }: Readonly<{ model: FormMode
 
   return (
     <div>
-      <SectionTitle>4. Vận hành và ghi chú</SectionTitle>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field error={fieldErrors.invoiceNumber?.[0]} htmlFor="invoiceNumber" label="Số hóa đơn">
-          <Input disabled={disabled} id="invoiceNumber" onChange={(event) => updateField("invoiceNumber", event.target.value)} value={form.invoiceNumber} />
-        </Field>
+      <SectionTitle>5. Vận hành và ghi chú</SectionTitle>
+      <div>
         <Field error={fieldErrors.note?.[0]} htmlFor="note" label="Ghi chú booking">
           <Textarea disabled={disabled} id="note" onChange={(event) => updateField("note", event.target.value)} rows={2} value={form.note} />
         </Field>
       </div>
+
+      {form.invoiceNumber ? <p className="mt-3 text-sm text-slate-600">Số hóa đơn: <b className="text-[var(--primary)]">{form.invoiceNumber}</b></p> : null}
 
       {booking ? (
         <div className="mt-5 flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:flex-row md:items-center md:justify-between">

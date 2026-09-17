@@ -7,6 +7,7 @@ public sealed record CustomerListItem(
     string? Email,
     string? IdentityDocument,
     string? Nationality,
+    bool IsActive,
     DateTime? LastCheckInAt,
     int StayCount,
     string Version);
@@ -19,6 +20,7 @@ public sealed record CustomerDetail(
     string? IdentityDocument,
     string? Nationality,
     string? Note,
+    bool IsActive,
     DateTime CreatedAt,
     string Version);
 
@@ -29,7 +31,27 @@ public sealed record CustomerUpsertRequest(
     string? IdentityDocument,
     string? Nationality,
     string? Note,
-    string? Version);
+    string? Version,
+    bool IsActive = true);
+
+public sealed record CustomerDuplicateRequest(
+    string? FullName,
+    string? Phone,
+    string? Email,
+    string? IdentityDocument,
+    long? ExcludeId);
+
+public sealed record CustomerDuplicateItem(
+    long Id,
+    string FullName,
+    string? Phone,
+    string? Email,
+    string? IdentityDocument,
+    string MatchStrength,
+    IReadOnlyList<string> MatchedFields,
+    int StayCount);
+
+public sealed record CustomerMergeRequest(long DuplicateCustomerId);
 
 public sealed record CustomerStayItem(
     long BookingId,

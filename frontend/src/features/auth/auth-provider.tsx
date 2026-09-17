@@ -31,7 +31,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [initializationError, setInitializationError] = useState<string>();
 
   useEffect(() => {
-    if (!env.entraConfigured) return;
+    if (env.useDevelopmentUser || !env.entraConfigured) return;
 
     const instance = new PublicClientApplication({
       auth: {
@@ -52,17 +52,15 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
       .catch(() => setInitializationError("Không thể khởi tạo đăng nhập Microsoft Entra ID."));
   }, []);
 
-  if (!env.entraConfigured) {
-    if (process.env.NODE_ENV === "production") {
-      return <ConfigurationError />;
-    }
-
+  if (env.useDevelopmentUser) {
     return (
       <SessionContext.Provider value={{ displayName: "Người dùng phát triển", isDevelopment: true }}>
         {children}
       </SessionContext.Provider>
     );
   }
+
+  if (!env.entraConfigured) return <ConfigurationError />;
 
   if (initializationError) return <CenteredMessage title="Không thể đăng nhập" description={initializationError} />;
   if (!client) return <CenteredMessage title="Đang khởi tạo" description="Đang kết nối Microsoft Entra ID…" />;

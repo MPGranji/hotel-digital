@@ -1,8 +1,13 @@
 import { toDateTimeLocal } from "@/lib/format";
+import { VIETNAM_NATIONALITY } from "./country-options";
 import type { BookingDetail, BookingWriteRequest } from "./types";
 
+export type PaymentMethod = "unpaid" | "cashAmount" | "cardAmount" | "transferAmount" | "split";
+
 export interface BookingFormState {
+  roomMode: "single" | "multiple";
   roomId: string;
+  additionalRoomIds: string[];
   channelId: string;
   externalBookingCode: string;
   checkInAt: string;
@@ -24,6 +29,7 @@ export interface BookingFormState {
   discountReason: string;
   promotionCode: string;
   previousDebt: string;
+  paymentMethod: PaymentMethod;
   cashAmount: string;
   cardAmount: string;
   transferAmount: string;
@@ -42,20 +48,22 @@ export function createInitialBookingForm(): BookingFormState {
   checkOut.setHours(12, 0, 0, 0);
 
   return {
+    roomMode: "single",
     roomId: "",
+    additionalRoomIds: [],
     channelId: "",
     externalBookingCode: "",
     checkInAt: toDateTimeLocal(checkIn),
     checkOutAt: toDateTimeLocal(checkOut),
     billedNights: "1",
-    customerMode: "existing",
+    customerMode: "new",
     customerId: "",
     customerName: "",
     fullName: "",
     phone: "",
     email: "",
     identityDocument: "",
-    nationality: "",
+    nationality: VIETNAM_NATIONALITY,
     customerNote: "",
     roomRevenue: "0",
     serviceRevenue: "0",
@@ -64,6 +72,7 @@ export function createInitialBookingForm(): BookingFormState {
     discountReason: "",
     promotionCode: "",
     previousDebt: "0",
+    paymentMethod: "cashAmount",
     cashAmount: "0",
     cardAmount: "0",
     transferAmount: "0",
@@ -76,7 +85,9 @@ export function createInitialBookingForm(): BookingFormState {
 
 export function formFromBooking(booking: BookingDetail): BookingFormState {
   return {
+    roomMode: "single",
     roomId: String(booking.roomId),
+    additionalRoomIds: [],
     channelId: String(booking.channelId),
     externalBookingCode: booking.externalBookingCode ?? "",
     checkInAt: toDateTimeLocal(booking.checkInAt),
@@ -98,6 +109,7 @@ export function formFromBooking(booking: BookingDetail): BookingFormState {
     discountReason: booking.discountReason ?? "",
     promotionCode: booking.promotionCode ?? "",
     previousDebt: String(booking.previousDebt),
+    paymentMethod: paymentMethodFromAmounts(booking),
     cashAmount: String(booking.cashAmount),
     cardAmount: String(booking.cardAmount),
     transferAmount: String(booking.transferAmount),
@@ -111,6 +123,7 @@ export function formFromBooking(booking: BookingDetail): BookingFormState {
 export function toBookingRequest(form: BookingFormState): BookingWriteRequest {
   return {
     roomId: Number(form.roomId),
+    additionalRoomIds: form.roomMode === "multiple" ? form.additionalRoomIds.map(Number) : [],
     channelId: Number(form.channelId),
     externalBookingCode: form.externalBookingCode,
     checkInAt: form.checkInAt,
@@ -149,7 +162,35 @@ export function calculateNights(checkInAt: string, checkOutAt: string) {
   return String(Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000)));
 }
 
+export function calculateCheckOutAt(checkInAt: string, currentCheckOutAt: string, billedNights: string) {
+  const start = new Date(checkInAt);
+  const currentEnd = new Date(currentCheckOutAt);
+  const nights = Number(billedNights);
+
+  if (Number.isNaN(start.getTime()) || !Number.isInteger(nights) || nights < 1) {
+    return currentCheckOutAt;
+  }
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + nights);
+
+  if (Number.isNaN(currentEnd.getTime())) {
+    end.setHours(12, 0, 0, 0);
+  } else {
+    end.setHours(currentEnd.getHours(), currentEnd.getMinutes(), 0, 0);
+  }
+
+  return toDateTimeLocal(end);
+}
+
 function money(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function paymentMethodFromAmounts(amounts: Pick<BookingDetail, "cashAmount" | "cardAmount" | "transferAmount">): PaymentMethod {
+  const methods = (["cashAmount", "cardAmount", "transferAmount"] as const)
+    .filter((key) => amounts[key] > 0);
+  if (methods.length > 1) return "split";
+  return methods[0] ?? "unpaid";
 }

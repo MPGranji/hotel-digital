@@ -9,7 +9,24 @@ services:
     ports:
       - "${HOTEL_API_PORT:-5080}:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__HotelDatabase: "${HOTEL_DATABASE_CONNECTION_STRING:?Set HOTEL_DATABASE_CONNECTION_STRING in backend/.env}"
       Cors__AllowedOrigins__0: "${HOTEL_CORS_ORIGIN:-http://localhost:3000}"
+    restart: unless-stopped
+
+  frontend:
+    image: hotel-digital-frontend:local
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: "${NEXT_PUBLIC_API_BASE_URL:-http://localhost:5080}"
+        NEXT_PUBLIC_ENTRA_CLIENT_ID: "${NEXT_PUBLIC_ENTRA_CLIENT_ID:-}"
+        NEXT_PUBLIC_ENTRA_TENANT_ID: "${NEXT_PUBLIC_ENTRA_TENANT_ID:-}"
+        NEXT_PUBLIC_ENTRA_API_SCOPE: "${NEXT_PUBLIC_ENTRA_API_SCOPE:-}"
+        NEXT_PUBLIC_USE_DEVELOPMENT_USER: "${NEXT_PUBLIC_USE_DEVELOPMENT_USER:-true}"
+    depends_on:
+      - api
+    ports:
+      - "${HOTEL_FRONTEND_PORT:-3000}:3000"
     restart: unless-stopped

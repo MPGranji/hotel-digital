@@ -8,8 +8,11 @@ public sealed class HotelDbContext(DbContextOptions<HotelDbContext> options) : D
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<RoomType> RoomTypes => Set<RoomType>();
     public DbSet<Room> Rooms => Set<Room>();
+    public DbSet<RoomBlock> RoomBlocks => Set<RoomBlock>();
     public DbSet<Channel> Channels => Set<Channel>();
     public DbSet<Booking> Bookings => Set<Booking>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -27,6 +30,7 @@ public sealed class HotelDbContext(DbContextOptions<HotelDbContext> options) : D
             entity.Property(x => x.IdentityDocument).HasMaxLength(60);
             entity.Property(x => x.Nationality).HasMaxLength(80);
             entity.Property(x => x.Note).HasMaxLength(500);
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
             entity.Property(x => x.CreatedAt)
                 .HasPrecision(0)
                 .HasDefaultValueSql("SYSUTCDATETIME()")
@@ -57,6 +61,21 @@ public sealed class HotelDbContext(DbContextOptions<HotelDbContext> options) : D
             entity.HasOne(x => x.RoomType).WithMany(x => x.Rooms).HasForeignKey(x => x.RoomTypeId);
         });
 
+        modelBuilder.Entity<RoomBlock>(entity =>
+        {
+            entity.ToTable("RoomBlock");
+            entity.HasKey(x => x.RoomBlockId);
+            entity.Property(x => x.RoomBlockId).HasColumnName("RoomBlockID");
+            entity.Property(x => x.RoomId).HasColumnName("RoomID");
+            entity.Property(x => x.StartAt).HasPrecision(0);
+            entity.Property(x => x.EndAt).HasPrecision(0);
+            entity.Property(x => x.Reason).HasMaxLength(120);
+            entity.Property(x => x.Note).HasMaxLength(500);
+            entity.Property(x => x.CreatedAt).HasPrecision(0).HasDefaultValueSql("SYSUTCDATETIME()").ValueGeneratedOnAdd();
+            entity.Property(x => x.Version).IsRowVersion();
+            entity.HasOne(x => x.Room).WithMany(x => x.Blocks).HasForeignKey(x => x.RoomId);
+        });
+
         modelBuilder.Entity<Channel>(entity =>
         {
             entity.ToTable("Channel");
@@ -80,6 +99,7 @@ public sealed class HotelDbContext(DbContextOptions<HotelDbContext> options) : D
             entity.Property(x => x.CustomerId).HasColumnName("CustomerID");
             entity.Property(x => x.ChannelId).HasColumnName("ChannelID");
             entity.Property(x => x.ExternalBookingCode).HasMaxLength(100);
+            entity.Property(x => x.GroupCode).HasMaxLength(40).IsUnicode(false);
             entity.Property(x => x.CheckInAt).HasPrecision(0);
             entity.Property(x => x.CheckOutAt).HasPrecision(0);
             entity.Property(x => x.Status).HasMaxLength(15).IsUnicode(false);
@@ -108,6 +128,41 @@ public sealed class HotelDbContext(DbContextOptions<HotelDbContext> options) : D
             entity.HasOne(x => x.Room).WithMany(x => x.Bookings).HasForeignKey(x => x.RoomId);
             entity.HasOne(x => x.Customer).WithMany(x => x.Bookings).HasForeignKey(x => x.CustomerId);
             entity.HasOne(x => x.Channel).WithMany(x => x.Bookings).HasForeignKey(x => x.ChannelId);
+        });
+
+        modelBuilder.Entity<Invoice>(entity =>
+        {
+            entity.ToTable("Invoice");
+            entity.HasKey(x => x.InvoiceId);
+            entity.Property(x => x.InvoiceId).HasColumnName("InvoiceID");
+            entity.Property(x => x.BookingId).HasColumnName("BookingID");
+            entity.Property(x => x.InvoiceNumber).HasMaxLength(50);
+            entity.Property(x => x.IssuedAt).HasPrecision(0);
+            entity.Property(x => x.Status).HasMaxLength(12).IsUnicode(false);
+            entity.Property(x => x.GrossAmount).HasPrecision(19, 2);
+            entity.Property(x => x.PaidAmount).HasPrecision(19, 2);
+            entity.Property(x => x.DebtAmount).HasPrecision(19, 2);
+            entity.Property(x => x.BalanceDue).HasPrecision(19, 2);
+            entity.Property(x => x.Note).HasMaxLength(500);
+            entity.Property(x => x.CreatedAt).HasPrecision(0).HasDefaultValueSql("SYSUTCDATETIME()").ValueGeneratedOnAdd();
+            entity.Property(x => x.Version).IsRowVersion();
+            entity.HasOne(x => x.Booking).WithOne(x => x.Invoice).HasForeignKey<Invoice>(x => x.BookingId);
+        });
+
+        modelBuilder.Entity<Payment>(entity =>
+        {
+            entity.ToTable("Payment");
+            entity.HasKey(x => x.PaymentId);
+            entity.Property(x => x.PaymentId).HasColumnName("PaymentID");
+            entity.Property(x => x.BookingId).HasColumnName("BookingID");
+            entity.Property(x => x.Amount).HasPrecision(19, 2);
+            entity.Property(x => x.Method).HasMaxLength(12).IsUnicode(false);
+            entity.Property(x => x.PaidAt).HasPrecision(0);
+            entity.Property(x => x.ReferenceCode).HasMaxLength(100);
+            entity.Property(x => x.Note).HasMaxLength(300);
+            entity.Property(x => x.CreatedAt).HasPrecision(0).HasDefaultValueSql("SYSUTCDATETIME()").ValueGeneratedOnAdd();
+            entity.Property(x => x.Version).IsRowVersion();
+            entity.HasOne(x => x.Booking).WithMany(x => x.Payments).HasForeignKey(x => x.BookingId);
         });
 
         modelBuilder.Entity<AuditLog>(entity =>

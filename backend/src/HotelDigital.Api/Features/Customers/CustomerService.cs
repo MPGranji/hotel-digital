@@ -17,6 +17,7 @@ public sealed class CustomerService(
 
     public async Task<PagedResponse<CustomerListItem>> GetPageAsync(
         string? search,
+        bool? isActive,
         int page,
         int pageSize,
         CancellationToken cancellationToken)
@@ -24,6 +25,7 @@ public sealed class CustomerService(
         page = Paging.NormalizePage(page);
         pageSize = Paging.NormalizePageSize(pageSize);
         var query = db.Customers.AsNoTracking();
+        if (isActive.HasValue) query = query.Where(x => x.IsActive == isActive.Value);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -56,6 +58,7 @@ public sealed class CustomerService(
                 x.Customer.Email,
                 x.Customer.IdentityDocument,
                 x.Customer.Nationality,
+                x.Customer.IsActive,
                 x.LastCheckInAt,
                 x.StayCount,
                 Convert.ToBase64String(x.Customer.Version)))
@@ -80,6 +83,7 @@ public sealed class CustomerService(
 
         return await transactionExecutor.ExecuteAsync(async token =>
         {
+            await EnsureIdentityDocumentAvailableAsync(request.IdentityDocument, null, token);
             var customer = new Customer();
             Apply(customer, request);
             db.Customers.Add(customer);
@@ -107,6 +111,7 @@ public sealed class CustomerService(
             var customer = await db.Customers.SingleOrDefaultAsync(x => x.CustomerId == id, token)
                 ?? throw new ResourceNotFoundException("customer_not_found", "Không tìm thấy khách hàng.");
             db.Entry(customer).Property(x => x.Version).OriginalValue = version;
+            await EnsureIdentityDocumentAvailableAsync(request.IdentityDocument, id, token);
             var changedFields = GetChangedFields(customer, request);
             Apply(customer, request);
             auditWriter.Add("UPDATE", "Customer", customer.CustomerId.ToString(), new { fields = changedFields });
@@ -147,6 +152,71 @@ public sealed class CustomerService(
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<CustomerDuplicateItem>> FindDuplicatesAsync(
+        CustomerDuplicateRequest request,
+        CancellationToken cancellationToken)
+    {
+        var candidates = await db.Customers.AsNoTracking()
+            .Where(x => x.IsActive && x.CustomerId != request.ExcludeId)
+            .Select(x => new
+            {
+                x.CustomerId, x.FullName, x.Phone, x.Email, x.IdentityDocument,
+                StayCount = x.Bookings.Count(booking => StayStatuses.Contains(booking.Status))
+            })
+            .ToListAsync(cancellationToken);
+        var identity = NormalizeToken(request.IdentityDocument);
+        var phone = NormalizePhone(request.Phone);
+        var email = NormalizeEmail(request.Email);
+
+        return candidates.Select(x =>
+        {
+            var fields = new List<string>();
+            if (identity.Length > 0 && NormalizeToken(x.IdentityDocument) == identity) fields.Add("CCCD/Passport");
+            if (phone.Length > 0 && NormalizePhone(x.Phone) == phone) fields.Add("Số điện thoại");
+            if (email.Length > 0 && NormalizeEmail(x.Email) == email) fields.Add("Email");
+            var strong = fields.Contains("CCCD/Passport");
+            var possible = fields.Contains("Số điện thoại") || fields.Contains("Email");
+            return new { Customer = x, Fields = fields, Strength = strong ? "STRONG" : possible ? "POSSIBLE" : "NONE" };
+        })
+        .Where(x => x.Strength != "NONE")
+        .OrderBy(x => x.Strength == "STRONG" ? 0 : 1)
+        .ThenByDescending(x => x.Fields.Count)
+        .Take(10)
+        .Select(x => new CustomerDuplicateItem(x.Customer.CustomerId, x.Customer.FullName, x.Customer.Phone, x.Customer.Email, x.Customer.IdentityDocument, x.Strength, x.Fields, x.Customer.StayCount))
+        .ToList();
+    }
+
+    public async Task<CustomerDetail> MergeAsync(long targetId, long duplicateId, CancellationToken cancellationToken)
+    {
+        if (targetId == duplicateId)
+            throw new RequestValidationException(new Dictionary<string, string[]> { ["duplicateCustomerId"] = ["Hai hồ sơ phải khác nhau."] });
+
+        return await transactionExecutor.ExecuteAsync(async token =>
+        {
+            var target = await db.Customers.SingleOrDefaultAsync(x => x.CustomerId == targetId, token)
+                ?? throw new ResourceNotFoundException("customer_not_found", "Không tìm thấy hồ sơ khách giữ lại.");
+            var duplicate = await db.Customers.SingleOrDefaultAsync(x => x.CustomerId == duplicateId, token)
+                ?? throw new ResourceNotFoundException("duplicate_customer_not_found", "Không tìm thấy hồ sơ khách cần gộp.");
+            if (!duplicate.IsActive)
+                throw new BusinessRuleException("customer_already_inactive", "Hồ sơ cần gộp đã ngừng hoạt động.");
+
+            await db.Bookings.Where(x => x.CustomerId == duplicateId)
+                .ExecuteUpdateAsync(update => update.SetProperty(x => x.CustomerId, targetId), token);
+            target.Phone ??= duplicate.Phone;
+            target.Email ??= duplicate.Email;
+            target.IdentityDocument ??= duplicate.IdentityDocument;
+            target.Nationality ??= duplicate.Nationality;
+            target.Note = CombineNotes(target.Note, duplicate.Note);
+            target.IsActive = true;
+            duplicate.IsActive = false;
+            duplicate.Note = CombineNotes(duplicate.Note, $"Đã gộp vào khách hàng ID {targetId}.");
+            auditWriter.Add("MERGE", "Customer", targetId.ToString(), new { duplicateCustomerId = duplicateId });
+            auditWriter.Add("DEACTIVATE", "Customer", duplicateId.ToString(), new { mergedIntoCustomerId = targetId });
+            await db.SaveChangesAsync(token);
+            return ToDetail(target);
+        }, cancellationToken);
+    }
+
     private static CustomerDetail ToDetail(Customer customer) => new(
         customer.CustomerId,
         customer.FullName,
@@ -155,6 +225,7 @@ public sealed class CustomerService(
         customer.IdentityDocument,
         customer.Nationality,
         customer.Note,
+        customer.IsActive,
         customer.CreatedAt,
         Convert.ToBase64String(customer.Version));
 
@@ -166,6 +237,7 @@ public sealed class CustomerService(
         customer.IdentityDocument = Clean(request.IdentityDocument);
         customer.Nationality = Clean(request.Nationality);
         customer.Note = Clean(request.Note);
+        customer.IsActive = request.IsActive;
     }
 
     private static string[] GetChangedFields(Customer current, CustomerUpsertRequest request)
@@ -177,8 +249,36 @@ public sealed class CustomerService(
         if (current.IdentityDocument != Clean(request.IdentityDocument)) fields.Add("IdentityDocument");
         if (current.Nationality != Clean(request.Nationality)) fields.Add("Nationality");
         if (current.Note != Clean(request.Note)) fields.Add("Note");
+        if (current.IsActive != request.IsActive) fields.Add("IsActive");
         return [.. fields];
     }
 
+    private async Task EnsureIdentityDocumentAvailableAsync(string? identityDocument, long? excludeId, CancellationToken token)
+    {
+        var normalized = NormalizeToken(identityDocument);
+        if (normalized.Length == 0) return;
+        var candidates = await db.Customers.AsNoTracking()
+            .Where(x => x.IsActive && x.CustomerId != excludeId && x.IdentityDocument != null)
+            .Select(x => new { x.CustomerId, x.IdentityDocument })
+            .ToListAsync(token);
+        var duplicate = candidates.FirstOrDefault(x => NormalizeToken(x.IdentityDocument) == normalized);
+        if (duplicate is not null)
+            throw new ConflictException("customer_identity_exists", $"CCCD/Passport đã thuộc hồ sơ khách ID {duplicate.CustomerId}. Hãy dùng hồ sơ cũ hoặc gộp khách.");
+    }
+
+    private static string CombineNotes(string? first, string? second)
+    {
+        var parts = new[] { Clean(first), Clean(second) }.Where(x => x is not null).Distinct();
+        return string.Join(" | ", parts).Truncate(500);
+    }
+
+    private static string NormalizePhone(string? value) => new((value ?? string.Empty).Where(char.IsDigit).ToArray());
+    private static string NormalizeEmail(string? value) => Clean(value)?.ToUpperInvariant() ?? string.Empty;
+    private static string NormalizeToken(string? value) => new((value ?? string.Empty).Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+}
+
+internal static class CustomerStringExtensions
+{
+    public static string Truncate(this string value, int maxLength) => value.Length <= maxLength ? value : value[..maxLength];
 }

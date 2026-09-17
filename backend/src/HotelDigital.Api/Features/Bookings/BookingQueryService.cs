@@ -15,7 +15,6 @@ public sealed class BookingQueryService(HotelDbContext db)
         int? roomTypeId,
         int? channelId,
         string? status,
-        string? paymentStatus,
         string? search,
         int page,
         int pageSize,
@@ -35,19 +34,12 @@ public sealed class BookingQueryService(HotelDbContext db)
         if (roomTypeId.HasValue) query = query.Where(x => x.Room.RoomTypeId == roomTypeId);
         if (channelId.HasValue) query = query.Where(x => x.ChannelId == channelId);
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.Status == status.Trim().ToUpper());
-        query = paymentStatus?.Trim().ToUpperInvariant() switch
-        {
-            "PAID" => query.Where(x => x.BalanceDue == 0 && x.DebtAmount == 0),
-            "BALANCE_DUE" => query.Where(x => x.BalanceDue > 0),
-            "DEBT" => query.Where(x => x.DebtAmount > 0),
-            _ => query
-        };
-
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
             query = query.Where(x =>
                 x.BookingCode.Contains(term)
+                || (x.GroupCode != null && x.GroupCode.Contains(term))
                 || (x.ExternalBookingCode != null && x.ExternalBookingCode.Contains(term))
                 || x.Customer.FullName.Contains(term)
                 || (x.Customer.Phone != null && x.Customer.Phone.Contains(term)));
@@ -62,6 +54,7 @@ public sealed class BookingQueryService(HotelDbContext db)
             .Select(x => new BookingListItem(
                 x.BookingId,
                 x.BookingCode,
+                x.GroupCode,
                 x.Room.RoomNumber,
                 x.Room.RoomType.Name,
                 x.CustomerId,
@@ -77,7 +70,6 @@ public sealed class BookingQueryService(HotelDbContext db)
                 x.GrossRevenue,
                 x.PaidAmount,
                 x.DebtAmount,
-                x.BalanceDue,
                 x.Status,
                 Convert.ToBase64String(x.Version)))
             .ToListAsync(cancellationToken);
@@ -99,15 +91,28 @@ public sealed class BookingQueryService(HotelDbContext db)
 
     public async Task<BookingOptions> GetOptionsAsync(CancellationToken cancellationToken)
     {
-        var rooms = await db.Rooms.AsNoTracking()
+        var roomRows = await db.Rooms.AsNoTracking()
             .Where(x => x.IsActive && x.CountsTowardOccupancy)
             .OrderBy(x => x.RoomNumber)
-            .Select(x => new BookingRoomOption(
+            .Select(x => new
+            {
                 x.RoomId,
                 x.RoomNumber,
+                RoomTypeCode = x.RoomType.Code,
                 x.RoomType.Name,
-                x.RoomType.ListedPricePerNight))
+                x.RoomType.Capacity,
+                x.RoomType.ListedPricePerNight
+            })
             .ToListAsync(cancellationToken);
+        var rooms = roomRows.Select(x => new BookingRoomOption(
+            x.RoomId,
+            x.RoomNumber,
+            x.RoomTypeCode,
+            x.Name,
+            x.Capacity,
+            x.ListedPricePerNight ?? PhamNguLaoRateCatalog.GetListedPrice(x.RoomTypeCode),
+            PhamNguLaoRateCatalog.GetRates(x.RoomTypeCode)))
+            .ToList();
         var channels = await db.Channels.AsNoTracking()
             .Where(x => x.IsActive)
             .OrderBy(x => x.Category)
@@ -131,6 +136,10 @@ public sealed class BookingQueryService(HotelDbContext db)
 
         return await db.Rooms.AsNoTracking()
             .Where(room => room.IsActive && room.CountsTowardOccupancy)
+            .Where(room => !room.Blocks.Any(block =>
+                block.IsActive
+                && block.StartAt < checkOutAt
+                && block.EndAt > checkInAt))
             .Where(room => !room.Bookings.Any(booking =>
                 booking.BookingId != excludeBookingId
                 && booking.Status != "CANCELLED"
@@ -145,6 +154,7 @@ public sealed class BookingQueryService(HotelDbContext db)
     private static BookingDetail ToDetail(Booking x) => new(
         x.BookingId,
         x.BookingCode,
+        x.GroupCode,
         x.RoomId,
         x.Room.RoomNumber,
         x.Room.RoomType.Name,
@@ -170,7 +180,6 @@ public sealed class BookingQueryService(HotelDbContext db)
         x.PaidAmount,
         x.DebtAmount,
         x.GrossRevenue,
-        x.BalanceDue,
         x.AverageRoomRate,
         x.InvoiceNumber,
         x.Note,

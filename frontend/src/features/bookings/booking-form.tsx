@@ -5,11 +5,12 @@ import { DataMessage, PageHeader, Panel } from "@/components/ui/page";
 import { CustomerSection } from "./customer-section";
 import { FinanceSection } from "./finance-section";
 import { OperationSection } from "./operation-section";
+import { PaymentSection } from "@/features/payments/payment-section";
 import { StaySection } from "./stay-section";
 import { useBookingForm } from "./use-booking-form";
 
-export function BookingForm({ bookingId, initialRoomId }: Readonly<{ bookingId?: number; initialRoomId?: number }>) {
-  const model = useBookingForm(bookingId, initialRoomId);
+export function BookingForm({ bookingId, initialRoomId, initialCheckInDate, initialCheckOutDate }: Readonly<{ bookingId?: number; initialRoomId?: number; initialCheckInDate?: string; initialCheckOutDate?: string }>) {
+  const model = useBookingForm(bookingId, initialRoomId, initialCheckInDate, initialCheckOutDate);
   const closed = model.booking?.status === "CHECKED_OUT"
     || model.booking?.status === "CANCELLED"
     || model.booking?.status === "NO_SHOW";
@@ -32,6 +33,7 @@ export function BookingForm({ bookingId, initialRoomId }: Readonly<{ bookingId?:
           <StaySection disabled={Boolean(closed)} model={model} />
           <CustomerSection disabled={Boolean(closed)} model={model} />
           <FinanceSection disabled={Boolean(closed)} model={model} />
+          <PaymentSection model={model} />
           <OperationSection disabled={Boolean(closed)} model={model} />
           {!closed ? (
             <div className="flex justify-end border-t border-slate-200 pt-5">

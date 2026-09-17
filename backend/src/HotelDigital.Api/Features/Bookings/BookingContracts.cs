@@ -30,13 +30,15 @@ public sealed record BookingWriteRequest(
     decimal DebtAmount,
     string? InvoiceNumber,
     string? Note,
-    string? Version);
+    string? Version,
+    IReadOnlyList<int>? AdditionalRoomIds = null);
 
 public sealed record BookingStatusRequest(string Version);
 
 public sealed record BookingListItem(
     long Id,
     string BookingCode,
+    string? GroupCode,
     string RoomNumber,
     string RoomTypeName,
     long CustomerId,
@@ -52,13 +54,13 @@ public sealed record BookingListItem(
     decimal GrossRevenue,
     decimal PaidAmount,
     decimal DebtAmount,
-    decimal BalanceDue,
     string Status,
     string Version);
 
 public sealed record BookingDetail(
     long Id,
     string BookingCode,
+    string? GroupCode,
     int RoomId,
     string RoomNumber,
     string RoomTypeName,
@@ -84,7 +86,6 @@ public sealed record BookingDetail(
     decimal PaidAmount,
     decimal DebtAmount,
     decimal GrossRevenue,
-    decimal BalanceDue,
     decimal AverageRoomRate,
     string? InvoiceNumber,
     string? Note,
@@ -93,8 +94,16 @@ public sealed record BookingDetail(
 public sealed record BookingRoomOption(
     int Id,
     string RoomNumber,
+    string RoomTypeCode,
     string RoomTypeName,
-    decimal? ListedPricePerNight);
+    short Capacity,
+    decimal? ListedPricePerNight,
+    IReadOnlyList<BookingRoomRateOption> Rates);
+
+public sealed record BookingRoomRateOption(
+    string Code,
+    decimal WeekdayPrice,
+    decimal WeekendPrice);
 
 public sealed record BookingChannelOption(int Id, string Code, string Name, string Category);
 

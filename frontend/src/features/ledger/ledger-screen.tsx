@@ -21,7 +21,6 @@ export interface LedgerFilters {
   roomId: string;
   channelId: string;
   status: string;
-  paymentStatus: string;
 }
 
 const emptyOptions: BookingOptions = { rooms: [], channels: [] };
@@ -68,7 +67,7 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
   }
 
   function resetFilters() {
-    const cleared: LedgerFilters = { search: "", dateFrom: "", dateTo: "", roomId: "", channelId: "", status: "", paymentStatus: "" };
+    const cleared: LedgerFilters = { search: "", dateFrom: "", dateTo: "", roomId: "", channelId: "", status: "" };
     setDraft(cleared);
     setFilters(cleared);
     setPage(1);
@@ -86,19 +85,18 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
   return (
     <>
       <PageHeader
-        actions={<Link className="inline-flex min-h-10 items-center rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--primary-strong)]" href="/bookings">Thêm đặt phòng</Link>}
+        actions={<Link className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--primary-strong)] focus-visible:outline focus-visible:outline-2" href="/bookings">Thêm đặt phòng</Link>}
         description="Một dòng tương ứng một lượt lưu trú. Bộ lọc và phân trang được xử lý tại máy chủ."
         title="Sổ đặt phòng"
       />
       <Panel>
         <form className="grid gap-3 border-b border-slate-200 pb-5 md:grid-cols-2 xl:grid-cols-4" onSubmit={(event) => { event.preventDefault(); applyFilters(); }}>
-          <Input aria-label="Tìm đặt phòng" onChange={(event) => setDraft((current) => ({ ...current, search: event.target.value }))} placeholder="Mã booking, tên hoặc SĐT" value={draft.search} />
+          <Input aria-label="Tìm đặt phòng" onChange={(event) => setDraft((current) => ({ ...current, search: event.target.value }))} placeholder="Mã booking/nhóm, tên hoặc SĐT" value={draft.search} />
           <Input aria-label="Từ ngày đến" onChange={(event) => setDraft((current) => ({ ...current, dateFrom: event.target.value }))} title="Từ ngày đến" type="date" value={draft.dateFrom} />
           <Input aria-label="Đến ngày đến" onChange={(event) => setDraft((current) => ({ ...current, dateTo: event.target.value }))} title="Đến ngày đến" type="date" value={draft.dateTo} />
           <Select aria-label="Phòng" onChange={(event) => setDraft((current) => ({ ...current, roomId: event.target.value }))} value={draft.roomId}><option value="">Tất cả phòng</option>{options.rooms.map((room) => <option key={room.id} value={room.id}>{room.roomNumber} · {room.roomTypeName}</option>)}</Select>
           <Select aria-label="Kênh" onChange={(event) => setDraft((current) => ({ ...current, channelId: event.target.value }))} value={draft.channelId}><option value="">Tất cả kênh</option>{options.channels.map((channel) => <option key={channel.id} value={channel.id}>{channel.name}</option>)}</Select>
           <Select aria-label="Trạng thái" onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))} value={draft.status}><option value="">Tất cả trạng thái</option><option value="BOOKED">Đã đặt</option><option value="CHECKED_IN">Đang lưu trú</option><option value="CHECKED_OUT">Đã trả phòng</option><option value="CANCELLED">Đã hủy</option><option value="NO_SHOW">Không đến</option></Select>
-          <Select aria-label="Thanh toán" onChange={(event) => setDraft((current) => ({ ...current, paymentStatus: event.target.value }))} value={draft.paymentStatus}><option value="">Tất cả thanh toán</option><option value="PAID">Đã thanh toán đủ</option><option value="BALANCE_DUE">Còn thiếu</option><option value="DEBT">Có công nợ</option></Select>
           <div className="flex gap-2"><Button className="flex-1" type="submit">Áp dụng</Button><Button className="flex-1" onClick={resetFilters} variant="secondary">Xóa lọc</Button></div>
         </form>
 
@@ -106,8 +104,8 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
           {error ? <DataMessage action={<Button onClick={refresh}>Thử lại</Button>} description={error} title="Không thể tải dữ liệu" /> : loading ? <DataMessage title="Đang tải sổ đặt phòng…" /> : !result?.items.length ? <DataMessage description="Thử thay đổi bộ lọc hoặc tạo đặt phòng mới." title="Không có đặt phòng phù hợp" /> : (
             <>
               <div className="overflow-x-auto rounded-lg border border-slate-200">
-                <table className="min-w-[1180px] text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-3">Mã / Khách</th><th className="px-3 py-3">Phòng</th><th className="px-3 py-3">Ngày đến</th><th className="px-3 py-3">Ngày đi</th><th className="px-3 py-3 text-right">Tiền phòng</th><th className="px-3 py-3 text-right">Tổng thu</th><th className="px-3 py-3 text-right">Đã trả</th><th className="px-3 py-3 text-right">Công nợ</th><th className="px-3 py-3 text-right">Còn thiếu</th><th className="px-3 py-3">Trạng thái</th><th className="px-3 py-3 text-right">Thao tác</th></tr></thead>
+                <table className="w-full min-w-[1080px] text-left text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-3">Mã / Khách</th><th className="px-3 py-3">Phòng</th><th className="px-3 py-3">Ngày đến</th><th className="px-3 py-3">Ngày đi</th><th className="px-3 py-3 text-right">Tiền phòng</th><th className="px-3 py-3 text-right">Tổng thu</th><th className="px-3 py-3 text-right">Đã trả</th><th className="px-3 py-3 text-right">Công nợ</th><th className="px-3 py-3">Trạng thái</th><th className="px-3 py-3 text-right">Thao tác</th></tr></thead>
                   <tbody className="divide-y divide-slate-100">{result.items.map((booking) => <LedgerRow booking={booking} key={booking.id} />)}</tbody>
                 </table>
               </div>
@@ -123,7 +121,7 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
 function LedgerRow({ booking }: Readonly<{ booking: BookingListItem }>) {
   return (
     <tr className="hover:bg-slate-50">
-      <td className="px-3 py-3"><p className="font-semibold text-[var(--primary)]">{booking.bookingCode}</p><p className="text-slate-700">{booking.customerName}</p><p className="text-xs text-slate-500">{booking.customerPhone || booking.channelName}</p></td>
+      <td className="px-3 py-3"><p className="font-semibold text-[var(--primary)]">{booking.bookingCode}</p>{booking.groupCode ? <p className="text-xs font-medium text-blue-700">Nhóm {booking.groupCode}</p> : null}<p className="text-slate-700">{booking.customerName}</p><p className="text-xs text-slate-500">{booking.customerPhone || booking.channelName}</p></td>
       <td className="px-3 py-3"><p className="font-semibold">{booking.roomNumber}</p><p className="text-xs text-slate-500">{booking.roomTypeName} · {booking.billedNights} đêm</p></td>
       <td className="px-3 py-3">{formatDateTime(booking.checkInAt)}</td>
       <td className="px-3 py-3">{formatDateTime(booking.checkOutAt)}</td>
@@ -131,7 +129,6 @@ function LedgerRow({ booking }: Readonly<{ booking: BookingListItem }>) {
       <td className="px-3 py-3 text-right font-semibold text-[var(--primary)]">{formatCurrency(booking.grossRevenue)}</td>
       <td className="px-3 py-3 text-right">{formatCurrency(booking.paidAmount)}</td>
       <td className="px-3 py-3 text-right">{formatCurrency(booking.debtAmount)}</td>
-      <td className={`px-3 py-3 text-right font-semibold ${booking.balanceDue > 0 ? "text-red-700" : "text-emerald-700"}`}>{formatCurrency(booking.balanceDue)}</td>
       <td className="px-3 py-3"><StatusBadge status={booking.status} /></td>
       <td className="px-3 py-3 text-right"><Link className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" href={`/bookings?bookingId=${booking.id}`}>Xem / Sửa</Link></td>
     </tr>
