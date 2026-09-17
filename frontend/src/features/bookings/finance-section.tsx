@@ -28,7 +28,9 @@ const paymentFields: Array<{ key: "cashAmount" | "cardAmount" | "transferAmount"
 ];
 
 export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel; disabled: boolean }>) {
-  const { form, booking, fieldErrors, summary, updateField } = model;
+  const { form, booking, options, fieldErrors, summary, updateField } = model;
+  const selectedChannel = options.channels.find((channel) => String(channel.id) === form.channelId);
+  const usesCounterRate = selectedChannel?.category === "DIRECT" || selectedChannel?.category === "INTERNAL";
   const paymentMethod = form.paymentMethod;
   const hasAdditionalDetails = additionalMoneyFields.some(({ key }) => Number(form[key]) > 0)
     || Boolean(form.discountReason || form.promotionCode)
@@ -56,7 +58,7 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
     <div>
       <SectionTitle>3. Giá phòng và thanh toán</SectionTitle>
       <div className={`grid gap-4 ${booking ? "max-w-2xl" : "md:grid-cols-3"}`}>
-        <Field error={fieldErrors.roomRevenue?.[0]} hint="Tự tính theo phòng và ngày lưu trú; vẫn có thể chỉnh tay." htmlFor="roomRevenue" label="Tiền phòng" required>
+        <Field error={fieldErrors.roomRevenue?.[0]} hint={usesCounterRate ? "Tự tính theo bảng giá tại quầy; vẫn có thể chỉnh tay." : "Nhập số tiền theo booking từ kênh."} htmlFor="roomRevenue" label="Tiền phòng" required>
           <MoneyInput disabled={disabled} id="roomRevenue" onChange={(value) => updateField("roomRevenue", value)} value={form.roomRevenue} />
         </Field>
         {!booking ? <Field htmlFor="paymentMethod" label="Phương thức tiền cọc">

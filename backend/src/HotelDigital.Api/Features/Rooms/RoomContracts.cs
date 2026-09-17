@@ -43,6 +43,63 @@ public sealed record RoomTypeWriteRequest(
     decimal? ListedPricePerNight,
     bool IsActive);
 
+public sealed record RoomRateItem(
+    long Id,
+    int RoomTypeId,
+    string RoomTypeCode,
+    string RoomTypeName,
+    string RateCode,
+    DateOnly EffectiveFrom,
+    DateOnly? EffectiveTo,
+    decimal WeekdayPrice,
+    decimal WeekendPrice,
+    decimal MondayPrice,
+    decimal TuesdayPrice,
+    decimal WednesdayPrice,
+    decimal ThursdayPrice,
+    decimal FridayPrice,
+    decimal SaturdayPrice,
+    decimal SundayPrice,
+    bool IsActive,
+    string? Note,
+    DateTime LastModifiedAtUtc,
+    string? LastModifiedByDisplayName,
+    string Version);
+
+public sealed record RoomRateHistoryItem(
+    long Id,
+    DateOnly EffectiveFrom,
+    DateOnly? EffectiveTo,
+    decimal MondayPrice,
+    decimal TuesdayPrice,
+    decimal WednesdayPrice,
+    decimal ThursdayPrice,
+    decimal FridayPrice,
+    decimal SaturdayPrice,
+    decimal SundayPrice,
+    bool IsActive,
+    string? Note,
+    DateTime RecordedFromUtc,
+    DateTime RecordedToUtc,
+    bool IsCurrent,
+    DateTime LastModifiedAtUtc,
+    string? LastModifiedByDisplayName);
+
+public sealed record RoomRateWriteRequest(
+    int RoomTypeId,
+    DateOnly EffectiveFrom,
+    DateOnly? EffectiveTo,
+    decimal MondayPrice,
+    decimal TuesdayPrice,
+    decimal WednesdayPrice,
+    decimal ThursdayPrice,
+    decimal FridayPrice,
+    decimal SaturdayPrice,
+    decimal SundayPrice,
+    bool IsActive,
+    string? Note,
+    string? Version);
+
 public sealed record RoomCalendarResponse(
     DateOnly DateFrom,
     DateOnly DateTo,
@@ -59,6 +116,28 @@ public sealed record RoomCalendarRow(
 public sealed record RoomCalendarCell(
     DateOnly Date,
     string Status,
+    long? BookingId,
+    string? BookingCode,
+    string? CustomerName,
+    long? RoomBlockId,
+    string? MaintenanceReason);
+
+public sealed record RoomHourlyCalendarResponse(
+    DateOnly WeekStart,
+    DateOnly WeekEnd,
+    int RoomId,
+    string RoomNumber,
+    string RoomTypeName,
+    string? FloorLabel,
+    bool IsActive,
+    IReadOnlyList<DateOnly> Dates,
+    IReadOnlyList<RoomHourlyCalendarEvent> Events);
+
+public sealed record RoomHourlyCalendarEvent(
+    string Kind,
+    string Status,
+    DateTime StartAt,
+    DateTime EndAt,
     long? BookingId,
     string? BookingCode,
     string? CustomerName,

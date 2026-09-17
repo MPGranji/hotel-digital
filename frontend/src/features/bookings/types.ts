@@ -79,7 +79,7 @@ export interface BookingOptions {
     roomTypeName: string;
     capacity: number;
     listedPricePerNight?: number;
-    rates: Array<{ code: string; weekdayPrice: number; weekendPrice: number }>;
+    rates: Array<{ code: string; weekdayPrice: number; weekendPrice: number; effectiveFrom?: string; effectiveTo?: string; mondayPrice?: number; tuesdayPrice?: number; wednesdayPrice?: number; thursdayPrice?: number; fridayPrice?: number; saturdayPrice?: number; sundayPrice?: number }>;
   }>;
   channels: Array<{ id: number; code: string; name: string; category: string }>;
 }

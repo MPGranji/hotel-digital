@@ -187,6 +187,7 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
       return withSuggestedRoomRevenue({
         ...current,
         [field]: value,
+        roomRevenue: field === "channelId" && !directChannel ? "" : current.roomRevenue,
         externalBookingCode: directChannel ? "" : current.externalBookingCode,
         additionalRoomIds: field === "roomId" ? current.additionalRoomIds.filter((id) => id !== value) : current.additionalRoomIds,
       });

@@ -34,10 +34,27 @@ public sealed class FoundationTests
 
         var bookingVersion = db.Model.FindEntityType(typeof(Booking))?.FindProperty(nameof(Booking.Version));
         var customerVersion = db.Model.FindEntityType(typeof(Customer))?.FindProperty(nameof(Customer.Version));
+        var roomRateVersion = db.Model.FindEntityType(typeof(RoomRate))?.FindProperty(nameof(RoomRate.Version));
 
         Assert.True(bookingVersion?.IsConcurrencyToken);
         Assert.True(customerVersion?.IsConcurrencyToken);
+        Assert.True(roomRateVersion?.IsConcurrencyToken);
         Assert.Equal(ValueGenerated.OnAddOrUpdate, bookingVersion?.ValueGenerated);
+        Assert.Equal(ValueGenerated.OnAddOrUpdate, roomRateVersion?.ValueGenerated);
+    }
+
+    [Fact]
+    public void Room_rates_are_queryable_as_temporal_history()
+    {
+        using var db = CreateContext();
+
+        var sql = db.RoomRates.TemporalAll()
+            .Where(x => x.RoomRateId == 1)
+            .ToQueryString();
+
+        Assert.Contains("FOR SYSTEM_TIME ALL", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ValidFromUtc", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ValidToUtc", sql, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -53,6 +53,39 @@ public sealed class RoomCalendarService(
         return new RoomCalendarResponse(dateFrom, dateTo, dates, rows);
     }
 
+    public async Task<RoomHourlyCalendarResponse> GetHourlyAsync(int roomId, DateOnly weekStart, CancellationToken token)
+    {
+        var normalizedWeekStart = weekStart.AddDays(-(((int)weekStart.DayOfWeek + 6) % 7));
+        var weekEnd = normalizedWeekStart.AddDays(7);
+        var start = normalizedWeekStart.ToDateTime(TimeOnly.MinValue);
+        var end = weekEnd.ToDateTime(TimeOnly.MinValue);
+        var room = await db.Rooms.AsNoTracking()
+            .Where(x => x.RoomId == roomId && x.CountsTowardOccupancy)
+            .Select(x => new { x.RoomId, x.RoomNumber, RoomTypeName = x.RoomType.Name, x.FloorLabel, x.IsActive })
+            .SingleOrDefaultAsync(token)
+            ?? throw new ResourceNotFoundException("room_not_found", "Không tìm thấy phòng.");
+
+        var bookings = await db.Bookings.AsNoTracking()
+            .Where(x => x.RoomId == roomId && x.Status != "CANCELLED" && x.Status != "NO_SHOW" && x.CheckInAt < end && x.CheckOutAt > start)
+            .OrderBy(x => x.CheckInAt)
+            .Select(x => new RoomHourlyCalendarEvent(
+                "BOOKING", x.Status, x.CheckInAt, x.CheckOutAt,
+                x.BookingId, x.BookingCode, x.Customer.FullName, null, null))
+            .ToListAsync(token);
+        var blocks = await db.RoomBlocks.AsNoTracking()
+            .Where(x => x.RoomId == roomId && x.IsActive && x.StartAt < end && x.EndAt > start)
+            .OrderBy(x => x.StartAt)
+            .Select(x => new RoomHourlyCalendarEvent(
+                "MAINTENANCE", "MAINTENANCE", x.StartAt, x.EndAt,
+                null, null, null, x.RoomBlockId, x.Reason))
+            .ToListAsync(token);
+        var events = bookings.Concat(blocks).OrderBy(x => x.StartAt).ToList();
+        var dates = Enumerable.Range(0, 7).Select(normalizedWeekStart.AddDays).ToList();
+        return new RoomHourlyCalendarResponse(
+            normalizedWeekStart, weekEnd.AddDays(-1), room.RoomId, room.RoomNumber,
+            room.RoomTypeName, room.FloorLabel, room.IsActive, dates, events);
+    }
+
     public async Task<RoomBlockItem> GetBlockAsync(long id, CancellationToken token)
     {
         var block = await db.RoomBlocks.AsNoTracking().Include(x => x.Room).SingleOrDefaultAsync(x => x.RoomBlockId == id, token)

@@ -38,6 +38,33 @@ public sealed class RoomType
     public decimal? ListedPricePerNight { get; set; }
     public bool IsActive { get; set; }
     public ICollection<Room> Rooms { get; set; } = [];
+    public ICollection<RoomRate> Rates { get; set; } = [];
+}
+
+public sealed class RoomRate
+{
+    public long RoomRateId { get; set; }
+    public int RoomTypeId { get; set; }
+    public string RateCode { get; set; } = string.Empty;
+    public DateOnly EffectiveFrom { get; set; }
+    public DateOnly? EffectiveTo { get; set; }
+    public decimal WeekdayPrice { get; set; }
+    public decimal WeekendPrice { get; set; }
+    public decimal MondayPrice { get; set; }
+    public decimal TuesdayPrice { get; set; }
+    public decimal WednesdayPrice { get; set; }
+    public decimal ThursdayPrice { get; set; }
+    public decimal FridayPrice { get; set; }
+    public decimal SaturdayPrice { get; set; }
+    public decimal SundayPrice { get; set; }
+    public bool IsActive { get; set; } = true;
+    public string? Note { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime LastModifiedAtUtc { get; set; }
+    public string? LastModifiedByObjectId { get; set; }
+    public string? LastModifiedByDisplayName { get; set; }
+    public byte[] Version { get; set; } = [];
+    public RoomType RoomType { get; set; } = null!;
 }
 
 public sealed class Room

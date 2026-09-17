@@ -106,6 +106,44 @@ Thêm lịch sử giao dịch thanh toán và chuyển các khoản thu hiện c
 dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/09_payments.sql --schema-only --commit
 ```
 
+Áp dụng bảng giá phòng theo ngày thường/cuối tuần và thời gian hiệu lực:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/10_room_rate_schedules.sql --schema-only --commit
+```
+
+Mở rộng bảng giá thành từng ngày từ Thứ 2 đến Chủ nhật:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/11_room_rate_weekdays.sql --schema-only --commit
+```
+
+Chỉ giữ bảng giá tại quầy; booking từ OTA/đối tác nhập tiền phòng theo số tiền trên kênh:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/12_counter_rates_only.sql --schema-only --commit
+```
+
+Chuẩn hóa tên kênh trực tiếp thành “Tại quầy”:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/13_plain_counter_channel_name.sql --schema-only --commit
+```
+
+Điền quốc tịch còn thiếu cho dữ liệu khách hàng A26 lịch sử:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/14_backfill_customer_nationalities.sql --schema-only --commit
+```
+
+Bật lịch sử phiên bản bảng giá, khóa chống khoảng ngày chồng nhau và view phục vụ báo cáo:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/15_room_rate_versioning.sql --schema-only --commit
+```
+
+View `hotel.vwRoomRateVersionTimeline` cung cấp toàn bộ phiên bản hiện tại và lịch sử để dùng trực tiếp trong báo cáo/BI.
+
 ## Phạm vi triển khai hiện tại
 
 - Đặt phòng/check-in/check-out.

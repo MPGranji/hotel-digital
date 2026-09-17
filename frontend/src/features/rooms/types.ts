@@ -45,6 +45,66 @@ export interface RoomTypeWriteRequest {
   isActive: boolean;
 }
 
+export interface RoomRateItem {
+  id: number;
+  roomTypeId: number;
+  roomTypeCode: string;
+  roomTypeName: string;
+  rateCode: "NET";
+  effectiveFrom: string;
+  effectiveTo?: string;
+  weekdayPrice: number;
+  weekendPrice: number;
+  mondayPrice: number;
+  tuesdayPrice: number;
+  wednesdayPrice: number;
+  thursdayPrice: number;
+  fridayPrice: number;
+  saturdayPrice: number;
+  sundayPrice: number;
+  isActive: boolean;
+  note?: string;
+  lastModifiedAtUtc: string;
+  lastModifiedByDisplayName?: string;
+  version: string;
+}
+
+export interface RoomRateHistoryItem {
+  id: number;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  mondayPrice: number;
+  tuesdayPrice: number;
+  wednesdayPrice: number;
+  thursdayPrice: number;
+  fridayPrice: number;
+  saturdayPrice: number;
+  sundayPrice: number;
+  isActive: boolean;
+  note?: string;
+  recordedFromUtc: string;
+  recordedToUtc: string;
+  isCurrent: boolean;
+  lastModifiedAtUtc: string;
+  lastModifiedByDisplayName?: string;
+}
+
+export interface RoomRateWriteRequest {
+  roomTypeId: number;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  mondayPrice: number;
+  tuesdayPrice: number;
+  wednesdayPrice: number;
+  thursdayPrice: number;
+  fridayPrice: number;
+  saturdayPrice: number;
+  sundayPrice: number;
+  isActive: boolean;
+  note: string;
+  version: string | null;
+}
+
 export interface RoomCalendarResponse {
   dateFrom: string;
   dateTo: string;
@@ -63,6 +123,30 @@ export interface RoomCalendarRow {
 export interface RoomCalendarCell {
   date: string;
   status: "AVAILABLE" | "BOOKED" | "CHECKED_IN" | "MAINTENANCE" | "INACTIVE";
+  bookingId?: number;
+  bookingCode?: string;
+  customerName?: string;
+  roomBlockId?: number;
+  maintenanceReason?: string;
+}
+
+export interface RoomHourlyCalendarResponse {
+  weekStart: string;
+  weekEnd: string;
+  roomId: number;
+  roomNumber: string;
+  roomTypeName: string;
+  floorLabel?: string;
+  isActive: boolean;
+  dates: string[];
+  events: RoomHourlyCalendarEvent[];
+}
+
+export interface RoomHourlyCalendarEvent {
+  kind: "BOOKING" | "MAINTENANCE";
+  status: string;
+  startAt: string;
+  endAt: string;
   bookingId?: number;
   bookingCode?: string;
   customerName?: string;

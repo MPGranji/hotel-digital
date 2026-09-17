@@ -103,7 +103,16 @@ public sealed record BookingRoomOption(
 public sealed record BookingRoomRateOption(
     string Code,
     decimal WeekdayPrice,
-    decimal WeekendPrice);
+    decimal WeekendPrice,
+    DateOnly? EffectiveFrom = null,
+    DateOnly? EffectiveTo = null,
+    decimal? MondayPrice = null,
+    decimal? TuesdayPrice = null,
+    decimal? WednesdayPrice = null,
+    decimal? ThursdayPrice = null,
+    decimal? FridayPrice = null,
+    decimal? SaturdayPrice = null,
+    decimal? SundayPrice = null);
 
 public sealed record BookingChannelOption(int Id, string Code, string Name, string Category);
 

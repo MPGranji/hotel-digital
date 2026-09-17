@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/api-client";
-import type { RoomBlockItem, RoomBlockWriteRequest, RoomCalendarResponse, RoomListItem, RoomTypeItem, RoomTypeWriteRequest, RoomWriteRequest } from "./types";
+import type { RoomBlockItem, RoomBlockWriteRequest, RoomCalendarResponse, RoomHourlyCalendarResponse, RoomListItem, RoomRateHistoryItem, RoomRateItem, RoomRateWriteRequest, RoomTypeItem, RoomTypeWriteRequest, RoomWriteRequest } from "./types";
 
 const jsonHeaders = { "Content-Type": "application/json" };
 
@@ -32,9 +32,30 @@ export function updateRoomType(id: number, request: RoomTypeWriteRequest) {
   return apiRequest<RoomTypeItem>(`/api/room-types/${id}`, { method: "PUT", headers: jsonHeaders, body: JSON.stringify(request) });
 }
 
+export function getRoomRates(roomTypeId: number) {
+  return apiRequest<RoomRateItem[]>(`/api/room-rates?roomTypeId=${roomTypeId}`);
+}
+
+export function getRoomRateHistory(id: number) {
+  return apiRequest<RoomRateHistoryItem[]>(`/api/room-rates/${id}/history`);
+}
+
+export function createRoomRate(request: RoomRateWriteRequest) {
+  return apiRequest<RoomRateItem>("/api/room-rates", { method: "POST", headers: jsonHeaders, body: JSON.stringify(request) });
+}
+
+export function updateRoomRate(id: number, request: RoomRateWriteRequest) {
+  return apiRequest<RoomRateItem>(`/api/room-rates/${id}`, { method: "PUT", headers: jsonHeaders, body: JSON.stringify(request) });
+}
+
 export function getRoomCalendar(dateFrom: string, days: number) {
   const params = new URLSearchParams({ dateFrom, days: String(days) });
   return apiRequest<RoomCalendarResponse>(`/api/rooms/calendar?${params}`);
+}
+
+export function getRoomHourlyCalendar(roomId: number, weekStart: string) {
+  const params = new URLSearchParams({ roomId: String(roomId), weekStart });
+  return apiRequest<RoomHourlyCalendarResponse>(`/api/rooms/hourly-calendar?${params}`);
 }
 
 export function getRoomBlock(id: number) {

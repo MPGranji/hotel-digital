@@ -9,6 +9,7 @@ import { getApiErrorMessage } from "@/lib/api-client";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { RoomEditor } from "./room-editor";
 import { RoomCalendar } from "./room-calendar";
+import { RoomMaintenance } from "./room-maintenance";
 import { RoomTypeManager } from "./room-type-manager";
 import { getRooms } from "./rooms-api";
 import type { RoomListItem } from "./types";
@@ -39,7 +40,7 @@ export function RoomDirectory() {
   const [reloadKey, setReloadKey] = useState(0);
   const [editing, setEditing] = useState<RoomListItem | "new">();
   const [managingTypes, setManagingTypes] = useState(false);
-  const [view, setView] = useState<"list" | "calendar">("list");
+  const [view, setView] = useState<"list" | "calendar" | "maintenance">("list");
 
   useEffect(() => {
     const timer = window.setTimeout(() => setSearch(query.trim()), 300);
@@ -63,8 +64,13 @@ export function RoomDirectory() {
 
   return (
     <>
-      <PageHeader actions={<div className="flex flex-wrap gap-2"><Button onClick={() => setView((current) => current === "list" ? "calendar" : "list")} variant="secondary">{view === "list" ? "Ma trận phòng" : "Danh sách phòng"}</Button><Button onClick={() => setManagingTypes(true)} variant="secondary">Hạng phòng</Button><Button onClick={() => setEditing("new")}>Thêm phòng</Button></div>} description="Quản lý phòng và xem tình trạng trống, đã đặt hoặc bảo trì theo thời gian." title="Phòng" />
-      {view === "calendar" ? <RoomCalendar rooms={rooms} /> : (
+      <PageHeader actions={<><Button onClick={() => setManagingTypes(true)} variant="secondary">Hạng phòng</Button><Button onClick={() => setEditing("new")}>Thêm phòng</Button></>} description="Quản lý phòng, theo dõi hiện trạng và thiết lập lịch bảo trì." title="Phòng" />
+      <nav aria-label="Chế độ quản lý phòng" className="mb-4 flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+        <ViewButton active={view === "list"} label="Danh sách phòng" onClick={() => setView("list")} />
+        <ViewButton active={view === "calendar"} label="Hiện trạng phòng" onClick={() => setView("calendar")} />
+        <ViewButton active={view === "maintenance"} label="Lịch bảo trì" onClick={() => setView("maintenance")} />
+      </nav>
+      {view === "calendar" ? <RoomCalendar /> : view === "maintenance" ? <RoomMaintenance rooms={rooms} /> : (
       <Panel>
         <div className="mb-5 flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-center">
           <Input aria-label="Tìm phòng" className="md:max-w-sm" onChange={(event) => { setQuery(event.target.value); setLoading(true); }} placeholder="Tìm số phòng, hạng phòng hoặc tầng" value={query} />
@@ -87,18 +93,23 @@ export function RoomDirectory() {
   );
 }
 
+function ViewButton({ active, label, onClick }: Readonly<{ active: boolean; label: string; onClick: () => void }>) {
+  return <button className={`min-h-10 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${active ? "border-blue-200 bg-blue-50 text-blue-800" : "border-transparent text-slate-600 hover:bg-slate-50"}`} onClick={onClick} type="button">{label}</button>;
+}
+
 function RoomRow({ room, onEdit }: Readonly<{ room: RoomListItem; onEdit: () => void }>) {
   const actionHref = room.currentBookingId ? `/bookings?bookingId=${room.currentBookingId}` : `/bookings?roomId=${room.id}`;
   const actionLabel = room.status === "OCCUPIED" ? "Mở booking" : room.status === "RESERVED" ? "Check-in" : "Tạo đặt phòng";
+  const actionStyle = room.status === "OCCUPIED" ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100" : room.status === "RESERVED" ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100" : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100";
   return (
     <tr className="hover:bg-slate-50">
-      <td className="px-4 py-3 text-base font-bold text-[var(--primary)]">{room.roomNumber}</td>
+      <td className="px-4 py-3 text-base font-semibold text-[var(--primary)]">{room.roomNumber}</td>
       <td className="px-4 py-3"><p className="font-medium text-slate-800">{room.roomTypeName}</p><p className="text-xs text-slate-500">{room.roomTypeCode}</p></td>
       <td className="px-4 py-3">{room.floorLabel ? `Tầng ${room.floorLabel}` : "—"}</td>
       <td className="px-4 py-3 text-right font-medium">{room.listedPricePerNight == null ? "Chưa xác nhận" : formatCurrency(room.listedPricePerNight)}</td>
-      <td className="px-4 py-3"><span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${statusStyles[room.status]}`}>{statusLabels[room.status]}</span></td>
+      <td className="px-4 py-3"><span className={`inline-flex rounded-md border px-2 py-1 text-xs font-medium ${statusStyles[room.status]}`}>{statusLabels[room.status]}</span></td>
       <td className="px-4 py-3">{room.currentGuestName ? <><p className="font-medium">{room.currentGuestName}</p><p className="text-xs text-slate-500">{room.currentBookingCode}</p></> : <p className="text-slate-500">Kế tiếp: {formatDateTime(room.nextCheckInAt)}</p>}</td>
-      <td className="px-4 py-3 text-right"><div className="flex justify-end gap-2"><Button onClick={onEdit} variant="secondary">Sửa</Button>{room.status !== "INACTIVE" && room.status !== "MAINTENANCE" ? <Link className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" href={actionHref}>{actionLabel}</Link> : null}</div></td>
+      <td className="px-4 py-3 text-right"><div className="flex justify-end gap-2"><Button onClick={onEdit} variant="warning">Sửa</Button>{room.status !== "INACTIVE" && room.status !== "MAINTENANCE" ? <Link className={`inline-flex min-h-9 items-center rounded-lg border px-3 text-sm font-medium transition-colors ${actionStyle}`} href={actionHref}>{actionLabel}</Link> : null}</div></td>
     </tr>
   );
 }

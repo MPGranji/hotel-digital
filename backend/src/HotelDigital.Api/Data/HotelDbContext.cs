@@ -7,6 +7,7 @@ public sealed class HotelDbContext(DbContextOptions<HotelDbContext> options) : D
 {
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<RoomType> RoomTypes => Set<RoomType>();
+    public DbSet<RoomRate> RoomRates => Set<RoomRate>();
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<RoomBlock> RoomBlocks => Set<RoomBlock>();
     public DbSet<Channel> Channels => Set<Channel>();
@@ -46,6 +47,39 @@ public sealed class HotelDbContext(DbContextOptions<HotelDbContext> options) : D
             entity.Property(x => x.Code).HasMaxLength(30).IsUnicode(false);
             entity.Property(x => x.Name).HasMaxLength(100);
             entity.Property(x => x.ListedPricePerNight).HasPrecision(19, 2);
+        });
+
+        modelBuilder.Entity<RoomRate>(entity =>
+        {
+            entity.ToTable("RoomRate", table => table.IsTemporal(temporal =>
+            {
+                temporal.HasPeriodStart("ValidFromUtc").HasColumnName("ValidFromUtc");
+                temporal.HasPeriodEnd("ValidToUtc").HasColumnName("ValidToUtc");
+                temporal.UseHistoryTable("RoomRateHistory", "hotel");
+            }));
+            entity.HasKey(x => x.RoomRateId);
+            entity.Property(x => x.RoomRateId).HasColumnName("RoomRateID");
+            entity.Property(x => x.RoomTypeId).HasColumnName("RoomTypeID");
+            entity.Property(x => x.RateCode).HasMaxLength(20).IsUnicode(false);
+            entity.Property(x => x.EffectiveFrom).HasColumnType("date");
+            entity.Property(x => x.EffectiveTo).HasColumnType("date");
+            entity.Property(x => x.WeekdayPrice).HasPrecision(19, 2);
+            entity.Property(x => x.WeekendPrice).HasPrecision(19, 2);
+            entity.Property(x => x.MondayPrice).HasPrecision(19, 2);
+            entity.Property(x => x.TuesdayPrice).HasPrecision(19, 2);
+            entity.Property(x => x.WednesdayPrice).HasPrecision(19, 2);
+            entity.Property(x => x.ThursdayPrice).HasPrecision(19, 2);
+            entity.Property(x => x.FridayPrice).HasPrecision(19, 2);
+            entity.Property(x => x.SaturdayPrice).HasPrecision(19, 2);
+            entity.Property(x => x.SundayPrice).HasPrecision(19, 2);
+            entity.Property(x => x.Note).HasMaxLength(300);
+            entity.Property(x => x.CreatedAt).HasPrecision(0).HasDefaultValueSql("SYSUTCDATETIME()").ValueGeneratedOnAdd();
+            entity.Property(x => x.LastModifiedAtUtc).HasPrecision(0).HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.Property(x => x.LastModifiedByObjectId).HasMaxLength(80);
+            entity.Property(x => x.LastModifiedByDisplayName).HasMaxLength(150);
+            entity.Property(x => x.Version).IsRowVersion();
+            entity.HasIndex(x => new { x.RoomTypeId, x.RateCode, x.EffectiveFrom });
+            entity.HasOne(x => x.RoomType).WithMany(x => x.Rates).HasForeignKey(x => x.RoomTypeId);
         });
 
         modelBuilder.Entity<Room>(entity =>

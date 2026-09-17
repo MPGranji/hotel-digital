@@ -98,11 +98,20 @@ public sealed class BookingQueryService(HotelDbContext db)
             {
                 x.RoomId,
                 x.RoomNumber,
+                x.RoomTypeId,
                 RoomTypeCode = x.RoomType.Code,
                 x.RoomType.Name,
                 x.RoomType.Capacity,
                 x.RoomType.ListedPricePerNight
             })
+            .ToListAsync(cancellationToken);
+        var rateRows = await db.RoomRates.AsNoTracking()
+            .Where(x => x.IsActive && x.RateCode == "NET")
+            .OrderByDescending(x => x.EffectiveFrom)
+            .Select(x => new RoomRateRow(
+                x.RoomTypeId, x.RateCode, x.WeekdayPrice, x.WeekendPrice, x.EffectiveFrom, x.EffectiveTo,
+                x.MondayPrice, x.TuesdayPrice, x.WednesdayPrice, x.ThursdayPrice,
+                x.FridayPrice, x.SaturdayPrice, x.SundayPrice))
             .ToListAsync(cancellationToken);
         var rooms = roomRows.Select(x => new BookingRoomOption(
             x.RoomId,
@@ -111,7 +120,7 @@ public sealed class BookingQueryService(HotelDbContext db)
             x.Name,
             x.Capacity,
             x.ListedPricePerNight ?? PhamNguLaoRateCatalog.GetListedPrice(x.RoomTypeCode),
-            PhamNguLaoRateCatalog.GetRates(x.RoomTypeCode)))
+            GetRates(x.RoomTypeId, x.RoomTypeCode, rateRows)))
             .ToList();
         var channels = await db.Channels.AsNoTracking()
             .Where(x => x.IsActive)
@@ -121,6 +130,37 @@ public sealed class BookingQueryService(HotelDbContext db)
             .ToListAsync(cancellationToken);
         return new BookingOptions(rooms, channels);
     }
+
+    private static IReadOnlyList<BookingRoomRateOption> GetRates(
+        int roomTypeId,
+        string roomTypeCode,
+        IReadOnlyList<RoomRateRow> rateRows)
+    {
+        var configured = rateRows.Where(x => x.RoomTypeId == roomTypeId)
+            .Select(x => new BookingRoomRateOption(
+                x.RateCode, x.WeekdayPrice, x.WeekendPrice, x.EffectiveFrom, x.EffectiveTo,
+                x.MondayPrice, x.TuesdayPrice, x.WednesdayPrice, x.ThursdayPrice,
+                x.FridayPrice, x.SaturdayPrice, x.SundayPrice))
+            .ToList();
+        if (configured.Count == 0)
+            configured.AddRange(PhamNguLaoRateCatalog.GetRates(roomTypeCode).Where(x => x.Code == "NET"));
+        return configured;
+    }
+
+    private sealed record RoomRateRow(
+        int RoomTypeId,
+        string RateCode,
+        decimal WeekdayPrice,
+        decimal WeekendPrice,
+        DateOnly EffectiveFrom,
+        DateOnly? EffectiveTo,
+        decimal MondayPrice,
+        decimal TuesdayPrice,
+        decimal WednesdayPrice,
+        decimal ThursdayPrice,
+        decimal FridayPrice,
+        decimal SaturdayPrice,
+        decimal SundayPrice);
 
     public async Task<IReadOnlyList<int>> GetAvailableRoomIdsAsync(
         DateTime checkInAt,

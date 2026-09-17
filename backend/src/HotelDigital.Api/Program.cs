@@ -48,6 +48,7 @@ builder.Services.AddScoped<BookingQueryService>();
 builder.Services.AddScoped<BookingCommandService>();
 builder.Services.AddScoped<RoomService>();
 builder.Services.AddScoped<RoomCalendarService>();
+builder.Services.AddScoped<RoomRateService>();
 builder.Services.AddScoped<ChannelService>();
 builder.Services.AddScoped<InvoiceService>();
 builder.Services.AddScoped<PaymentService>();

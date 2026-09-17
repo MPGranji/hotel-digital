@@ -20,6 +20,8 @@ public static class RoomEndpoints
             service.UpdateRoomAsync(id, request, cancellationToken));
         rooms.MapGet("/calendar", (DateOnly dateFrom, int days, RoomCalendarService service, CancellationToken cancellationToken) =>
             service.GetAsync(dateFrom, days, cancellationToken));
+        rooms.MapGet("/hourly-calendar", (int roomId, DateOnly weekStart, RoomCalendarService service, CancellationToken cancellationToken) =>
+            service.GetHourlyAsync(roomId, weekStart, cancellationToken));
 
         var roomBlocks = endpoints.MapGroup("/api/room-blocks").WithTags("Room maintenance");
         roomBlocks.MapGet("/{id:long}", (long id, RoomCalendarService service, CancellationToken cancellationToken) =>
@@ -42,6 +44,21 @@ public static class RoomEndpoints
         });
         roomTypes.MapPut("/{id:int}", (int id, RoomTypeWriteRequest request, RoomService service, CancellationToken cancellationToken) =>
             service.UpdateRoomTypeAsync(id, request, cancellationToken));
+
+        var roomRates = endpoints.MapGroup("/api/room-rates").WithTags("Room rates");
+        roomRates.MapGet("/", (int? roomTypeId, bool? isActive, RoomRateService service, CancellationToken cancellationToken) =>
+            service.GetAsync(roomTypeId, isActive, cancellationToken));
+        roomRates.MapGet("/{id:long}", (long id, RoomRateService service, CancellationToken cancellationToken) =>
+            service.GetOneAsync(id, cancellationToken));
+        roomRates.MapGet("/{id:long}/history", (long id, RoomRateService service, CancellationToken cancellationToken) =>
+            service.GetHistoryAsync(id, cancellationToken));
+        roomRates.MapPost("/", async (RoomRateWriteRequest request, RoomRateService service, CancellationToken cancellationToken) =>
+        {
+            var rate = await service.CreateAsync(request, cancellationToken);
+            return Results.Created($"/api/room-rates/{rate.Id}", rate);
+        });
+        roomRates.MapPut("/{id:long}", (long id, RoomRateWriteRequest request, RoomRateService service, CancellationToken cancellationToken) =>
+            service.UpdateAsync(id, request, cancellationToken));
         return endpoints;
     }
 }
