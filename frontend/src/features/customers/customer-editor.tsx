@@ -118,7 +118,7 @@ export function CustomerEditor({ customerId, onClose, onSaved }: CustomerEditorP
       <form className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl" onSubmit={(event) => { event.preventDefault(); void save(); }}>
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-950" id="customer-editor-title">{customerId ? "Cập nhật khách hàng" : "Thêm khách hàng"}</h2>
+            <h2 className="text-lg font-semibold text-slate-950" id="customer-editor-title">{customerId ? "Cập nhật khách hàng" : "Thêm khách hàng"}</h2>
             <p className="mt-1 text-sm text-slate-500">Chỉ họ và tên là bắt buộc.</p>
           </div>
           <Button onClick={onClose} variant="ghost">Đóng</Button>

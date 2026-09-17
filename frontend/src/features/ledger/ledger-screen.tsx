@@ -85,7 +85,7 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
   return (
     <>
       <PageHeader
-        actions={<Link className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--primary-strong)] focus-visible:outline focus-visible:outline-2" href="/bookings">Thêm đặt phòng</Link>}
+        actions={<Link className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--primary-strong)] focus-visible:outline focus-visible:outline-2" href="/bookings">Thêm đặt phòng</Link>}
         description="Một dòng tương ứng một lượt lưu trú. Bộ lọc và phân trang được xử lý tại máy chủ."
         title="Sổ đặt phòng"
       />
@@ -121,16 +121,16 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
 function LedgerRow({ booking }: Readonly<{ booking: BookingListItem }>) {
   return (
     <tr className="hover:bg-slate-50">
-      <td className="px-3 py-3"><p className="font-semibold text-[var(--primary)]">{booking.bookingCode}</p>{booking.groupCode ? <p className="text-xs font-medium text-blue-700">Nhóm {booking.groupCode}</p> : null}<p className="text-slate-700">{booking.customerName}</p><p className="text-xs text-slate-500">{booking.customerPhone || booking.channelName}</p></td>
-      <td className="px-3 py-3"><p className="font-semibold">{booking.roomNumber}</p><p className="text-xs text-slate-500">{booking.roomTypeName} · {booking.billedNights} đêm</p></td>
+      <td className="px-3 py-3"><p className="font-medium text-[var(--primary)]">{booking.bookingCode}</p>{booking.groupCode ? <p className="text-xs font-medium text-blue-700">Nhóm {booking.groupCode}</p> : null}<p className="text-slate-700">{booking.customerName}</p><p className="text-xs text-slate-500">{booking.customerPhone || booking.channelName}</p></td>
+      <td className="px-3 py-3"><p className="font-medium">{booking.roomNumber}</p><p className="text-xs text-slate-500">{booking.roomTypeName} · {booking.billedNights} đêm</p></td>
       <td className="px-3 py-3">{formatDateTime(booking.checkInAt)}</td>
       <td className="px-3 py-3">{formatDateTime(booking.checkOutAt)}</td>
       <td className="px-3 py-3 text-right">{formatCurrency(booking.roomRevenue)}</td>
-      <td className="px-3 py-3 text-right font-semibold text-[var(--primary)]">{formatCurrency(booking.grossRevenue)}</td>
+      <td className="px-3 py-3 text-right font-medium text-[var(--primary)]">{formatCurrency(booking.grossRevenue)}</td>
       <td className="px-3 py-3 text-right">{formatCurrency(booking.paidAmount)}</td>
       <td className="px-3 py-3 text-right">{formatCurrency(booking.debtAmount)}</td>
       <td className="px-3 py-3"><StatusBadge status={booking.status} /></td>
-      <td className="px-3 py-3 text-right"><Link className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" href={`/bookings?bookingId=${booking.id}`}>Xem / Sửa</Link></td>
+      <td className="px-3 py-3 text-right"><Link className="inline-flex min-h-9 items-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100" href={`/bookings?bookingId=${booking.id}`}>Xem / Sửa</Link></td>
     </tr>
   );
 }

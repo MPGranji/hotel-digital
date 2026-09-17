@@ -105,7 +105,7 @@ export function PaymentSection({ model }: Readonly<{ model: FormModel }>) {
           <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full min-w-[650px] text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Thời gian</th><th className="px-4 py-3">Phương thức</th><th className="px-4 py-3">Mã giao dịch</th><th className="px-4 py-3 text-right">Số tiền</th></tr></thead>
-              <tbody className="divide-y divide-slate-100">{items.map((payment) => <tr key={payment.id}><td className="px-4 py-3">{formatDateTime(payment.paidAt)}</td><td className="px-4 py-3">{methodLabels[payment.method]}</td><td className="px-4 py-3 text-slate-500">{payment.referenceCode || "—"}</td><td className="px-4 py-3 text-right font-semibold text-emerald-700">{formatCurrency(payment.amount)}</td></tr>)}</tbody>
+              <tbody className="divide-y divide-slate-100">{items.map((payment) => <tr key={payment.id}><td className="px-4 py-3">{formatDateTime(payment.paidAt)}</td><td className="px-4 py-3">{methodLabels[payment.method]}</td><td className="px-4 py-3 text-slate-500">{payment.referenceCode || "—"}</td><td className="px-4 py-3 text-right font-medium text-emerald-700">{formatCurrency(payment.amount)}</td></tr>)}</tbody>
             </table>
           </div>
         )}

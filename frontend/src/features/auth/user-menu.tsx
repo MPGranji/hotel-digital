@@ -10,7 +10,7 @@ export function UserMenu() {
     <div className="flex items-center gap-3">
       <div className="hidden text-right sm:block">
         <p className="text-sm font-medium text-slate-800">{session.displayName}</p>
-        <p className="text-xs text-slate-500">{session.isDevelopment ? "Môi trường phát triển" : session.email}</p>
+        <p className="text-xs text-slate-500">{session.isDevelopment ? "Quản trị hệ thống" : session.email}</p>
       </div>
       {session.signOut ? (
         <button

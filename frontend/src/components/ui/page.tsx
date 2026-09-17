@@ -8,7 +8,7 @@ export function PageHeader({
   return (
     <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-start">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-950">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-950">{title}</h1>
         {description ? <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">{description}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
@@ -33,7 +33,7 @@ export function DataMessage({
 }: Readonly<{ title: string; description?: string; action?: ReactNode }>) {
   return (
     <div className="rounded-lg border border-dashed border-slate-300 px-5 py-10 text-center">
-      <p className="font-semibold text-slate-800">{title}</p>
+      <p className="font-medium text-slate-800">{title}</p>
       {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
       {action ? <div className="mt-4">{action}</div> : null}
     </div>

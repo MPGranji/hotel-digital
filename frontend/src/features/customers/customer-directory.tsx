@@ -70,12 +70,12 @@ export function CustomerDirectory() {
                 <tbody className="divide-y divide-slate-100">
                   {result.items.map((customer) => (
                     <tr className="hover:bg-slate-50" key={customer.id}>
-                      <td className="px-3 py-3"><p className="font-semibold text-slate-900">{customer.fullName}</p><p className="text-xs text-slate-500">ID {customer.id} · {customer.stayCount} lượt lưu trú · {customer.isActive ? "Đang dùng" : "Ngừng dùng"}</p></td>
+                      <td className="px-3 py-3"><p className="font-medium text-slate-900">{customer.fullName}</p><p className="text-xs text-slate-500">ID {customer.id} · {customer.stayCount} lượt lưu trú · {customer.isActive ? "Đang dùng" : "Ngừng dùng"}</p></td>
                       <td className="px-3 py-3"><p>{customer.phone || "—"}</p><p className="text-xs text-slate-500">{customer.email || ""}</p></td>
                       <td className="px-3 py-3">{customer.identityDocument || "—"}</td>
                       <td className="px-3 py-3">{customer.nationality || "Chưa xác định"}</td>
                       <td className="px-3 py-3">{formatDate(customer.lastCheckInAt)}</td>
-                      <td className="px-3 py-3"><div className="flex justify-end gap-2"><Button onClick={() => setStaysFor(customer)} variant="ghost">Lịch sử</Button><Button onClick={() => setEditingId(customer.id)} variant="secondary">Sửa</Button></div></td>
+                      <td className="px-3 py-3"><div className="flex justify-end gap-2"><Button onClick={() => setStaysFor(customer)} variant="info">Lịch sử</Button><Button onClick={() => setEditingId(customer.id)} variant="warning">Sửa</Button></div></td>
                     </tr>
                   ))}
                 </tbody>

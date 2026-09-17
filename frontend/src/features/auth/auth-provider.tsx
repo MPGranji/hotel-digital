@@ -9,6 +9,9 @@ import { MsalProvider } from "@azure/msal-react";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { setAccessTokenProvider } from "@/lib/api-client";
 import { env } from "@/lib/env";
+import { DevelopmentLogin } from "./development-login";
+
+const developmentSessionKey = "hotel-digital:development-session";
 
 interface SessionValue {
   displayName: string;
@@ -29,6 +32,19 @@ export function useSession() {
 export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [client, setClient] = useState<PublicClientApplication>();
   const [initializationError, setInitializationError] = useState<string>();
+  const [developmentReady, setDevelopmentReady] = useState(false);
+  const [developmentAuthenticated, setDevelopmentAuthenticated] = useState(false);
+
+  useEffect(() => {
+    if (!env.useDevelopmentUser) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      setDevelopmentAuthenticated(window.sessionStorage.getItem(developmentSessionKey) === "authenticated");
+      setDevelopmentReady(true);
+    });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     if (env.useDevelopmentUser || !env.entraConfigured) return;
@@ -53,8 +69,22 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   }, []);
 
   if (env.useDevelopmentUser) {
+    if (!developmentReady) return <CenteredMessage title="Đang khởi tạo" description="Đang chuẩn bị phiên đăng nhập…" />;
+    if (!developmentAuthenticated) {
+      return <DevelopmentLogin onSignedIn={() => {
+        window.sessionStorage.setItem(developmentSessionKey, "authenticated");
+        setDevelopmentAuthenticated(true);
+      }} />;
+    }
     return (
-      <SessionContext.Provider value={{ displayName: "Người dùng phát triển", isDevelopment: true }}>
+      <SessionContext.Provider value={{
+        displayName: "Quản trị viên",
+        isDevelopment: true,
+        signOut: async () => {
+          window.sessionStorage.removeItem(developmentSessionKey);
+          setDevelopmentAuthenticated(false);
+        },
+      }}>
         {children}
       </SessionContext.Provider>
     );

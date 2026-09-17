@@ -10,7 +10,7 @@ export function MoneyInput({ id, value, disabled, onChange }: Readonly<{ id: str
     <div className="relative">
       <Input
         autoComplete="off"
-        className="pr-10 text-right font-semibold tabular-nums"
+        className="pr-10 text-right font-medium tabular-nums"
         disabled={disabled}
         id={id}
         inputMode="numeric"

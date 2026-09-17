@@ -36,8 +36,8 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
         {!booking ? <div className="md:col-span-2 xl:col-span-3">
           <p className="mb-1.5 text-sm font-medium text-slate-700">Số phòng cần đặt</p>
           <div className="inline-flex rounded-lg border border-slate-300 bg-slate-100 p-1">
-            <button className={`rounded-md px-4 py-2 text-sm font-semibold ${form.roomMode === "single" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600"}`} onClick={() => updateRoomMode("single")} type="button">Một phòng</button>
-            <button className={`rounded-md px-4 py-2 text-sm font-semibold ${form.roomMode === "multiple" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600"}`} onClick={() => updateRoomMode("multiple")} type="button">Nhiều phòng</button>
+            <button className={`rounded-md px-4 py-2 text-sm font-medium ${form.roomMode === "single" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600"}`} onClick={() => updateRoomMode("single")} type="button">Một phòng</button>
+            <button className={`rounded-md px-4 py-2 text-sm font-medium ${form.roomMode === "multiple" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600"}`} onClick={() => updateRoomMode("multiple")} type="button">Nhiều phòng</button>
           </div>
         </div> : booking.groupCode ? <p className="md:col-span-2 xl:col-span-3 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-800">Booking thuộc nhóm <b>{booking.groupCode}</b>.</p> : null}
 

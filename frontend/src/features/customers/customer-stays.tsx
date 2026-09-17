@@ -24,7 +24,7 @@ export function CustomerStays({ customerId, customerName, onClose }: Readonly<{ 
       <section className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-950" id="customer-stays-title">Lịch sử lưu trú</h2>
+            <h2 className="text-lg font-semibold text-slate-950" id="customer-stays-title">Lịch sử lưu trú</h2>
             <p className="mt-1 text-sm text-slate-500">{customerName}</p>
           </div>
           <Button onClick={onClose} variant="ghost">Đóng</Button>
@@ -36,7 +36,7 @@ export function CustomerStays({ customerId, customerName, onClose }: Readonly<{ 
             <table className="min-w-full text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-3 py-3">Mã</th><th className="px-3 py-3">Phòng</th><th className="px-3 py-3">Thời gian</th><th className="px-3 py-3">Doanh thu</th><th className="px-3 py-3">Trạng thái</th></tr></thead>
               <tbody className="divide-y divide-slate-100">
-                {stays.map((stay) => <tr key={stay.bookingId}><td className="px-3 py-3 font-semibold text-[var(--primary)]">{stay.bookingCode}</td><td className="px-3 py-3">{stay.roomNumber}</td><td className="px-3 py-3">{formatDateTime(stay.checkInAt)} – {formatDateTime(stay.checkOutAt)}</td><td className="px-3 py-3 text-right font-medium">{formatCurrency(stay.grossRevenue)}</td><td className="px-3 py-3"><StatusBadge status={stay.status} /></td></tr>)}
+                {stays.map((stay) => <tr key={stay.bookingId}><td className="px-3 py-3 font-medium text-[var(--primary)]">{stay.bookingCode}</td><td className="px-3 py-3">{stay.roomNumber}</td><td className="px-3 py-3">{formatDateTime(stay.checkInAt)} – {formatDateTime(stay.checkOutAt)}</td><td className="px-3 py-3 text-right font-medium">{formatCurrency(stay.grossRevenue)}</td><td className="px-3 py-3"><StatusBadge status={stay.status} /></td></tr>)}
               </tbody>
             </table>
           </div>

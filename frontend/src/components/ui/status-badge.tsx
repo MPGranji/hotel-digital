@@ -10,7 +10,7 @@ const styles: Record<string, string> = {
 
 export function StatusBadge({ status }: Readonly<{ status: string }>) {
   return (
-    <span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${styles[status] ?? styles.BOOKED}`}>
+    <span className={`inline-flex rounded-md border px-2 py-1 text-xs font-medium ${styles[status] ?? styles.BOOKED}`}>
       {bookingStatusLabels[status] ?? status}
     </span>
   );
