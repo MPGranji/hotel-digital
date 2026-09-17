@@ -1,4 +1,24 @@
 import { env } from "@/lib/env";
+import type { ProblemDetails } from "@/types/api";
+
+type AccessTokenProvider = () => Promise<string>;
+
+let accessTokenProvider: AccessTokenProvider | undefined;
+
+export function setAccessTokenProvider(provider?: AccessTokenProvider) {
+  accessTokenProvider = provider;
+}
+
+export function getApiProblem(error: unknown): ProblemDetails | undefined {
+  if (error instanceof ApiError && typeof error.detail === "object" && error.detail !== null) {
+    return error.detail as ProblemDetails;
+  }
+  return undefined;
+}
+
+export function getApiErrorMessage(error: unknown, fallback: string) {
+  return getApiProblem(error)?.detail ?? fallback;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -10,11 +30,13 @@ export class ApiError extends Error {
 }
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const accessToken = await accessTokenProvider?.();
   const response = await fetch(`${env.apiBaseUrl}${path}`, {
     ...init,
     cache: "no-store",
     headers: {
       Accept: "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...init?.headers,
     },
   });
