@@ -123,7 +123,7 @@ public sealed class InvoiceService(HotelDbContext db, IAuditWriter auditWriter, 
 
     private static InvoiceItem ToItem(Invoice x) => new(
         x.InvoiceId, x.BookingId, x.Booking.BookingCode, x.Booking.Customer.FullName, x.Booking.Room.RoomNumber,
-        x.InvoiceNumber, x.IssuedAt, x.Status, x.GrossAmount, x.PaidAmount, x.DebtAmount,
+        x.InvoiceNumber, x.IssuedAt, x.Status, x.GrossAmount, x.PaidAmount, x.DebtAmount, x.BalanceDue,
         x.Note, x.CreatedAt, Convert.ToBase64String(x.Version));
 
     private static bool TryDecodeVersion(string? value, out byte[] version)

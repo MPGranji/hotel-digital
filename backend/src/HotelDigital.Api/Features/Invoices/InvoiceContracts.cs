@@ -12,6 +12,7 @@ public sealed record InvoiceItem(
     decimal GrossAmount,
     decimal PaidAmount,
     decimal DebtAmount,
+    decimal BalanceDue,
     string? Note,
     DateTime CreatedAt,
     string Version);

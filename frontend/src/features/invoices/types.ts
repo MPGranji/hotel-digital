@@ -10,6 +10,7 @@ export interface InvoiceItem {
   grossAmount: number;
   paidAmount: number;
   debtAmount: number;
+  balanceDue: number;
   note?: string;
   createdAt: string;
   version: string;

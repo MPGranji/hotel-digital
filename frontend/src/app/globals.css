@@ -58,3 +58,30 @@ textarea:disabled {
   cursor: not-allowed;
   opacity: 0.65;
 }
+
+th {
+  font-weight: 600;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .invoice-print-area,
+  .invoice-print-area * {
+    visibility: visible;
+  }
+
+  .invoice-print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .invoice-print-hide {
+    display: none !important;
+  }
+}
