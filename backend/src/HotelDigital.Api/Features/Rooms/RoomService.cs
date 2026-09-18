@@ -94,6 +94,19 @@ public sealed class RoomService(
         {
             var room = await db.Rooms.SingleOrDefaultAsync(x => x.RoomId == id, token)
                 ?? throw new ResourceNotFoundException("room_not_found", "Không tìm thấy phòng.");
+            if (room.IsActive && !request.IsActive)
+            {
+                var now = GetHotelNow();
+                var hasOpenBooking = await db.Bookings.AsNoTracking().AnyAsync(x =>
+                    x.RoomId == id
+                    && (x.Status == "BOOKED" || x.Status == "CHECKED_IN")
+                    && x.CheckOutAt > now,
+                    token);
+                if (hasOpenBooking)
+                    throw new BusinessRuleException(
+                        "room_has_open_booking",
+                        "Không thể ngừng phòng đang có khách hoặc còn booking sắp tới.");
+            }
             var roomNumber = request.RoomNumber.Trim().ToUpperInvariant();
             await EnsureRoomNumberUniqueAsync(roomNumber, id, token);
             await EnsureRoomTypeExistsAsync(request.RoomTypeId, token);

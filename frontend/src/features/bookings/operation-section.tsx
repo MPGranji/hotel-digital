@@ -30,7 +30,7 @@ export function OperationSection({ model, disabled }: Readonly<{ model: FormMode
             <span className="text-sm font-medium text-slate-600">Trạng thái hiện tại</span>
             <StatusBadge status={booking.status} />
           </div>
-          <div className="flex flex-wrap gap-2">
+          {!disabled ? <div className="flex flex-wrap gap-2">
             {booking.status === "BOOKED" ? (
               <>
                 <Button disabled={saving} onClick={() => void changeStatus("check-in")}>Check-in</Button>
@@ -41,7 +41,7 @@ export function OperationSection({ model, disabled }: Readonly<{ model: FormMode
             {booking.status === "CHECKED_IN" ? (
               <Button disabled={saving} onClick={() => confirmAndChange("check-out", "Xác nhận khách đã trả phòng?")}>Check-out</Button>
             ) : null}
-          </div>
+          </div> : null}
         </div>
       ) : null}
     </div>

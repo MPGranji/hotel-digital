@@ -19,6 +19,7 @@ export function RoomTypeManager({ onClose, onSaved }: Readonly<{ onClose: () => 
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [saving, setSaving] = useState(false);
+  const [updatingId, setUpdatingId] = useState<number>();
 
   function load() { void getRoomTypes().then(setItems).catch((reason) => setError(getApiErrorMessage(reason, "Không thể tải hạng phòng."))); }
   useEffect(load, []);
@@ -28,6 +29,17 @@ export function RoomTypeManager({ onClose, onSaved }: Readonly<{ onClose: () => 
     try { if (editing) await updateRoomType(editing.id, form); else await createRoomType(form); edit(); load(); onSaved(); }
     catch (reason) { setFieldErrors(getApiProblem(reason)?.errors ?? {}); setError(getApiErrorMessage(reason, "Không thể lưu hạng phòng.")); }
     finally { setSaving(false); }
+  }
+  async function toggleType(item: RoomTypeItem) {
+    const action = item.isActive ? "ngừng sử dụng" : "kích hoạt lại";
+    if (!window.confirm(`Xác nhận ${action} hạng phòng ${item.code}?`)) return;
+    setUpdatingId(item.id); setError(undefined);
+    try {
+      await updateRoomType(item.id, { code: item.code, name: item.name, capacity: item.capacity, listedPricePerNight: item.listedPricePerNight, isActive: !item.isActive });
+      load(); onSaved();
+    } catch (reason) {
+      setError(getApiErrorMessage(reason, `Không thể ${action} hạng phòng.`));
+    } finally { setUpdatingId(undefined); }
   }
 
   return <div aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" role="dialog"><div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
@@ -41,6 +53,6 @@ export function RoomTypeManager({ onClose, onSaved }: Readonly<{ onClose: () => 
       <Field htmlFor="typeActive" label="Trạng thái"><Select id="typeActive" onChange={(e) => setForm((x) => ({ ...x, isActive: e.target.value === "true" }))} value={String(form.isActive)}><option value="true">Hoạt động</option><option value="false">Ngừng dùng</option></Select></Field>
       <div className="flex gap-2 md:col-span-5 md:justify-end"><Button onClick={() => edit()} variant="secondary">Mới</Button><Button disabled={saving} type="submit">{saving ? "Đang lưu…" : editing ? "Cập nhật" : "Thêm hạng"}</Button></div>
     </form>
-    <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Mã / Tên</th><th className="px-4 py-3">Sức chứa</th><th className="px-4 py-3 text-right">Giá mặc định</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3 text-right">Phòng</th><th className="px-4 py-3 text-right">Thao tác</th></tr></thead><tbody className="divide-y divide-slate-100">{items.map((item) => <tr key={item.id}><td className="px-4 py-3"><b>{item.code}</b><p className="text-xs text-slate-500">{item.name}</p></td><td className="px-4 py-3">{item.capacity} người</td><td className="px-4 py-3 text-right">{item.listedPricePerNight == null ? "—" : formatCurrency(item.listedPricePerNight)}</td><td className="px-4 py-3">{item.isActive ? "Hoạt động" : "Ngừng dùng"}</td><td className="px-4 py-3 text-right">{item.roomCount}</td><td className="px-4 py-3 text-right"><div className="flex justify-end gap-2"><Button onClick={() => setPricing(item)} variant="info">Bảng giá</Button><Button onClick={() => edit(item)} variant="warning">Sửa</Button></div></td></tr>)}</tbody></table></div>
+    <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[880px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Mã / Tên</th><th className="px-4 py-3">Sức chứa</th><th className="px-4 py-3 text-right">Giá mặc định</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3 text-right">Phòng</th><th className="px-4 py-3 text-right">Thao tác</th></tr></thead><tbody className="divide-y divide-slate-100">{items.map((item) => <tr key={item.id}><td className="px-4 py-3"><b>{item.code}</b><p className="text-xs text-slate-500">{item.name}</p></td><td className="px-4 py-3">{item.capacity} người</td><td className="px-4 py-3 text-right">{item.listedPricePerNight == null ? "—" : formatCurrency(item.listedPricePerNight)}</td><td className="px-4 py-3">{item.isActive ? "Hoạt động" : "Ngừng dùng"}</td><td className="px-4 py-3 text-right">{item.roomCount}</td><td className="px-4 py-3 text-right"><div className="flex justify-end gap-2"><Button onClick={() => setPricing(item)} variant="info">Bảng giá</Button><Button onClick={() => edit(item)} variant="warning">Sửa</Button><Button disabled={updatingId === item.id} onClick={() => void toggleType(item)} variant={item.isActive ? "danger" : "secondary"}>{updatingId === item.id ? "Đang lưu…" : item.isActive ? "Ngừng dùng" : "Kích hoạt"}</Button></div></td></tr>)}</tbody></table></div>
   </div>{pricing ? <RoomRateManager onClose={() => setPricing(undefined)} roomType={pricing} /> : null}</div>;
 }

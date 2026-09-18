@@ -182,6 +182,55 @@ public sealed class BookingCommandService(
         }, cancellationToken);
     }
 
+    public async Task DeleteAsync(
+        long id,
+        BookingDeleteRequest request,
+        CancellationToken cancellationToken)
+    {
+        var version = BookingValidator.DecodeVersion(request.Version);
+
+        await transactionExecutor.ExecuteAsync(async token =>
+        {
+            var booking = await db.Bookings
+                .Include(x => x.Payments)
+                .Include(x => x.Invoice)
+                .SingleOrDefaultAsync(x => x.BookingId == id, token)
+                ?? throw new ResourceNotFoundException("booking_not_found", "Không tìm thấy đặt phòng.");
+
+            if (booking.Status is "CHECKED_IN" or "CHECKED_OUT")
+                throw new BusinessRuleException(
+                    "booking_cannot_be_deleted",
+                    "Không thể xóa đặt phòng đang hoặc đã lưu trú. Hãy hủy đặt phòng nếu cần giữ lịch sử.");
+            if (booking.Payments.Count > 0 || booking.Invoice is not null || !string.IsNullOrWhiteSpace(booking.InvoiceNumber))
+                throw new BusinessRuleException(
+                    "booking_has_financial_history",
+                    "Không thể xóa đặt phòng đã phát sinh thanh toán hoặc hóa đơn.");
+
+            db.Entry(booking).Property(x => x.Version).OriginalValue = version;
+            auditWriter.Add("DELETE", "Booking", booking.BookingId.ToString(), new
+            {
+                booking.BookingCode,
+                booking.RoomId,
+                booking.CustomerId,
+                booking.Status
+            });
+            db.Bookings.Remove(booking);
+
+            try
+            {
+                await SaveWithBusinessErrorsAsync(token);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                throw new ConflictException(
+                    "booking_version_conflict",
+                    "Đặt phòng đã được người khác cập nhật. Vui lòng tải lại trước khi xóa.");
+            }
+
+            return true;
+        }, cancellationToken);
+    }
+
     private async Task EnsureReferencesAsync(BookingWriteRequest request, CancellationToken cancellationToken)
     {
         var roomIsActive = await db.Rooms.AsNoTracking()
@@ -226,7 +275,7 @@ public sealed class BookingCommandService(
         if (request.ChannelId > 0) return request;
         var defaultChannelId = await db.Channels.AsNoTracking()
             .Where(x => x.IsActive)
-            .OrderBy(x => x.Code == "OFFLINE" ? 0 : x.Category == "DIRECT" ? 1 : 2)
+            .OrderBy(x => x.Code == "DIRECT" ? 0 : x.Category == "OFFLINE" ? 1 : 2)
             .Select(x => (int?)x.ChannelId)
             .FirstOrDefaultAsync(token);
         if (!defaultChannelId.HasValue)

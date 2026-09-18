@@ -9,7 +9,7 @@ import { getApiErrorMessage } from "@/lib/api-client";
 import { formatDate } from "@/lib/format";
 import type { PagedResult } from "@/types/api";
 import { CustomerEditor } from "./customer-editor";
-import { getCustomers } from "./customers-api";
+import { getCustomer, getCustomers, updateCustomer } from "./customers-api";
 import { CustomerStays } from "./customer-stays";
 import type { CustomerListItem } from "./types";
 
@@ -24,6 +24,7 @@ export function CustomerDirectory() {
   const [error, setError] = useState<string>();
   const [editingId, setEditingId] = useState<number | "new">();
   const [staysFor, setStaysFor] = useState<CustomerListItem>();
+  const [updatingId, setUpdatingId] = useState<number>();
 
   useEffect(() => {
     const timer = window.setTimeout(() => setSearch(query.trim()), 300);
@@ -43,6 +44,31 @@ export function CustomerDirectory() {
     setLoading(true);
     setError(undefined);
     setReloadKey((value) => value + 1);
+  }
+
+  async function toggleCustomer(customer: CustomerListItem) {
+    const action = customer.isActive ? "ngừng sử dụng" : "kích hoạt lại";
+    if (!window.confirm(`Xác nhận ${action} hồ sơ ${customer.fullName}? Booking và lịch sử lưu trú vẫn được giữ nguyên.`)) return;
+    setUpdatingId(customer.id);
+    setError(undefined);
+    try {
+      const detail = await getCustomer(customer.id);
+      await updateCustomer(customer.id, {
+        fullName: detail.fullName,
+        phone: detail.phone ?? "",
+        email: detail.email ?? "",
+        identityDocument: detail.identityDocument ?? "",
+        nationality: detail.nationality ?? "",
+        note: detail.note ?? "",
+        isActive: !detail.isActive,
+        version: detail.version,
+      });
+      refresh();
+    } catch (reason) {
+      setError(getApiErrorMessage(reason, `Không thể ${action} hồ sơ khách hàng.`));
+    } finally {
+      setUpdatingId(undefined);
+    }
   }
 
   return (
@@ -75,7 +101,7 @@ export function CustomerDirectory() {
                       <td className="px-3 py-3">{customer.identityDocument || "—"}</td>
                       <td className="px-3 py-3">{customer.nationality || "Chưa xác định"}</td>
                       <td className="px-3 py-3">{formatDate(customer.lastCheckInAt)}</td>
-                      <td className="px-3 py-3"><div className="flex justify-end gap-2"><Button onClick={() => setStaysFor(customer)} variant="info">Lịch sử</Button><Button onClick={() => setEditingId(customer.id)} variant="warning">Sửa</Button></div></td>
+                      <td className="px-3 py-3"><div className="flex justify-end gap-2"><Button onClick={() => setStaysFor(customer)} variant="info">Lịch sử</Button><Button onClick={() => setEditingId(customer.id)} variant="warning">Sửa</Button><Button disabled={updatingId === customer.id} onClick={() => void toggleCustomer(customer)} variant={customer.isActive ? "danger" : "secondary"}>{updatingId === customer.id ? "Đang lưu…" : customer.isActive ? "Ngừng dùng" : "Kích hoạt"}</Button></div></td>
                     </tr>
                   ))}
                 </tbody>

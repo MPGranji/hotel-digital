@@ -28,6 +28,14 @@ export function updateBooking(id: number, request: BookingWriteRequest) {
   });
 }
 
+export function deleteBooking(id: number, version: string) {
+  return apiRequest<void>(`/api/bookings/${id}`, {
+    method: "DELETE",
+    headers: jsonHeaders,
+    body: JSON.stringify({ version }),
+  });
+}
+
 export function changeBookingStatus(id: number, action: string, version: string) {
   return apiRequest<BookingDetail>(`/api/bookings/${id}/${action}`, {
     method: "POST",

@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Mvc;
+
 namespace HotelDigital.Api.Features.Bookings;
 
 public static class BookingEndpoints
@@ -64,6 +66,16 @@ public static class BookingEndpoints
         {
             await commands.UpdateAsync(id, request, cancellationToken);
             return await queries.GetAsync(id, cancellationToken);
+        });
+
+        group.MapDelete("/{id:long}", async (
+            long id,
+            [FromBody] BookingDeleteRequest request,
+            BookingCommandService commands,
+            CancellationToken cancellationToken) =>
+        {
+            await commands.DeleteAsync(id, request, cancellationToken);
+            return Results.NoContent();
         });
 
         MapStatusEndpoint(group, "check-in", "CHECKED_IN");

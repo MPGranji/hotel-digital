@@ -124,7 +124,7 @@ public sealed class BookingQueryService(HotelDbContext db)
             .ToList();
         var channels = await db.Channels.AsNoTracking()
             .Where(x => x.IsActive)
-            .OrderBy(x => x.Category)
+            .OrderBy(x => x.Code == "DIRECT" ? 0 : x.Category == "OFFLINE" ? 1 : 2)
             .ThenBy(x => x.Name)
             .Select(x => new BookingChannelOption(x.ChannelId, x.Code, x.Name, x.Category))
             .ToListAsync(cancellationToken);

@@ -1,6 +1,6 @@
 # Kế hoạch triển khai Web vận hành khách sạn A26 Phạm Ngũ Lão
 
-> **Cập nhật 17/09/2026:** Nền tảng vận hành cốt lõi đã hoàn thành và PR #1 đã merge vào `main`; CI `api` và `web` đều thành công. Dữ liệu Azure SQL đã qua 12/12 kiểm tra cấu trúc và toàn vẹn. Backend đạt 22/22 test; frontend qua lint, type-check và production build; hai image Docker đã build, recreate và smoke-test HTTP `200`. Phần còn lại trước production là Dashboard, import/export Excel, Power BI Embedded, Entra production/App Roles, hạ tầng Azure/Vercel, quan sát hệ thống và UAT.
+> **Cập nhật 18/09/2026:** Nền tảng vận hành cốt lõi và read model Dashboard đã hoàn thành ở database qua `16_dashboard_read_models.sql`. CI `api` và `web` đều thành công; frontend qua lint, type-check và production build. Phần còn lại trước production là API/UI Dashboard, import/export Excel, Power BI Embedded, Entra production/App Roles, hạ tầng Azure/Vercel, quan sát hệ thống và UAT.
 
 ## 0. Trạng thái hiện tại
 
@@ -11,7 +11,7 @@
 | Bảng giá theo ngày | Hoàn thành | Có khoảng hiệu lực, temporal history và chặn chồng khoảng giá |
 | Kênh, thanh toán, hóa đơn | Hoàn thành | Hóa đơn có màn hình xem và in |
 | Dữ liệu lịch sử | Hoàn thành | Quốc tịch và kênh tại quầy đã chuẩn hóa; `MB-PNL` là master bill nội bộ |
-| Dashboard vận hành | Chưa triển khai | Route hiện chỉ là placeholder và chưa đưa vào điều hướng |
+| Dashboard vận hành | Đang triển khai | Read model database đã có; API/UI còn thiếu, route hiện vẫn là placeholder |
 | Nhập/xuất Excel trên web | Chưa triển khai | Importer dòng lệnh đã có; không đưa nút placeholder vào UI |
 | Power BI Embedded | Chưa triển khai | Chờ chốt semantic model, license/capacity và quyền đọc |
 | Production Azure/Vercel | Chưa triển khai | Local Docker dùng Device Code Flow; production phải dùng Managed Identity |
@@ -553,16 +553,21 @@ Danh sách khách hiện đã tính các giá trị này bằng projection/query
 
 #### Read model Dashboard
 
-Không lưu sẵn tỷ lệ phần trăm. Tạo view/query ở grain thấp nhất cần dùng để mọi API và Power BI cùng tính từ một nguồn:
+Các read model grain thấp đã được triển khai trong `16_dashboard_read_models.sql` để API và Power BI cùng tính từ một nguồn:
 
 - `hotel.vRoomNight`: một dòng cho mỗi booking/phòng/`StayDate`, có `RoomTypeID`, trạng thái booking và cờ phòng vật lý.
 - `hotel.vSellableRoomDay`: một dòng cho mỗi phòng vật lý/ngày, có cờ `IsMaintenanceBlocked` và `IsSellable`.
+- `hotel.vDate`: lịch dùng chung cho slicer và trục thời gian trong Power BI DirectQuery.
+- `hotel.vDimRoomType`, `hotel.vDimChannel`: hai bảng chiều dùng chung để lọc nhất quán giữa các fact.
+- `hotel.vBookingFact`: một dòng cho mỗi booking, không chứa thông tin định danh khách; dùng cho lượt nhận phòng, giá trị booking, ADR và công nợ.
 - `hotel.vPaymentFact`: một dòng cho mỗi giao dịch với `PaidAt`, phương thức và giá trị; không dùng `Booking.CreatedAt` thay ngày thanh toán.
-- Truy vấn Overview tổng hợp từ ba nguồn trên và bảng booking/channel; truy vấn Theo ngày giữ grain phòng/booking để trả danh sách vận hành.
+- Truy vấn Overview tổng hợp từ các fact trên; truy vấn Theo ngày giữ grain phòng/booking để trả danh sách vận hành.
+
+Các giao dịch được backfill từ cột thanh toán cũ không có ngày thu tiền gốc nên `vPaymentFact.IsPaidAtEstimated = 1`. Dashboard phải tách hoặc ghi chú phần này, không trình bày tháng import là thời điểm thực thu lịch sử đã được xác minh.
 
 Chỉ materialize/snapshot sau khi đo được truy vấn chậm trên dữ liệu thật. Trước mắt thêm index phục vụ `Booking(CheckInAt, CheckOutAt, Status, RoomID)`, `RoomBlock(RoomID, StartAt, EndAt)` và `Payment(PaidAt, BookingID)` nếu execution plan xác nhận cần thiết.
 
-Read model Dashboard và hai endpoint Dashboard vẫn chưa triển khai.
+Read model Dashboard đã triển khai; hai endpoint Dashboard và giao diện vẫn chưa triển khai.
 
 ### 6.4 Bổ sung nhật ký thao tác
 
@@ -626,7 +631,7 @@ Mốc đối chiếu sau import:
 - 261.440.339 đ công nợ.
 - 1.535 đêm.
 
-Importer lịch sử đã chạy; dữ liệu hiện tại đã được đối chiếu cấu trúc sau các script `04` đến `15`. Quốc tịch còn thiếu đã được backfill, kênh `OFFLINE` đã chuẩn hóa thành `Tại quầy`, và dữ liệu bảng giá không có orphan, giá âm, lệch cột tương thích hoặc khoảng hiệu lực chồng nhau.
+Importer lịch sử đã chạy; dữ liệu hiện tại đã được đối chiếu cấu trúc sau các script `04` đến `15`, và migration read model `16` đã được áp dụng. Quốc tịch còn thiếu đã được backfill, kênh `OFFLINE` đã chuẩn hóa thành `Tại quầy`, và dữ liệu bảng giá không có orphan, giá âm, lệch cột tương thích hoặc khoảng hiệu lực chồng nhau.
 
 ## 9. Đăng nhập trong MVP
 
@@ -647,12 +652,12 @@ Kế hoạch được chuyển từ lịch tuần giả định sang các chặn
 - Booking, check-in/check-out, cancel/no-show, khách hàng và sổ đặt phòng.
 - Phòng, hạng phòng, lịch ngày/giờ, lịch bảo trì và bảng giá có version.
 - Kênh, giao dịch thanh toán, hóa đơn xem/in và audit.
-- Import dữ liệu lịch sử, chuẩn hóa dữ liệu và các script schema đến `15_room_rate_versioning.sql`.
+- Import dữ liệu lịch sử, chuẩn hóa dữ liệu và các script schema đến `16_dashboard_read_models.sql`.
 - Docker local, CI, test backend, lint/type-check/build frontend và smoke test.
 
 ### Chặng B - Dashboard và xuất dữ liệu — Ưu tiên tiếp theo
 
-- Xây API/read model cho Tổng quan và Theo ngày.
+- Xây API cho Tổng quan và Theo ngày trên read model database đã hoàn thành.
 - Đối chiếu KPI với SQL độc lập trên một bộ dữ liệu cố định.
 - Thêm Dashboard vào điều hướng sau khi không còn placeholder.
 - Làm export sổ đặt phòng thật; chỉ hiển thị nút khi file tải xuống hoạt động và giữ đúng kiểu ngày/số/tiền.
@@ -782,7 +787,8 @@ Trạng thái hiện tại:
 | Database bảng giá | Đạt 12/12 kiểm tra trực tiếp |
 | CI | `api` và `web` thành công trên PR #1 |
 | Docker local | Build/recreate thành công; frontend và OpenAPI trả `200` |
-| Dashboard, Excel web, Power BI | Chưa đạt vì chưa triển khai |
+| Dashboard | Read model database đạt; API/UI chưa triển khai |
+| Excel web, Power BI | Chưa đạt vì chưa triển khai |
 | Production/UAT | Chưa thực hiện |
 
 ### Nghiệp vụ
@@ -894,7 +900,7 @@ Chỉ đưa một nội dung trở lại phạm vi khi có người dùng, dữ 
 3. Power BI được xây trên Power BI Service với nguồn Azure SQL và nhúng vào mục Dashboard của web. Trước go-live vẫn cần chọn license Pro/PPU theo người dùng hoặc capacity dùng chung.
 4. Hợp đồng import Excel chỉ được chốt sau khi chức năng web và validation ổn định. Mapping phải dựa trên workbook thực tế, dữ liệu phân tích hiện có và cột mã chuẩn do người dùng bổ sung; sau kiểm thử có thể phát hành template mới gọn hơn.
 
-Database hiện đã có `AuditLog`, `RoomBlock`, `RoomRate`, temporal history, `Payment` và `Invoice`. Phần schema còn cần trước khi mở import Excel lặp lại trên web là `ImportBatch`, `Booking.ImportBatchID` và unique constraint nhận diện dòng nguồn. Dashboard/Power BI có thể dùng view hoặc query projection; chỉ bổ sung schema sau khi định nghĩa KPI được duyệt.
+Database hiện đã có `AuditLog`, `RoomBlock`, `RoomRate`, temporal history, `Payment`, `Invoice` và các read model Dashboard `vRoomNight`, `vSellableRoomDay`, `vPaymentFact`. Phần schema còn cần trước khi mở import Excel lặp lại trên web là `ImportBatch`, `Booking.ImportBatchID` và unique constraint nhận diện dòng nguồn.
 
 ## 15. Quy tắc triển khai và chất lượng code
 
