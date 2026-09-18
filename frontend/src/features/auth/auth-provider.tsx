@@ -6,6 +6,7 @@ import {
   type AccountInfo,
 } from "@azure/msal-browser";
 import { MsalProvider } from "@azure/msal-react";
+import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { setAccessTokenProvider } from "@/lib/api-client";
 import { env } from "@/lib/env";
@@ -30,13 +31,15 @@ export function useSession() {
 }
 
 export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
+  const pathname = usePathname();
+  const isPublicDashboard = pathname === "/dashboard";
   const [client, setClient] = useState<PublicClientApplication>();
   const [initializationError, setInitializationError] = useState<string>();
   const [developmentReady, setDevelopmentReady] = useState(false);
   const [developmentAuthenticated, setDevelopmentAuthenticated] = useState(false);
 
   useEffect(() => {
-    if (!env.useDevelopmentUser) return;
+    if (isPublicDashboard || !env.useDevelopmentUser) return;
     let active = true;
     queueMicrotask(() => {
       if (!active) return;
@@ -44,10 +47,10 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
       setDevelopmentReady(true);
     });
     return () => { active = false; };
-  }, []);
+  }, [isPublicDashboard]);
 
   useEffect(() => {
-    if (env.useDevelopmentUser || !env.entraConfigured) return;
+    if (isPublicDashboard || env.useDevelopmentUser || !env.entraConfigured) return;
 
     const instance = new PublicClientApplication({
       auth: {
@@ -66,7 +69,19 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
         setClient(instance);
       })
       .catch(() => setInitializationError("Không thể khởi tạo đăng nhập Microsoft Entra ID."));
-  }, []);
+  }, [isPublicDashboard]);
+
+  if (isPublicDashboard) {
+    return (
+      <SessionContext.Provider value={{
+        displayName: "Dashboard công khai",
+        email: "Chỉ xem báo cáo",
+        isDevelopment: false,
+      }}>
+        {children}
+      </SessionContext.Provider>
+    );
+  }
 
   if (env.useDevelopmentUser) {
     if (!developmentReady) return <CenteredMessage title="Đang khởi tạo" description="Đang chuẩn bị phiên đăng nhập…" />;
