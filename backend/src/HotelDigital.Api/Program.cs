@@ -11,7 +11,6 @@ using HotelDigital.Api.Infrastructure.Errors;
 using HotelDigital.Api.Infrastructure.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Identity.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,23 +56,11 @@ builder.Services.AddDbContext<HotelDbContext>(options =>
     options.UseAzureSql(databaseConnectionString);
 });
 
-var useDevelopmentUser = builder.Environment.IsDevelopment()
-    && builder.Configuration.GetValue<bool>("Authentication:UseDevelopmentUser");
-
-if (useDevelopmentUser)
-{
-    builder.Services
-        .AddAuthentication(DevelopmentAuthenticationHandler.SchemeName)
-        .AddScheme<DevelopmentAuthenticationOptions, DevelopmentAuthenticationHandler>(
-            DevelopmentAuthenticationHandler.SchemeName,
-            _ => { });
-}
-else
-{
-    builder.Services
-        .AddAuthentication()
-        .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
-}
+builder.Services
+    .AddAuthentication(DevelopmentAuthenticationHandler.SchemeName)
+    .AddScheme<DevelopmentAuthenticationOptions, DevelopmentAuthenticationHandler>(
+        DevelopmentAuthenticationHandler.SchemeName,
+        _ => { });
 
 builder.Services.AddAuthorizationBuilder()
     .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
