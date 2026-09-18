@@ -37,7 +37,7 @@ export default function DashboardPage() {
           <div className="p-5">
             <DataMessage
               title="Dashboard Power BI chưa được kết nối"
-              description="Cấu hình NEXT_PUBLIC_POWER_BI_EMBED_URL bằng đường dẫn nhúng bảo mật của báo cáo đã publish."
+              description="Cấu hình NEXT_PUBLIC_POWER_BI_PUBLIC_URL bằng đường dẫn Publish to web của báo cáo."
             />
           </div>
         )}
