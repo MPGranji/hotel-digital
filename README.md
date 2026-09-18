@@ -196,18 +196,13 @@ dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backen
 - Khách hàng có dò trùng, gộp hồ sơ và ngừng sử dụng.
 - Một lượt có thể đặt nhiều phòng cùng mã nhóm.
 - Quản lý hóa đơn nháp/đã phát hành/đã hủy, liên kết với booking.
-- Microsoft Entra ID và audit ở mức MVP.
+- Đăng nhập quản trị nội bộ và audit ở mức MVP.
 
 Read model database cho Dashboard đã hoàn thành. API/UI Dashboard, nhập/xuất Excel và Power BI Embedded được thực hiện ở giai đoạn tiếp theo.
 
-## Microsoft Entra ID
+## Đăng nhập quản trị nội bộ
 
-Môi trường Development dùng danh tính local cố định để phát triển giao diện và API. Test/Production bắt buộc cấu hình:
-
-- `AzureAd__TenantId` và `AzureAd__ClientId` cho API.
-- `NEXT_PUBLIC_ENTRA_TENANT_ID`, `NEXT_PUBLIC_ENTRA_CLIENT_ID` và `NEXT_PUBLIC_ENTRA_API_SCOPE` cho frontend.
-
-Không bật `Authentication__UseDevelopmentUser` ngoài môi trường Development.
+Web dùng màn hình đăng nhập đơn giản với tài khoản quản trị dùng chung. API không còn phụ thuộc Microsoft Entra ID và tin cậy danh tính quản trị nội bộ cho mọi request. Cơ chế này phù hợp bản demo nội bộ, không có phân quyền chi tiết và không nên dùng khi mở API trực tiếp ra Internet cho dữ liệu nhạy cảm.
 
 ## Database cho web
 
