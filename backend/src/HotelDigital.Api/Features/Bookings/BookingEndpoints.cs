@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Mvc;
+
 namespace HotelDigital.Api.Features.Bookings;
 
 public static class BookingEndpoints
@@ -68,7 +70,7 @@ public static class BookingEndpoints
 
         group.MapDelete("/{id:long}", async (
             long id,
-            BookingDeleteRequest request,
+            [FromBody] BookingDeleteRequest request,
             BookingCommandService commands,
             CancellationToken cancellationToken) =>
         {
