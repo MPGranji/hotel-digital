@@ -158,7 +158,7 @@ function AuthenticatedContent({
             className="mt-6 w-full rounded-lg bg-[var(--primary)] px-4 py-3 font-semibold text-white hover:bg-[var(--primary-strong)]"
             onClick={() => {
               setTokenReady(false);
-              void client.loginPopup({ scopes: [scope] }).then((result) => setAccount(result.account));
+              void client.loginRedirect({ scopes: [scope] });
             }}
             type="button"
           >
