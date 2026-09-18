@@ -11,7 +11,7 @@ import { RoomEditor } from "./room-editor";
 import { RoomCalendar } from "./room-calendar";
 import { RoomMaintenance } from "./room-maintenance";
 import { RoomTypeManager } from "./room-type-manager";
-import { getRooms } from "./rooms-api";
+import { getRooms, updateRoom } from "./rooms-api";
 import type { RoomListItem } from "./types";
 
 const statusLabels = {
@@ -39,6 +39,7 @@ export function RoomDirectory() {
   const [error, setError] = useState<string>();
   const [reloadKey, setReloadKey] = useState(0);
   const [editing, setEditing] = useState<RoomListItem | "new">();
+  const [updatingId, setUpdatingId] = useState<number>();
   const [managingTypes, setManagingTypes] = useState(false);
   const [view, setView] = useState<"list" | "calendar" | "maintenance">("list");
 
@@ -62,6 +63,28 @@ export function RoomDirectory() {
     setReloadKey((value) => value + 1);
   }
 
+  async function toggleRoom(room: RoomListItem) {
+    const action = room.isActive ? "ngừng sử dụng" : "kích hoạt lại";
+    if (!window.confirm(`Xác nhận ${action} phòng ${room.roomNumber}?`)) return;
+    setUpdatingId(room.id);
+    setError(undefined);
+    try {
+      await updateRoom(room.id, {
+        roomNumber: room.roomNumber,
+        roomTypeId: room.roomTypeId,
+        floorLabel: room.floorLabel ?? "",
+        isActive: !room.isActive,
+        countsTowardOccupancy: room.countsTowardOccupancy,
+        note: room.note ?? "",
+      });
+      refresh();
+    } catch (reason) {
+      setError(getApiErrorMessage(reason, `Không thể ${action} phòng.`));
+    } finally {
+      setUpdatingId(undefined);
+    }
+  }
+
   return (
     <>
       <PageHeader actions={<><Button onClick={() => setManagingTypes(true)} variant="secondary">Hạng phòng</Button><Button onClick={() => setEditing("new")}>Thêm phòng</Button></>} description="Quản lý phòng, theo dõi hiện trạng và thiết lập lịch bảo trì." title="Phòng" />
@@ -81,7 +104,7 @@ export function RoomDirectory() {
           <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full min-w-[900px] text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Phòng</th><th className="px-4 py-3">Hạng phòng</th><th className="px-4 py-3">Tầng</th><th className="px-4 py-3 text-right">Giá niêm yết / đêm</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3">Khách / Lịch kế tiếp</th><th className="px-4 py-3 text-right">Thao tác</th></tr></thead>
-              <tbody className="divide-y divide-slate-100">{rooms.map((room) => <RoomRow key={room.id} onEdit={() => setEditing(room)} room={room} />)}</tbody>
+              <tbody className="divide-y divide-slate-100">{rooms.map((room) => <RoomRow key={room.id} onEdit={() => setEditing(room)} onToggle={() => void toggleRoom(room)} room={room} updating={updatingId === room.id} />)}</tbody>
             </table>
           </div>
         )}
@@ -97,7 +120,7 @@ function ViewButton({ active, label, onClick }: Readonly<{ active: boolean; labe
   return <button className={`min-h-10 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${active ? "border-blue-200 bg-blue-50 text-blue-800" : "border-transparent text-slate-600 hover:bg-slate-50"}`} onClick={onClick} type="button">{label}</button>;
 }
 
-function RoomRow({ room, onEdit }: Readonly<{ room: RoomListItem; onEdit: () => void }>) {
+function RoomRow({ room, onEdit, onToggle, updating }: Readonly<{ room: RoomListItem; onEdit: () => void; onToggle: () => void; updating: boolean }>) {
   const actionHref = room.currentBookingId ? `/bookings?bookingId=${room.currentBookingId}` : `/bookings?roomId=${room.id}`;
   const actionLabel = room.status === "OCCUPIED" ? "Mở booking" : room.status === "RESERVED" ? "Check-in" : "Tạo đặt phòng";
   const actionStyle = room.status === "OCCUPIED" ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100" : room.status === "RESERVED" ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100" : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100";
@@ -109,7 +132,7 @@ function RoomRow({ room, onEdit }: Readonly<{ room: RoomListItem; onEdit: () => 
       <td className="px-4 py-3 text-right font-medium">{room.listedPricePerNight == null ? "Chưa xác nhận" : formatCurrency(room.listedPricePerNight)}</td>
       <td className="px-4 py-3"><span className={`inline-flex rounded-md border px-2 py-1 text-xs font-medium ${statusStyles[room.status]}`}>{statusLabels[room.status]}</span></td>
       <td className="px-4 py-3">{room.currentGuestName ? <><p className="font-medium">{room.currentGuestName}</p><p className="text-xs text-slate-500">{room.currentBookingCode}</p></> : <p className="text-slate-500">Kế tiếp: {formatDateTime(room.nextCheckInAt)}</p>}</td>
-      <td className="px-4 py-3 text-right"><div className="flex justify-end gap-2"><Button onClick={onEdit} variant="warning">Sửa</Button>{room.status !== "INACTIVE" && room.status !== "MAINTENANCE" ? <Link className={`inline-flex min-h-9 items-center rounded-lg border px-3 text-sm font-medium transition-colors ${actionStyle}`} href={actionHref}>{actionLabel}</Link> : null}</div></td>
+      <td className="px-4 py-3 text-right"><div className="flex justify-end gap-2"><Button onClick={onEdit} variant="warning">Sửa</Button><Button disabled={updating || room.status === "OCCUPIED" || room.status === "RESERVED"} onClick={onToggle} variant={room.isActive ? "danger" : "secondary"}>{updating ? "Đang lưu…" : room.isActive ? "Ngừng dùng" : "Kích hoạt"}</Button>{room.status !== "INACTIVE" && room.status !== "MAINTENANCE" ? <Link className={`inline-flex min-h-9 items-center rounded-lg border px-3 text-sm font-medium transition-colors ${actionStyle}`} href={actionHref}>{actionLabel}</Link> : null}</div></td>
     </tr>
   );
 }
