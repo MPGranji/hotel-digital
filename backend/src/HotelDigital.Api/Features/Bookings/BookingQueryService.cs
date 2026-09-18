@@ -123,8 +123,8 @@ public sealed class BookingQueryService(HotelDbContext db)
             GetRates(x.RoomTypeId, x.RoomTypeCode, rateRows)))
             .ToList();
         var channels = await db.Channels.AsNoTracking()
-            .Where(x => x.IsActive)
-            .OrderBy(x => x.Category)
+            .Where(x => x.IsActive && x.Code != "OFFLINE")
+            .OrderBy(x => x.Code == "BOOKED_CTV" ? 0 : x.Category == "DIRECT" ? 1 : 2)
             .ThenBy(x => x.Name)
             .Select(x => new BookingChannelOption(x.ChannelId, x.Code, x.Name, x.Category))
             .ToListAsync(cancellationToken);

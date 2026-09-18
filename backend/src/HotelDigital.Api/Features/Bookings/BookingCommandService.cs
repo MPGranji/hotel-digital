@@ -239,7 +239,7 @@ public sealed class BookingCommandService(
             throw new BusinessRuleException("room_unavailable", "Phòng không tồn tại hoặc đã ngừng hoạt động.");
 
         var channelIsActive = await db.Channels.AsNoTracking()
-            .AnyAsync(x => x.ChannelId == request.ChannelId && x.IsActive, cancellationToken);
+            .AnyAsync(x => x.ChannelId == request.ChannelId && x.IsActive && x.Code != "OFFLINE", cancellationToken);
         if (!channelIsActive)
             throw new BusinessRuleException("channel_inactive", "Kênh đặt phòng không tồn tại hoặc đã ngừng hoạt động.");
 
@@ -274,8 +274,8 @@ public sealed class BookingCommandService(
     {
         if (request.ChannelId > 0) return request;
         var defaultChannelId = await db.Channels.AsNoTracking()
-            .Where(x => x.IsActive)
-            .OrderBy(x => x.Code == "OFFLINE" ? 0 : x.Category == "DIRECT" ? 1 : 2)
+            .Where(x => x.IsActive && x.Code != "OFFLINE")
+            .OrderBy(x => x.Code == "BOOKED_CTV" ? 0 : x.Category == "DIRECT" ? 1 : 2)
             .Select(x => (int?)x.ChannelId)
             .FirstOrDefaultAsync(token);
         if (!defaultChannelId.HasValue)

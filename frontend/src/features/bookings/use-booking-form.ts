@@ -24,6 +24,12 @@ import {
 import { calculateSuggestedRoomRevenue } from "./booking-pricing";
 import type { BookingDetail, BookingOptions } from "./types";
 
+function getDefaultChannel(channels: BookingOptions["channels"]) {
+  return channels.find((channel) => channel.code === "BOOKED_CTV")
+    ?? channels.find((channel) => channel.category === "DIRECT" && channel.code !== "OFFLINE")
+    ?? channels[0];
+}
+
 export function useBookingForm(bookingId?: number, initialRoomId?: number, initialCheckInDate?: string, initialCheckOutDate?: string) {
   const router = useRouter();
   const [form, setForm] = useState<BookingFormState>(createInitialBookingForm);
@@ -49,9 +55,7 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
         setOptions(loadedOptions);
         if (!loadedBooking) {
           setForm((current) => {
-            const defaultChannel = loadedOptions.channels.find((channel) => channel.code === "OFFLINE")
-              ?? loadedOptions.channels.find((channel) => channel.category === "DIRECT")
-              ?? loadedOptions.channels[0];
+            const defaultChannel = getDefaultChannel(loadedOptions.channels);
             const next = {
               ...current,
               channelId: current.channelId || (defaultChannel ? String(defaultChannel.id) : ""),
@@ -308,9 +312,7 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
   function reset() {
     router.replace("/bookings");
     setBooking(undefined);
-    const defaultChannel = options.channels.find((channel) => channel.code === "OFFLINE")
-      ?? options.channels.find((channel) => channel.category === "DIRECT")
-      ?? options.channels[0];
+    const defaultChannel = getDefaultChannel(options.channels);
     setForm({ ...createInitialBookingForm(), channelId: defaultChannel ? String(defaultChannel.id) : "" });
     setMessage(undefined);
     setError(undefined);
