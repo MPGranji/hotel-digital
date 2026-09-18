@@ -16,8 +16,7 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
     availableRoomIds?.includes(room.id) || (booking && String(room.id) === form.roomId));
   const selectedChannel = options.channels.find((channel) => String(channel.id) === form.channelId);
   const showExternalBookingCode = selectedChannel
-    && selectedChannel.category !== "DIRECT"
-    && selectedChannel.category !== "INTERNAL";
+    && selectedChannel.category !== "OFFLINE";
 
   return (
     <div>
@@ -72,7 +71,7 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
           )}
         </div>
 
-        <Field error={fieldErrors.channelId?.[0]} hint="Mặc định là kênh Direct (Nhân viên / nội bộ); chỉ đổi khi booking đến từ kênh khác." htmlFor="channelId" label="Kênh đặt phòng">
+        <Field error={fieldErrors.channelId?.[0]} hint="Mặc định là kênh Đặt trực tiếp; chỉ đổi khi booking đến từ kênh khác." htmlFor="channelId" label="Kênh đặt phòng">
           <SearchableSelect disabled={disabled} id="channelId" onChange={(value) => updateStayOption("channelId", value)} options={options.channels.map((channel) => ({ value: String(channel.id), label: channel.name, searchText: `${channel.code} ${channel.category}` }))} placeholder="Chọn kênh" searchPlaceholder="Nhập tên hoặc mã kênh…" value={form.channelId} />
         </Field>
         {showExternalBookingCode ? (

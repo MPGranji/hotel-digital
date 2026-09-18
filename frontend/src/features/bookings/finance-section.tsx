@@ -30,7 +30,7 @@ const paymentFields: Array<{ key: "cashAmount" | "cardAmount" | "transferAmount"
 export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel; disabled: boolean }>) {
   const { form, booking, options, fieldErrors, summary, updateField } = model;
   const selectedChannel = options.channels.find((channel) => String(channel.id) === form.channelId);
-  const usesCounterRate = selectedChannel?.category === "DIRECT" || selectedChannel?.category === "INTERNAL";
+  const usesCounterRate = selectedChannel?.category === "OFFLINE";
   const paymentMethod = form.paymentMethod;
   const hasAdditionalDetails = additionalMoneyFields.some(({ key }) => Number(form[key]) > 0)
     || Boolean(form.discountReason || form.promotionCode)

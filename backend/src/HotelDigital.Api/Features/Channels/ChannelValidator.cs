@@ -5,7 +5,7 @@ namespace HotelDigital.Api.Features.Channels;
 public static class ChannelValidator
 {
     private static readonly HashSet<string> Categories =
-        ["DIRECT", "OTA", "PARTNER", "INTERNAL", "UNKNOWN"];
+        ["OFFLINE", "ONLINE", "TRAVEL_AGENCY"];
 
     public static void Validate(ChannelWriteRequest request)
     {

@@ -20,13 +20,10 @@ public sealed class A26ImportService(HotelDbContext db)
     private static readonly IReadOnlyDictionary<string, (string Name, string Category)> ChannelDefaults =
         new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase)
         {
-            ["OFFLINE"] = ("Tại quầy / Offline", "DIRECT"),
-            ["BOOKED_CTV"] = ("Cộng tác viên", "PARTNER"),
-            ["ONLINE"] = ("Online", "OTA"),
-            ["OTA"] = ("OTA", "OTA"),
-            ["BOOKED_TA"] = ("Travel Agent", "PARTNER"),
-            ["COMPANY"] = ("Công ty", "PARTNER"),
-            ["UNKNOWN"] = ("Chưa xác định", "UNKNOWN")
+            ["DIRECT"] = ("Đặt trực tiếp", "OFFLINE"),
+            ["ONLINE"] = ("Online", "ONLINE"),
+            ["TRAVEL_AGENT"] = ("Đại lý du lịch", "TRAVEL_AGENCY"),
+            ["COMPANY"] = ("Công ty", "TRAVEL_AGENCY")
         };
 
     public async Task<A26ImportResult> ImportValidRowsAsync(A26ImportPlan plan, CancellationToken cancellationToken)
@@ -89,16 +86,14 @@ public sealed class A26ImportService(HotelDbContext db)
 
                 if (!channels.ContainsKey(row.ChannelCode))
                 {
-                    (string Name, string Category) defaults = ChannelDefaults.TryGetValue(row.ChannelCode, out var known)
-                        ? known
-                        : (row.ChannelCode, "UNKNOWN");
+                    if (!ChannelDefaults.TryGetValue(row.ChannelCode, out var defaults))
+                        throw new InvalidOperationException($"Unsupported channel code: {row.ChannelCode}.");
                     var channel = new Channel
                     {
                         Code = row.ChannelCode,
                         Name = defaults.Name,
                         Category = defaults.Category,
-                        IsActive = true,
-                        Note = "Imported from A26 legacy data."
+                        IsActive = true
                     };
                     channels.Add(row.ChannelCode, channel);
                     db.Channels.Add(channel);

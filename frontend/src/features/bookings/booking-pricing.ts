@@ -7,7 +7,7 @@ export function calculateSuggestedRoomRevenue(form: BookingFormState, options: B
   const checkIn = new Date(form.checkInAt);
   const nights = Number(form.billedNights);
 
-  const usesCounterRate = channel?.category === "DIRECT" || channel?.category === "INTERNAL";
+  const usesCounterRate = channel?.category === "OFFLINE";
   if (!room || !usesCounterRate || Number.isNaN(checkIn.getTime()) || !Number.isInteger(nights) || nights < 1) {
     return undefined;
   }

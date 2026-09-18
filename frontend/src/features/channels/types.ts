@@ -1,4 +1,4 @@
-export type ChannelCategory = "DIRECT" | "OTA" | "PARTNER" | "INTERNAL" | "UNKNOWN";
+export type ChannelCategory = "OFFLINE" | "ONLINE" | "TRAVEL_AGENCY";
 
 export interface ChannelItem {
   id: number;

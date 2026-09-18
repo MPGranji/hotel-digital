@@ -10,6 +10,8 @@ public sealed class A26WorkbookReader
 {
     private const string SheetName = "A26 Pham Ngu Lao";
     private static readonly string[] DateFormats = ["dd/MM/yy HH:mm", "dd/MM/yyyy HH:mm"];
+    private static readonly HashSet<string> SupportedChannelCodes =
+        ["DIRECT", "ONLINE", "TRAVEL_AGENT", "COMPANY"];
 
     private static readonly string[] RequiredHeaders =
     [
@@ -109,17 +111,27 @@ public sealed class A26WorkbookReader
                 rowIssues.Add(Error(rowNumber, invoiceNumber, "invalid_email", "Email không đúng định dạng."));
 
             var source = OptionalText(row, columns, "Nguồn");
-            if (source is null)
+            string? channelCode = null;
+            if (source is null || string.Equals(source, "UNKNOWN", StringComparison.OrdinalIgnoreCase))
             {
-                source = "UNKNOWN";
-                rowIssues.Add(Warning(rowNumber, invoiceNumber, "missing_channel", "Nguồn trống; ánh xạ sang UNKNOWN."));
+                rowIssues.Add(Error(rowNumber, invoiceNumber, "missing_channel", "Nguồn trống hoặc UNKNOWN; dòng không được nhập."));
+            }
+            else
+            {
+                channelCode = NormalizeChannelCode(source);
+                if (!SupportedChannelCodes.Contains(channelCode))
+                {
+                    rowIssues.Add(Error(rowNumber, invoiceNumber, "unsupported_channel", $"Nguồn '{source}' không thuộc danh mục kênh được hỗ trợ."));
+                    channelCode = null;
+                }
             }
 
             issues.AddRange(rowIssues);
             if (roomTypeCode is null || roomNumber is null || !checkInAt.HasValue || !checkOutAt.HasValue
                 || !roomRevenue.HasValue || !serviceRevenue.HasValue || !grossRevenue.HasValue
                 || !previousDebt.HasValue || !cashAmount.HasValue || !cardAmount.HasValue
-                || !transferAmount.HasValue || !debtAmount.HasValue || !balanceDue.HasValue || !billedNights.HasValue)
+                || !transferAmount.HasValue || !debtAmount.HasValue || !balanceDue.HasValue || !billedNights.HasValue
+                || channelCode is null)
             {
                 continue;
             }
@@ -153,7 +165,7 @@ public sealed class A26WorkbookReader
                 phone,
                 email,
                 identityDocument,
-                NormalizeChannelCode(source),
+                channelCode,
                 invoiceNumber,
                 OptionalText(row, columns, "Mã CMS"),
                 billedNights.Value));
@@ -269,13 +281,19 @@ public sealed class A26WorkbookReader
 
     private static string NormalizeChannelCode(string source)
     {
-        if (string.Equals(source, "UNKNOWN", StringComparison.OrdinalIgnoreCase)) return "UNKNOWN";
         if (string.Equals(source, "Công ty", StringComparison.OrdinalIgnoreCase)) return "COMPANY";
         var normalized = source.Trim().ToUpperInvariant();
         var builder = new StringBuilder(normalized.Length);
         foreach (var character in normalized)
             builder.Append(char.IsLetterOrDigit(character) ? character : '_');
-        return builder.ToString().Trim('_');
+        return builder.ToString().Trim('_') switch
+        {
+            "BOOKED_CTV" => "DIRECT",
+            "ONLINE" => "ONLINE",
+            "OTA" => "ONLINE",
+            "BOOKED_TA" => "TRAVEL_AGENT",
+            var code => code
+        };
     }
 
     private static A26ImportIssue Error(int row, string? invoice, string code, string message) =>

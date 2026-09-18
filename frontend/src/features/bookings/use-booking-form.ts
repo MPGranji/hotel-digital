@@ -25,8 +25,8 @@ import { calculateSuggestedRoomRevenue } from "./booking-pricing";
 import type { BookingDetail, BookingOptions } from "./types";
 
 function getDefaultChannel(channels: BookingOptions["channels"]) {
-  return channels.find((channel) => channel.code === "BOOKED_CTV")
-    ?? channels.find((channel) => channel.category === "DIRECT" && channel.code !== "OFFLINE")
+  return channels.find((channel) => channel.code === "DIRECT")
+    ?? channels.find((channel) => channel.category === "OFFLINE")
     ?? channels[0];
 }
 
@@ -187,7 +187,7 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
       const selectedChannel = field === "channelId"
         ? options.channels.find((channel) => String(channel.id) === value)
         : undefined;
-      const directChannel = selectedChannel?.category === "DIRECT" || selectedChannel?.category === "INTERNAL";
+      const directChannel = selectedChannel?.category === "OFFLINE";
       return withSuggestedRoomRevenue({
         ...current,
         [field]: value,

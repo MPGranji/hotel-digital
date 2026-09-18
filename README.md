@@ -144,6 +144,44 @@ dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backen
 
 View `hotel.vwRoomRateVersionTimeline` cung cấp toàn bộ phiên bản hiện tại và lịch sử để dùng trực tiếp trong báo cáo/BI.
 
+Cập nhật read model Dashboard để tính bảo trì, tách công suất thực tế/dự báo và gắn tiền thu theo `Payment.PaidAt`:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/16_dashboard_read_models.sql --schema-only --commit
+```
+
+Script tạo hoặc cập nhật `vRoomStatus`, `vRoomNight`, `vSellableRoomDay`, `vPaymentFact` và các view tổng hợp Dashboard. Thanh toán lịch sử không có ngày thu gốc được đánh dấu bằng `vPaymentFact.IsPaidAtEstimated`.
+
+Loại bỏ kênh `UNKNOWN` cùng booking, thanh toán và hóa đơn lỗi liên quan; hồ sơ khách chỉ bị xóa khi không còn booking hợp lệ nào khác:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/18_remove_unknown_channel.sql --schema-only --commit
+```
+
+Chuẩn hóa nhóm kênh thành đúng ba loại `OFFLINE`, `ONLINE`, `TRAVEL_AGENCY` trong khi vẫn giữ các mã kênh chi tiết:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/19_channel_categories.sql --schema-only --commit
+```
+
+Xóa mã kênh `OFFLINE`/`Tại quầy` không sử dụng; nhóm `OFFLINE` và các mã trực tiếp thực tế vẫn được giữ:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/20_remove_unused_counter_channel.sql --schema-only --commit
+```
+
+Chuẩn hóa mã nguồn legacy thành mã vận hành ổn định, giữ nguyên `ChannelID` và quan hệ booking:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/21_canonical_channel_codes.sql --schema-only --commit
+```
+
+Gộp hai bucket online lịch sử vào một mã `ONLINE`, giữ nguyên toàn bộ booking và dữ liệu tài chính:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/22_merge_online_channels.sql --schema-only --commit
+```
+
 ## Phạm vi triển khai hiện tại
 
 - Đặt phòng/check-in/check-out.
@@ -154,7 +192,7 @@ View `hotel.vwRoomRateVersionTimeline` cung cấp toàn bộ phiên bản hiện
 - Quản lý hóa đơn nháp/đã phát hành/đã hủy, liên kết với booking.
 - Microsoft Entra ID và audit ở mức MVP.
 
-Dashboard vận hành, nhập/xuất Excel và Power BI Embedded được để ở giai đoạn tiếp theo sau khi luồng vận hành ổn định.
+Read model database cho Dashboard đã hoàn thành. API/UI Dashboard, nhập/xuất Excel và Power BI Embedded được thực hiện ở giai đoạn tiếp theo.
 
 ## Microsoft Entra ID
 

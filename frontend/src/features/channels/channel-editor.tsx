@@ -11,7 +11,7 @@ export function ChannelEditor({ channel, onClose, onSaved }: Readonly<{ channel?
   const [form, setForm] = useState<ChannelWriteRequest>({
     code: channel?.code ?? "",
     name: channel?.name ?? "",
-    category: channel?.category ?? "DIRECT",
+    category: channel?.category ?? "OFFLINE",
     isActive: channel?.isActive ?? true,
     note: channel?.note ?? "",
   });
@@ -43,7 +43,7 @@ export function ChannelEditor({ channel, onClose, onSaved }: Readonly<{ channel?
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <Field error={fieldErrors.code?.[0]} htmlFor="channelCode" label="Mã kênh" required><Input autoFocus id="channelCode" onChange={(event) => setForm((current) => ({ ...current, code: event.target.value }))} value={form.code} /></Field>
           <Field error={fieldErrors.name?.[0]} htmlFor="channelName" label="Tên kênh" required><Input id="channelName" onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} value={form.name} /></Field>
-          <Field error={fieldErrors.category?.[0]} htmlFor="channelCategory" label="Nhóm kênh" required><Select id="channelCategory" onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as ChannelCategory }))} value={form.category}><option value="DIRECT">Trực tiếp</option><option value="OTA">OTA</option><option value="PARTNER">Đối tác</option><option value="INTERNAL">Nội bộ</option><option value="UNKNOWN">Chưa xác định</option></Select></Field>
+          <Field error={fieldErrors.category?.[0]} htmlFor="channelCategory" label="Nhóm kênh" required><Select id="channelCategory" onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as ChannelCategory }))} value={form.category}><option value="OFFLINE">Offline</option><option value="ONLINE">Online</option><option value="TRAVEL_AGENCY">Đại lý du lịch</option></Select></Field>
           <Field htmlFor="channelActive" label="Trạng thái"><Select id="channelActive" onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.value === "true" }))} value={String(form.isActive)}><option value="true">Đang hoạt động</option><option value="false">Ngừng hoạt động</option></Select></Field>
           <div className="md:col-span-2"><Field error={fieldErrors.note?.[0]} htmlFor="channelNote" label="Ghi chú"><Textarea id="channelNote" onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} value={form.note} /></Field></div>
         </div>
