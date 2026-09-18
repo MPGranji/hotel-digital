@@ -62,6 +62,7 @@ public sealed record A26ImportResult(
     int ImportedRows,
     int SkippedDuplicateRows,
     int CreatedCustomers,
+    int CreatedPayments,
     int CreatedRoomTypes,
     int CreatedRooms,
     int CreatedChannels,
@@ -69,6 +70,7 @@ public sealed record A26ImportResult(
     decimal ServiceRevenue,
     decimal GrossRevenue,
     decimal CashAmount,
+    decimal CardAmount,
     decimal TransferAmount,
     decimal DebtAmount,
     int BilledNights);

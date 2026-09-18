@@ -182,6 +182,12 @@ Gộp hai bucket online lịch sử vào một mã `ONLINE`, giữ nguyên toàn
 dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/22_merge_online_channels.sql --schema-only --commit
 ```
 
+Sửa ngày thu ước tính của thanh toán lịch sử: workbook nguồn không có timestamp thanh toán, nên dùng ngày checkout thay cho ngày import database:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/23_correct_estimated_payment_dates.sql --schema-only --commit
+```
+
 ## Phạm vi triển khai hiện tại
 
 - Đặt phòng/check-in/check-out.

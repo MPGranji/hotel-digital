@@ -46,6 +46,7 @@ public sealed class A26ImportService(HotelDbContext db)
             var createdRoomTypes = 0;
             var createdRooms = 0;
             var createdChannels = 0;
+            var createdPayments = 0;
 
             foreach (var row in rowsToImport)
             {
@@ -114,7 +115,7 @@ public sealed class A26ImportService(HotelDbContext db)
                     Note = $"Imported from {plan.FileName}, row {row.SourceRow}."
                 };
                 db.Customers.Add(customer);
-                db.Bookings.Add(new Booking
+                var booking = new Booking
                 {
                     LegacyBookingCode = row.LegacyBookingCode,
                     LegacySourceRow = row.SourceRow,
@@ -138,7 +139,11 @@ public sealed class A26ImportService(HotelDbContext db)
                     DebtAmount = row.DebtAmount,
                     InvoiceNumber = row.InvoiceNumber,
                     Note = $"Historical A26 import; source row {row.SourceRow}."
-                });
+                };
+                createdPayments += AddHistoricalPayment(booking, row.CashAmount, "CASH", row.CheckOutAt);
+                createdPayments += AddHistoricalPayment(booking, row.CardAmount, "CARD", row.CheckOutAt);
+                createdPayments += AddHistoricalPayment(booking, row.TransferAmount, "TRANSFER", row.CheckOutAt);
+                db.Bookings.Add(booking);
             }
 
             db.AuditLogs.Add(new AuditLog
@@ -167,6 +172,7 @@ public sealed class A26ImportService(HotelDbContext db)
                 rowsToImport.Length,
                 validRows.Count - rowsToImport.Length,
                 rowsToImport.Length,
+                createdPayments,
                 createdRoomTypes,
                 createdRooms,
                 createdChannels,
@@ -174,6 +180,7 @@ public sealed class A26ImportService(HotelDbContext db)
                 rowsToImport.Sum(row => row.ServiceRevenue),
                 rowsToImport.Sum(row => row.RoomRevenue + row.ServiceRevenue + row.SurchargeAmount - row.DiscountAmount),
                 rowsToImport.Sum(row => row.CashAmount),
+                rowsToImport.Sum(row => row.CardAmount),
                 rowsToImport.Sum(row => row.TransferAmount),
                 rowsToImport.Sum(row => row.DebtAmount),
                 rowsToImport.Sum(row => row.BilledNights));
@@ -182,6 +189,19 @@ public sealed class A26ImportService(HotelDbContext db)
 
     private static string? GetFloorLabel(string roomNumber) =>
         roomNumber.Length > 0 && char.IsDigit(roomNumber[0]) ? roomNumber[0].ToString() : null;
+
+    private static int AddHistoricalPayment(Booking booking, decimal amount, string method, DateTime paidAt)
+    {
+        if (amount <= 0) return 0;
+        booking.Payments.Add(new Payment
+        {
+            Amount = amount,
+            Method = method,
+            PaidAt = paidAt,
+            Note = "Chuyển từ dữ liệu thanh toán booking hiện có"
+        });
+        return 1;
+    }
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
