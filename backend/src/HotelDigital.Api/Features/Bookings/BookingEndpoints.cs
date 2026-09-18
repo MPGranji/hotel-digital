@@ -66,6 +66,16 @@ public static class BookingEndpoints
             return await queries.GetAsync(id, cancellationToken);
         });
 
+        group.MapDelete("/{id:long}", async (
+            long id,
+            BookingDeleteRequest request,
+            BookingCommandService commands,
+            CancellationToken cancellationToken) =>
+        {
+            await commands.DeleteAsync(id, request, cancellationToken);
+            return Results.NoContent();
+        });
+
         MapStatusEndpoint(group, "check-in", "CHECKED_IN");
         MapStatusEndpoint(group, "check-out", "CHECKED_OUT");
         MapStatusEndpoint(group, "cancel", "CANCELLED");

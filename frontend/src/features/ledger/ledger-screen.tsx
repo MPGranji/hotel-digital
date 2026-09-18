@@ -8,7 +8,7 @@ import { Input, Select } from "@/components/ui/field";
 import { DataMessage, PageHeader, Panel } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { getBookingOptions, getBookings } from "@/features/bookings/bookings-api";
+import { deleteBooking, getBookingOptions, getBookings } from "@/features/bookings/bookings-api";
 import type { BookingListItem, BookingOptions } from "@/features/bookings/types";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { formatCurrency, formatDateTime } from "@/lib/format";
@@ -34,6 +34,8 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
   const [result, setResult] = useState<PagedResult<BookingListItem>>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
+  const [actionError, setActionError] = useState<string>();
+  const [deletingId, setDeletingId] = useState<number>();
   const [reloadKey, setReloadKey] = useState(0);
 
   const requestParams = useMemo(() => {
@@ -82,6 +84,25 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
     setReloadKey((value) => value + 1);
   }
 
+  async function removeBooking(booking: BookingListItem) {
+    if (!window.confirm(`Xóa đặt phòng ${booking.bookingCode}? Hành động này không thể hoàn tác.`)) return;
+    setDeletingId(booking.id);
+    setActionError(undefined);
+    try {
+      await deleteBooking(booking.id, booking.version);
+      if (result?.items.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+        setLoading(true);
+      } else {
+        refresh();
+      }
+    } catch (reason) {
+      setActionError(getApiErrorMessage(reason, "Không thể xóa đặt phòng. Vui lòng thử lại."));
+    } finally {
+      setDeletingId(undefined);
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -101,12 +122,13 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
         </form>
 
         <div className="mt-5">
+          {actionError ? <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{actionError}</p> : null}
           {error ? <DataMessage action={<Button onClick={refresh}>Thử lại</Button>} description={error} title="Không thể tải dữ liệu" /> : loading ? <DataMessage title="Đang tải sổ đặt phòng…" /> : !result?.items.length ? <DataMessage description="Thử thay đổi bộ lọc hoặc tạo đặt phòng mới." title="Không có đặt phòng phù hợp" /> : (
             <>
               <div className="overflow-x-auto rounded-lg border border-slate-200">
                 <table className="w-full min-w-[1080px] text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-3">Mã / Khách</th><th className="px-3 py-3">Phòng</th><th className="px-3 py-3">Ngày đến</th><th className="px-3 py-3">Ngày đi</th><th className="px-3 py-3 text-right">Tiền phòng</th><th className="px-3 py-3 text-right">Tổng thu</th><th className="px-3 py-3 text-right">Đã trả</th><th className="px-3 py-3 text-right">Công nợ</th><th className="px-3 py-3">Trạng thái</th><th className="px-3 py-3 text-right">Thao tác</th></tr></thead>
-                  <tbody className="divide-y divide-slate-100">{result.items.map((booking) => <LedgerRow booking={booking} key={booking.id} />)}</tbody>
+                  <tbody className="divide-y divide-slate-100">{result.items.map((booking) => <LedgerRow booking={booking} deleting={deletingId === booking.id} key={booking.id} onDelete={removeBooking} />)}</tbody>
                 </table>
               </div>
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-slate-500">{result.totalItems.toLocaleString("vi-VN")} đặt phòng</p><Pagination page={result.page} totalPages={result.totalPages} onPageChange={(next) => { setPage(next); setLoading(true); }} /></div>
@@ -118,7 +140,7 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
   );
 }
 
-function LedgerRow({ booking }: Readonly<{ booking: BookingListItem }>) {
+function LedgerRow({ booking, deleting, onDelete }: Readonly<{ booking: BookingListItem; deleting: boolean; onDelete: (booking: BookingListItem) => void }>) {
   return (
     <tr className="hover:bg-slate-50">
       <td className="px-3 py-3"><p className="font-medium text-[var(--primary)]">{booking.bookingCode}</p>{booking.groupCode ? <p className="text-xs font-medium text-blue-700">Nhóm {booking.groupCode}</p> : null}<p className="text-slate-700">{booking.customerName}</p><p className="text-xs text-slate-500">{booking.customerPhone || booking.channelName}</p></td>
@@ -130,7 +152,13 @@ function LedgerRow({ booking }: Readonly<{ booking: BookingListItem }>) {
       <td className="px-3 py-3 text-right">{formatCurrency(booking.paidAmount)}</td>
       <td className="px-3 py-3 text-right">{formatCurrency(booking.debtAmount)}</td>
       <td className="px-3 py-3"><StatusBadge status={booking.status} /></td>
-      <td className="px-3 py-3 text-right"><Link className="inline-flex min-h-9 items-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100" href={`/bookings?bookingId=${booking.id}`}>Xem / Sửa</Link></td>
+      <td className="px-3 py-3 text-right">
+        <div className="flex justify-end gap-2">
+          <Link className="inline-flex min-h-9 items-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100" href={`/bookings?bookingId=${booking.id}&mode=view`}>Xem</Link>
+          <Link className="inline-flex min-h-9 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100" href={`/bookings?bookingId=${booking.id}`}>Sửa</Link>
+          <Button className="min-h-9 px-3 py-1" disabled={deleting} onClick={() => onDelete(booking)} variant="danger">{deleting ? "Đang xóa…" : "Xóa"}</Button>
+        </div>
+      </td>
     </tr>
   );
 }

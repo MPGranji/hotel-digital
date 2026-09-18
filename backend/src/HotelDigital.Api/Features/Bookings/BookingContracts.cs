@@ -35,6 +35,8 @@ public sealed record BookingWriteRequest(
 
 public sealed record BookingStatusRequest(string Version);
 
+public sealed record BookingDeleteRequest(string Version);
+
 public sealed record BookingListItem(
     long Id,
     string BookingCode,

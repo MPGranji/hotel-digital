@@ -19,7 +19,7 @@ const methodLabels: Record<PaymentMethod, string> = {
   TRANSFER: "Chuyển khoản / online",
 };
 
-export function PaymentSection({ model }: Readonly<{ model: FormModel }>) {
+export function PaymentSection({ model, readOnly = false }: Readonly<{ model: FormModel; readOnly?: boolean }>) {
   const { booking, refreshBooking } = model;
   const [items, setItems] = useState<PaymentItem[]>([]);
   const [amount, setAmount] = useState("");
@@ -80,7 +80,7 @@ export function PaymentSection({ model }: Readonly<{ model: FormModel }>) {
         <MoneyValue label="Cần thu khi trả phòng" value={amountToCollect} valueClass={amountToCollect > 0 ? "text-amber-700" : "text-emerald-700"} />
       </div>
 
-      {!closed ? (
+      {!closed && !readOnly ? (
         <form className="mt-4 grid gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4 md:grid-cols-[minmax(180px,1fr)_minmax(220px,1fr)_minmax(220px,1fr)_auto] md:items-end" onSubmit={(event) => { event.preventDefault(); void save(); }}>
           <Field error={fieldErrors.amount?.[0]} htmlFor="paymentAmount" label="Số tiền thu" required>
             <MoneyInput id="paymentAmount" onChange={setAmount} value={amount} />
