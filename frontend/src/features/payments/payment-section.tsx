@@ -111,7 +111,7 @@ export function PaymentSection({ model, readOnly = false }: Readonly<{ model: Fo
         {loading ? <DataMessage title="Đang tải sổ thu tiền…" /> : items.length === 0 ? <DataMessage description="Có thể ghi nhận tiền cọc hoặc khoản thu tại quầy. Đây chỉ là sổ theo dõi nội bộ, không kết nối cổng thanh toán." title="Chưa ghi nhận khoản thu" /> : (
           <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full min-w-[650px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Thời gian</th><th className="px-4 py-3">Phương thức</th><th className="px-4 py-3">Mã / Ghi chú</th><th className="px-4 py-3 text-right">Số tiền</th></tr></thead>
+              <thead className="bg-[var(--sidebar)] text-xs text-[var(--muted)]"><tr><th className="px-4 py-3">Thời gian</th><th className="px-4 py-3">Phương thức</th><th className="px-4 py-3">Mã / Ghi chú</th><th className="px-4 py-3 text-right">Số tiền</th></tr></thead>
               <tbody className="divide-y divide-slate-100">{items.map((payment) => <tr key={payment.id}><td className="px-4 py-3">{formatDateTime(payment.paidAt)}</td><td className="px-4 py-3">{methodLabels[payment.method]}</td><td className="px-4 py-3 text-slate-500"><p>{payment.referenceCode || "—"}</p>{payment.note ? <p className="text-xs">{payment.note}</p> : null}</td><td className="px-4 py-3 text-right font-medium text-emerald-700">{formatCurrency(payment.amount)}</td></tr>)}</tbody>
             </table>
           </div>

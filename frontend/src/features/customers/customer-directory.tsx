@@ -101,7 +101,7 @@ export function CustomerDirectory() {
                       <td className="px-3 py-3">{customer.identityDocument || "—"}</td>
                       <td className="px-3 py-3">{customer.nationality || "Chưa xác định"}</td>
                       <td className="px-3 py-3">{formatDate(customer.lastCheckInAt)}</td>
-                      <td className="px-3 py-3"><div className="flex justify-end gap-2"><Button onClick={() => setStaysFor(customer)} variant="info">Lịch sử</Button><Button onClick={() => setEditingId(customer.id)} variant="warning">Sửa</Button><Button disabled={updatingId === customer.id} onClick={() => void toggleCustomer(customer)} variant={customer.isActive ? "danger" : "secondary"}>{updatingId === customer.id ? "Đang lưu…" : customer.isActive ? "Ngừng dùng" : "Kích hoạt"}</Button></div></td>
+                      <td className="px-3 py-3"><div className="flex justify-end gap-1"><Button onClick={() => setStaysFor(customer)} size="sm" variant="ghost">Lịch sử</Button><Button onClick={() => setEditingId(customer.id)} size="sm" variant="secondary">Sửa</Button><Button disabled={updatingId === customer.id} onClick={() => void toggleCustomer(customer)} size="sm" variant={customer.isActive ? "danger" : "secondary"}>{updatingId === customer.id ? "Đang lưu…" : customer.isActive ? "Ngừng dùng" : "Kích hoạt"}</Button></div></td>
                     </tr>
                   ))}
                 </tbody>

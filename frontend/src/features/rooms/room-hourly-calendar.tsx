@@ -87,18 +87,18 @@ export function RoomHourlyCalendar() {
   return <>
     <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-        <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Hạng phòng<Select className="mt-1" onChange={(event) => { setRoomType(event.target.value); setRoomId(""); setLoading(true); }} value={roomType}><option value="">Tất cả hạng</option>{roomTypes.map((item) => <option key={item}>{item}</option>)}</Select></label>
-        <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Tầng<Select className="mt-1" onChange={(event) => { setFloor(event.target.value); setRoomId(""); setLoading(true); }} value={floor}><option value="">Tất cả tầng</option>{floors.map((item) => <option key={item} value={item}>Tầng {item}</option>)}</Select></label>
-        <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Phòng<Select className="mt-1" onChange={(event) => { setRoomId(event.target.value); setLoading(true); }} value={selectedRoomId}><option value="">Chọn phòng</option>{filteredRooms.map((room) => <option key={room.id} value={room.id}>{room.roomNumber} · {room.roomTypeName}</option>)}</Select></label>
-        <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Tuần có ngày<Input className="mt-1" onChange={(event) => { setLoading(true); setError(undefined); setWeekDate(event.target.value); }} type="date" value={weekDate} /></label>
-        <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Từ giờ<Select className="mt-1" onChange={(event) => setStartHour(Math.min(Number(event.target.value), endHour - 1))} value={startHour}>{Array.from({ length: 24 }, (_, hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}</Select></label>
-        <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Đến giờ<Select className="mt-1" onChange={(event) => setEndHour(Math.max(Number(event.target.value), startHour + 1))} value={endHour}>{Array.from({ length: 24 }, (_, index) => index + 1).map((hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}</Select></label>
+        <label className="text-sm font-medium text-[var(--foreground)]">Hạng phòng<Select className="mt-1.5" onChange={(event) => { setRoomType(event.target.value); setRoomId(""); setLoading(true); }} value={roomType}><option value="">Tất cả hạng</option>{roomTypes.map((item) => <option key={item}>{item}</option>)}</Select></label>
+        <label className="text-sm font-medium text-[var(--foreground)]">Tầng<Select className="mt-1.5" onChange={(event) => { setFloor(event.target.value); setRoomId(""); setLoading(true); }} value={floor}><option value="">Tất cả tầng</option>{floors.map((item) => <option key={item} value={item}>Tầng {item}</option>)}</Select></label>
+        <label className="text-sm font-medium text-[var(--foreground)]">Phòng<Select className="mt-1.5" onChange={(event) => { setRoomId(event.target.value); setLoading(true); }} value={selectedRoomId}><option value="">Chọn phòng</option>{filteredRooms.map((room) => <option key={room.id} value={room.id}>{room.roomNumber} · {room.roomTypeName}</option>)}</Select></label>
+        <label className="text-sm font-medium text-[var(--foreground)]">Tuần có ngày<Input className="mt-1.5" onChange={(event) => { setLoading(true); setError(undefined); setWeekDate(event.target.value); }} type="date" value={weekDate} /></label>
+        <label className="text-sm font-medium text-[var(--foreground)]">Từ giờ<Select className="mt-1.5" onChange={(event) => setStartHour(Math.min(Number(event.target.value), endHour - 1))} value={startHour}>{Array.from({ length: 24 }, (_, hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}</Select></label>
+        <label className="text-sm font-medium text-[var(--foreground)]">Đến giờ<Select className="mt-1.5" onChange={(event) => setEndHour(Math.max(Number(event.target.value), startHour + 1))} value={endHour}>{Array.from({ length: 24 }, (_, index) => index + 1).map((hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}</Select></label>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button onClick={() => moveWeek(-7)} variant="secondary">← Tuần trước</Button>
         <Button onClick={() => { setLoading(true); setError(undefined); setWeekDate(localDate()); }} variant="secondary">Hôm nay</Button>
         <Button onClick={() => moveWeek(7)} variant="secondary">Tuần sau →</Button>
-        <div className="ml-auto flex flex-wrap gap-3 text-xs text-slate-600"><Legend color="bg-blue-400" label="Đã đặt" /><Legend color="bg-amber-400" label="Đang ở" /><Legend color="bg-rose-400" label="Bảo trì" /></div>
+        <div className="ml-auto flex flex-wrap gap-3 text-xs text-slate-600"><Legend color="bg-[#91b8ae]" label="Đã đặt" /><Legend color="bg-[#d6b472]" label="Đang ở" /><Legend color="bg-[#cb8f84]" label="Bảo trì" /></div>
       </div>
     </div>
 
@@ -106,7 +106,7 @@ export function RoomHourlyCalendar() {
       <div className="min-w-[980px]">
         <div className="sticky top-0 z-30 grid grid-cols-[72px_repeat(7,minmax(128px,1fr))] border-b border-slate-200 bg-slate-50">
           <div className="border-r border-slate-200 px-2 py-3 text-center text-xs font-medium text-slate-500">Giờ</div>
-          {data.dates.map((date) => <div className={`border-r border-slate-200 px-2 py-3 text-center text-sm font-semibold capitalize ${date === localDate() ? "bg-blue-50 text-blue-700" : "text-slate-700"}`} key={date}>{dayHeading(date)}</div>)}
+          {data.dates.map((date) => <div className={`border-r border-slate-200 px-2 py-3 text-center text-sm font-medium capitalize ${date === localDate() ? "bg-[var(--nav-active)] text-[var(--primary-strong)]" : "text-slate-700"}`} key={date}>{dayHeading(date)}</div>)}
         </div>
         {!data.isActive ? <p className="border-b border-slate-200 bg-slate-100 px-4 py-2 text-sm text-slate-600">Phòng {data.roomNumber} đang ngừng hoạt động.</p> : null}
         <div className="grid grid-cols-[72px_repeat(7,minmax(128px,1fr))]" style={{ height: calendarHeight }}>
@@ -142,7 +142,7 @@ function DayColumn({ date, events, startHour, endHour }: Readonly<{ date: string
 function CalendarEvent({ event, top, height }: Readonly<{ event: RoomHourlyCalendarEvent; top: number; height: number }>) {
   const checkedIn = event.status === "CHECKED_IN";
   const maintenance = event.kind === "MAINTENANCE";
-  const classes = maintenance ? "border-rose-300 bg-rose-100 text-rose-900" : checkedIn ? "border-amber-300 bg-amber-100 text-amber-950" : "border-blue-300 bg-blue-100 text-blue-900";
+  const classes = maintenance ? "border-[#dfc0b9] bg-[#f9efec] text-[#8c493e]" : checkedIn ? "border-[#d8c6a7] bg-[#faf4e9] text-[#755b2e]" : "border-[#bdd1cb] bg-[#edf5f2] text-[#24544d]";
   const content = <><b className="block truncate text-xs">{maintenance ? "Bảo trì" : event.customerName}</b><span className="block truncate text-[10px] opacity-80">{timeLabel(event.startAt)}–{timeLabel(event.endAt)}{maintenance ? ` · ${event.maintenanceReason}` : ` · ${event.bookingCode}`}</span></>;
   const style = { top, height };
   if (event.bookingId) return <Link className={`absolute inset-x-1 z-10 overflow-hidden rounded-md border px-2 py-1 shadow-sm hover:brightness-95 ${classes}`} href={`/bookings?bookingId=${event.bookingId}`} style={style} title={`${event.customerName} · ${event.bookingCode}`}>{content}</Link>;

@@ -37,7 +37,7 @@ export function ChannelEditor({ channel, onClose, onSaved }: Readonly<{ channel?
 
   return (
     <div aria-labelledby="channel-editor-title" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" role="dialog">
-      <form className="w-full max-w-xl rounded-xl bg-white p-6 shadow-xl" onSubmit={(event) => { event.preventDefault(); void save(); }}>
+      <form className="max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto rounded-xl bg-white p-4 shadow-xl sm:max-h-[90dvh] sm:p-6" onSubmit={(event) => { event.preventDefault(); void save(); }}>
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4"><div><h2 className="text-lg font-semibold text-slate-950" id="channel-editor-title">{channel ? "Cập nhật kênh" : "Thêm kênh đặt phòng"}</h2><p className="mt-1 text-sm text-slate-500">Hoa hồng không thuộc luồng vận hành hiện tại.</p></div><Button onClick={onClose} variant="ghost">Đóng</Button></div>
         {error ? <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">{error}</p> : null}
         <div className="mt-5 grid gap-4 md:grid-cols-2">

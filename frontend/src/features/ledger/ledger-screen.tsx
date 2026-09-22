@@ -127,7 +127,7 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
             <>
               <div className="overflow-x-auto rounded-lg border border-slate-200">
                 <table className="w-full min-w-[1180px] text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-3">Mã / Khách</th><th className="px-3 py-3">Nguồn đặt</th><th className="px-3 py-3">Phòng</th><th className="px-3 py-3">Ngày đến</th><th className="px-3 py-3">Ngày đi</th><th className="px-3 py-3 text-right">Tiền phòng</th><th className="px-3 py-3 text-right">Tổng thu</th><th className="px-3 py-3">Thanh toán / Hóa đơn</th><th className="px-3 py-3">Lưu trú</th><th className="px-3 py-3 text-right">Thao tác</th></tr></thead>
+                  <thead className="bg-[var(--sidebar)] text-xs text-[var(--muted)]"><tr><th className="px-3 py-3">Mã / Khách</th><th className="px-3 py-3">Nguồn đặt</th><th className="px-3 py-3">Phòng</th><th className="px-3 py-3">Ngày đến</th><th className="px-3 py-3">Ngày đi</th><th className="px-3 py-3 text-right">Tiền phòng</th><th className="px-3 py-3 text-right">Tổng thu</th><th className="px-3 py-3">Thanh toán / Hóa đơn</th><th className="px-3 py-3">Lưu trú</th><th className="px-3 py-3 text-right">Thao tác</th></tr></thead>
                   <tbody className="divide-y divide-slate-100">{result.items.map((booking) => <LedgerRow booking={booking} deleting={deletingId === booking.id} key={booking.id} onDelete={removeBooking} />)}</tbody>
                 </table>
               </div>

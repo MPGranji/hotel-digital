@@ -95,7 +95,7 @@ export function ChannelDirectory() {
                   <td className="px-4 py-3"><span className="rounded-md border border-[#bdd1cb] bg-[var(--nav-active)] px-2 py-1 text-xs font-medium text-[var(--primary-strong)]">{getCategoryLabel(channel.category)}</span></td>
                   <td className="px-4 py-3"><span className={`rounded-md border px-2 py-1 text-xs font-medium ${channel.isActive ? "border-[#bdd1cb] bg-[#edf5f2] text-[#24544d]" : "border-[var(--border)] bg-[var(--surface-muted)] text-[var(--nav-text)]"}`}>{channel.isActive ? "Đang hoạt động" : "Ngừng hoạt động"}</span></td>
                   <td className="px-4 py-3 text-right">{channel.bookingCount}</td>
-                  <td className="px-4 py-3 text-right"><div className="flex justify-end gap-2"><Button onClick={() => setEditing(channel)} variant="warning">Sửa</Button><Button disabled={updatingId === channel.id} onClick={() => void toggleChannel(channel)} variant={channel.isActive ? "danger" : "secondary"}>{updatingId === channel.id ? "Đang lưu…" : channel.isActive ? "Ngừng dùng" : "Kích hoạt"}</Button></div></td>
+                  <td className="px-4 py-3 text-right"><div className="flex justify-end gap-1"><Button onClick={() => setEditing(channel)} size="sm" variant="secondary">Sửa</Button><Button disabled={updatingId === channel.id} onClick={() => void toggleChannel(channel)} size="sm" variant={channel.isActive ? "danger" : "secondary"}>{updatingId === channel.id ? "Đang lưu…" : channel.isActive ? "Ngừng dùng" : "Kích hoạt"}</Button></div></td>
                 </tr>)}
               </tbody>
             </table>

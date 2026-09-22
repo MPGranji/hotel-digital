@@ -80,7 +80,7 @@ export function RoomMaintenance({ rooms }: Readonly<{ rooms: RoomListItem[] }>) 
           <h2 className="text-lg font-semibold">Lịch bảo trì phòng</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">Chọn phòng và thời gian cần bảo trì. Lịch phòng sẽ hiển thị khoảng thời gian này.</p>
         </div>
-        <label className="text-xs font-medium uppercase tracking-wide text-slate-500 md:ml-auto">Xem từ ngày<Input className="mt-1 w-44" onChange={(event) => { setLoading(true); setError(undefined); setDateFrom(event.target.value); }} type="date" value={dateFrom} /></label>
+        <label className="text-sm font-medium text-[var(--foreground)] md:ml-auto">Xem từ ngày<Input className="mt-1.5 w-44" onChange={(event) => { setLoading(true); setError(undefined); setDateFrom(event.target.value); }} type="date" value={dateFrom} /></label>
         <Button onClick={() => { setLoading(true); setError(undefined); setDateFrom(localDate()); }} variant="secondary">Hôm nay</Button>
         <Button onClick={() => setEditing({})}>Thêm lịch bảo trì</Button>
       </div>
@@ -88,7 +88,7 @@ export function RoomMaintenance({ rooms }: Readonly<{ rooms: RoomListItem[] }>) 
       <p className="my-4 text-xs text-slate-500">Các lịch giao với khoảng 31 ngày kể từ {formatDate(dateFrom)}.</p>
       {error ? <DataMessage action={<Button onClick={refresh}>Thử lại</Button>} description={error} title="Không thể tải lịch bảo trì" /> : loading ? <DataMessage title="Đang tải lịch bảo trì…" /> : schedules.length === 0 ? <DataMessage description="Bạn có thể thêm lịch mới bằng nút phía trên." title="Không có lịch bảo trì trong khoảng này" /> : <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Phòng</th><th className="px-4 py-3">Lý do</th><th className="px-4 py-3">Khoảng ngày hiển thị</th><th className="px-4 py-3 text-right">Thao tác</th></tr></thead>
+          <thead className="bg-[var(--sidebar)] text-xs text-[var(--muted)]"><tr><th className="px-4 py-3">Phòng</th><th className="px-4 py-3">Lý do</th><th className="px-4 py-3">Khoảng ngày hiển thị</th><th className="px-4 py-3 text-right">Thao tác</th></tr></thead>
           <tbody className="divide-y divide-slate-100">{schedules.map((schedule) => <tr className="hover:bg-slate-50" key={schedule.id}>
             <td className="px-4 py-3"><b className="text-[var(--primary)]">Phòng {schedule.roomNumber}</b><p className="text-xs text-slate-500">{schedule.roomTypeName}</p></td>
             <td className="px-4 py-3 font-medium">{schedule.reason}</td>
