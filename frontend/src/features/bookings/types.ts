@@ -13,6 +13,7 @@ export interface BookingWriteRequest {
   customerId: number | null;
   newCustomer: BookingCustomerInput | null;
   channelId: number;
+  bookingMode: "RESERVATION" | "WALK_IN";
   externalBookingCode: string;
   checkInAt: string;
   checkOutAt: string;
@@ -41,10 +42,13 @@ export interface BookingDetail extends Omit<BookingWriteRequest, "newCustomer"> 
   roomTypeName: string;
   customerName: string;
   channelName: string;
+  channelCategory: string;
   status: string;
   paidAmount: number;
   grossRevenue: number;
   averageRoomRate: number;
+  invoiceId?: number;
+  invoiceStatus?: "DRAFT" | "ISSUED" | "VOID";
   version: string;
 }
 
@@ -59,6 +63,11 @@ export interface BookingListItem {
   customerPhone?: string;
   channelId: number;
   channelName: string;
+  channelCategory: string;
+  bookingMode: "RESERVATION" | "WALK_IN";
+  invoiceId?: number;
+  invoiceNumber?: string;
+  invoiceStatus?: "DRAFT" | "ISSUED" | "VOID";
   checkInAt: string;
   checkOutAt: string;
   billedNights: number;

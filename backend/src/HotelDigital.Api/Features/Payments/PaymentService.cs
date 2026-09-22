@@ -3,6 +3,7 @@ using HotelDigital.Api.Data.Entities;
 using HotelDigital.Api.Infrastructure.Auditing;
 using HotelDigital.Api.Infrastructure.Errors;
 using HotelDigital.Api.Infrastructure.Persistence;
+using HotelDigital.Api.Features.Invoices;
 using Microsoft.EntityFrameworkCore;
 
 namespace HotelDigital.Api.Features.Payments;
@@ -10,7 +11,8 @@ namespace HotelDigital.Api.Features.Payments;
 public sealed class PaymentService(
     HotelDbContext db,
     IAuditWriter auditWriter,
-    ITransactionExecutor transactionExecutor)
+    ITransactionExecutor transactionExecutor,
+    InvoiceLifecycleService invoiceLifecycle)
 {
     private static readonly string[] Methods = ["CASH", "CARD", "TRANSFER"];
 
@@ -40,6 +42,15 @@ public sealed class PaymentService(
             if (booking.Status is "CHECKED_OUT" or "CANCELLED" or "NO_SHOW")
                 throw new BusinessRuleException("booking_is_closed", "Booking đã kết thúc hoặc đã hủy nên không thể ghi nhận thêm thanh toán.");
 
+            var alreadyRecorded = await db.Payments
+                .Where(x => x.BookingId == bookingId)
+                .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0;
+            var remainingAmount = booking.PreviousDebt + booking.GrossRevenue - booking.DebtAmount - alreadyRecorded;
+            if (request.Amount > remainingAmount)
+                throw new BusinessRuleException(
+                    "payment_exceeds_balance",
+                    $"Số tiền ghi nhận vượt quá số cần thu còn lại ({Math.Max(remainingAmount, 0):N0} đ).");
+
             var payment = new Payment
             {
                 BookingId = bookingId,
@@ -52,6 +63,8 @@ public sealed class PaymentService(
             db.Payments.Add(payment);
             await db.SaveChangesAsync(cancellationToken);
             await SyncLegacyTotalsAsync(booking, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            var invoiceResult = await invoiceLifecycle.EnsureAsync(booking, issue: false, cancellationToken);
             auditWriter.Add("CREATE", "Payment", payment.PaymentId.ToString(), new
             {
                 payment.BookingId,
@@ -60,6 +73,19 @@ public sealed class PaymentService(
                 payment.PaidAt,
                 payment.ReferenceCode
             });
+            auditWriter.Add(
+                invoiceResult.Created ? "CREATE" : "SYNC",
+                "Invoice",
+                invoiceResult.Invoice.InvoiceId > 0
+                    ? invoiceResult.Invoice.InvoiceId.ToString()
+                    : $"booking:{booking.BookingId}",
+                new
+                {
+                    invoiceResult.Invoice.InvoiceNumber,
+                    invoiceResult.Invoice.BookingId,
+                    invoiceResult.Invoice.GrossAmount,
+                    invoiceResult.Invoice.PaidAmount
+                });
             await db.SaveChangesAsync(cancellationToken);
             return ToItem(payment);
         }, token);

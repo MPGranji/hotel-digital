@@ -50,6 +50,7 @@ builder.Services.AddScoped<RoomCalendarService>();
 builder.Services.AddScoped<RoomRateService>();
 builder.Services.AddScoped<ChannelService>();
 builder.Services.AddScoped<InvoiceService>();
+builder.Services.AddScoped<InvoiceLifecycleService>();
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddDbContext<HotelDbContext>(options =>
 {

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 var arguments = CliArguments.Parse(args);
 A26ImportPlan? plan = null;
-if (!arguments.SchemaOnly)
+if (!arguments.SchemaOnly && !arguments.VerifyOnly)
 {
     var reader = new A26WorkbookReader();
     plan = reader.Read(arguments.FilePath!);
@@ -43,6 +43,11 @@ if (arguments.SchemaScriptPath is not null)
     await ApplySqlScriptAsync(db, arguments.SchemaScriptPath, CancellationToken.None);
     Console.WriteLine($"Đã áp dụng schema script: {Path.GetFileName(arguments.SchemaScriptPath)}");
 }
+if (arguments.VerifyOnly)
+{
+    await PrintDatabaseFingerprintAsync(db, CancellationToken.None);
+    return;
+}
 if (arguments.SchemaOnly) return;
 
 var importer = new A26ImportService(db);
@@ -73,6 +78,46 @@ static async Task ApplySqlScriptAsync(
             command.CommandText = batch;
             await command.ExecuteNonQueryAsync(cancellationToken);
         }
+    }
+    finally
+    {
+        await db.Database.CloseConnectionAsync();
+    }
+}
+
+static async Task PrintDatabaseFingerprintAsync(HotelDbContext db, CancellationToken cancellationToken)
+{
+    const string sql = """
+        SELECT
+          (SELECT COUNT_BIG(*) FROM hotel.Booking) AS BookingCount,
+          (SELECT COALESCE(SUM(GrossRevenue), 0) FROM hotel.Booking) AS BookingGross,
+          (SELECT COALESCE(SUM(PaidAmount), 0) FROM hotel.Booking) AS BookingPaid,
+          (SELECT COUNT_BIG(*) FROM hotel.Payment) AS PaymentCount,
+          (SELECT COALESCE(SUM(Amount), 0) FROM hotel.Payment) AS PaymentTotal,
+          (SELECT COUNT_BIG(*) FROM hotel.Invoice) AS InvoiceCount,
+          (SELECT COUNT_BIG(*) FROM (SELECT BookingID FROM hotel.Invoice GROUP BY BookingID HAVING COUNT_BIG(*) > 1) duplicates) AS DuplicateInvoiceBookings,
+          (SELECT COUNT_BIG(*) FROM hotel.Invoice invoice LEFT JOIN hotel.Booking booking ON booking.BookingID = invoice.BookingID WHERE booking.BookingID IS NULL) AS OrphanInvoices;
+        """;
+
+    await db.Database.OpenConnectionAsync(cancellationToken);
+    try
+    {
+        await using var command = db.Database.GetDbConnection().CreateCommand();
+        command.CommandText = sql;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        await reader.ReadAsync(cancellationToken);
+        var result = new
+        {
+            BookingCount = reader.GetInt64(0),
+            BookingGross = reader.GetDecimal(1),
+            BookingPaid = reader.GetDecimal(2),
+            PaymentCount = reader.GetInt64(3),
+            PaymentTotal = reader.GetDecimal(4),
+            InvoiceCount = reader.GetInt64(5),
+            DuplicateInvoiceBookings = reader.GetInt64(6),
+            OrphanInvoices = reader.GetInt64(7)
+        };
+        Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
     }
     finally
     {
@@ -115,7 +160,8 @@ internal sealed record CliArguments(
     string EnvironmentFile,
     string? SchemaScriptPath,
     bool Commit,
-    bool SchemaOnly)
+    bool SchemaOnly,
+    bool VerifyOnly)
 {
     public static CliArguments Parse(IReadOnlyList<string> args)
     {
@@ -124,6 +170,7 @@ internal sealed record CliArguments(
         string? schemaScript = null;
         var commit = false;
         var schemaOnly = false;
+        var verifyOnly = false;
         for (var index = 0; index < args.Count; index++)
         {
             switch (args[index])
@@ -143,13 +190,18 @@ internal sealed record CliArguments(
                 case "--schema-only":
                     schemaOnly = true;
                     break;
+                case "--verify-only":
+                    verifyOnly = true;
+                    break;
                 default:
                     throw new ArgumentException($"Tham số không hợp lệ: {args[index]}");
             }
         }
 
-        if (!schemaOnly && string.IsNullOrWhiteSpace(file))
+        if (!schemaOnly && !verifyOnly && string.IsNullOrWhiteSpace(file))
             throw new ArgumentException("Thiếu --file <đường-dẫn-xlsx>.");
+        if (verifyOnly && (schemaOnly || commit || !string.IsNullOrWhiteSpace(schemaScript)))
+            throw new ArgumentException("--verify-only không dùng cùng các tùy chọn ghi dữ liệu.");
         if (schemaOnly && string.IsNullOrWhiteSpace(schemaScript))
             throw new ArgumentException("--schema-only yêu cầu --schema-script <đường-dẫn-sql>.");
         if (schemaOnly && !commit)
@@ -159,6 +211,7 @@ internal sealed record CliArguments(
             Path.GetFullPath(environmentFile),
             schemaScript is null ? null : Path.GetFullPath(schemaScript),
             commit,
-            schemaOnly);
+            schemaOnly,
+            verifyOnly);
     }
 }

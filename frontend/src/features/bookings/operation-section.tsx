@@ -22,7 +22,13 @@ export function OperationSection({ model, disabled }: Readonly<{ model: FormMode
         </Field>
       </div>
 
-      {form.invoiceNumber ? <p className="mt-3 text-sm text-slate-600">Số hóa đơn: <b className="text-[var(--primary)]">{form.invoiceNumber}</b></p> : null}
+      {booking?.invoiceId ? <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+        <span>Hóa đơn: <b className="text-[var(--primary)]">{booking.invoiceNumber}</b></span>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${booking.invoiceStatus === "ISSUED" ? "bg-emerald-100 text-emerald-700" : booking.invoiceStatus === "VOID" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>
+          {booking.invoiceStatus === "ISSUED" ? "Đã phát hành" : booking.invoiceStatus === "VOID" ? "Đã hủy" : "Nháp"}
+        </span>
+        <Link className="font-semibold text-blue-700 hover:underline" href={`/invoices?invoiceId=${booking.invoiceId}`}>Xem hóa đơn</Link>
+      </div> : form.invoiceNumber ? <p className="mt-3 text-sm text-slate-600">Số hóa đơn: <b className="text-[var(--primary)]">{form.invoiceNumber}</b></p> : null}
 
       {booking ? (
         <div className="mt-5 flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:flex-row md:items-center md:justify-between">
@@ -47,3 +53,4 @@ export function OperationSection({ model, disabled }: Readonly<{ model: FormMode
     </div>
   );
 }
+import Link from "next/link";

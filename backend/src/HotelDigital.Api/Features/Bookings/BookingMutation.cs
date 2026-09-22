@@ -5,10 +5,11 @@ namespace HotelDigital.Api.Features.Bookings;
 
 internal static class BookingMutation
 {
-    public static void Apply(Booking booking, BookingWriteRequest request)
+    public static void Apply(Booking booking, BookingWriteRequest request, bool includeInitialPayments)
     {
         booking.RoomId = request.RoomId;
         booking.ChannelId = request.ChannelId;
+        booking.BookingMode = request.BookingMode;
         booking.ExternalBookingCode = Clean(request.ExternalBookingCode);
         booking.CheckInAt = request.CheckInAt;
         booking.CheckOutAt = request.CheckOutAt;
@@ -20,9 +21,15 @@ internal static class BookingMutation
         booking.DiscountReason = Clean(request.DiscountReason);
         booking.PromotionCode = Clean(request.PromotionCode);
         booking.PreviousDebt = request.PreviousDebt;
-        booking.CashAmount = request.CashAmount;
-        booking.CardAmount = request.CardAmount;
-        booking.TransferAmount = request.TransferAmount;
+        // Payment totals are a compatibility snapshot of the immutable payment ledger.
+        // They may only be seeded while a booking is created; later changes are synced
+        // by PaymentService so editing a booking can never rewrite collected money.
+        if (includeInitialPayments)
+        {
+            booking.CashAmount = request.CashAmount;
+            booking.CardAmount = request.CardAmount;
+            booking.TransferAmount = request.TransferAmount;
+        }
         booking.DebtAmount = request.DebtAmount;
         booking.InvoiceNumber = Clean(request.InvoiceNumber);
         booking.Note = Clean(request.Note);
@@ -51,6 +58,7 @@ internal static class BookingMutation
         AddIfChanged(fields, "Room", current.RoomId, request.RoomId);
         AddIfChanged(fields, "Customer", current.CustomerId, request.CustomerId);
         AddIfChanged(fields, "Channel", current.ChannelId, request.ChannelId);
+        AddIfChanged(fields, "BookingMode", current.BookingMode, request.BookingMode);
         AddIfChanged(fields, "CheckInAt", current.CheckInAt, request.CheckInAt);
         AddIfChanged(fields, "CheckOutAt", current.CheckOutAt, request.CheckOutAt);
         AddIfChanged(fields, "BilledNights", current.BilledNights, request.BilledNights);
@@ -58,8 +66,6 @@ internal static class BookingMutation
         AddIfChanged(fields, "ServiceRevenue", current.ServiceRevenue, request.ServiceRevenue);
         AddIfChanged(fields, "SurchargeAmount", current.SurchargeAmount, request.SurchargeAmount);
         AddIfChanged(fields, "DiscountAmount", current.DiscountAmount, request.DiscountAmount);
-        AddIfChanged(fields, "Payments", current.CashAmount + current.CardAmount + current.TransferAmount,
-            request.CashAmount + request.CardAmount + request.TransferAmount);
         AddIfChanged(fields, "DebtAmount", current.DebtAmount, request.DebtAmount);
         return [.. fields];
     }

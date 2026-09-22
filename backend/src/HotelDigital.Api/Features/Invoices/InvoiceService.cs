@@ -45,7 +45,7 @@ public sealed class InvoiceService(HotelDbContext db, IAuditWriter auditWriter, 
             await SaveAsync(ct);
             auditWriter.Add("CREATE", "Invoice", invoice.InvoiceId.ToString(), new { invoice.InvoiceNumber, invoice.BookingId, invoice.Status });
             await db.SaveChangesAsync(ct);
-            return await GetOneAsync(invoice.InvoiceId, ct);
+            return await GetByIdAsync(invoice.InvoiceId, ct);
         }, token);
     }
 
@@ -74,7 +74,7 @@ public sealed class InvoiceService(HotelDbContext db, IAuditWriter auditWriter, 
             auditWriter.Add("UPDATE", "Invoice", id.ToString(), new { invoice.InvoiceNumber, invoice.Status });
             try { await SaveAsync(ct); }
             catch (DbUpdateConcurrencyException) { throw new ConflictException("invoice_version_conflict", "Hóa đơn đã được cập nhật. Vui lòng tải lại."); }
-            return await GetOneAsync(id, ct);
+            return await GetByIdAsync(id, ct);
         }, token);
     }
 
@@ -90,10 +90,11 @@ public sealed class InvoiceService(HotelDbContext db, IAuditWriter auditWriter, 
         invoice.Note = Clean(request.Note);
     }
 
-    private async Task<InvoiceItem> GetOneAsync(long id, CancellationToken token)
+    public async Task<InvoiceItem> GetByIdAsync(long id, CancellationToken token)
     {
         var invoice = await db.Invoices.AsNoTracking().Include(x => x.Booking).ThenInclude(x => x.Customer)
-            .Include(x => x.Booking).ThenInclude(x => x.Room).SingleAsync(x => x.InvoiceId == id, token);
+            .Include(x => x.Booking).ThenInclude(x => x.Room).SingleOrDefaultAsync(x => x.InvoiceId == id, token)
+            ?? throw new ResourceNotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
         return ToItem(invoice);
     }
 

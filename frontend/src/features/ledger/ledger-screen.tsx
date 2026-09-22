@@ -126,8 +126,8 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
           {error ? <DataMessage action={<Button onClick={refresh}>Thử lại</Button>} description={error} title="Không thể tải dữ liệu" /> : loading ? <DataMessage title="Đang tải sổ đặt phòng…" /> : !result?.items.length ? <DataMessage description="Thử thay đổi bộ lọc hoặc tạo đặt phòng mới." title="Không có đặt phòng phù hợp" /> : (
             <>
               <div className="overflow-x-auto rounded-lg border border-slate-200">
-                <table className="w-full min-w-[1080px] text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-3">Mã / Khách</th><th className="px-3 py-3">Phòng</th><th className="px-3 py-3">Ngày đến</th><th className="px-3 py-3">Ngày đi</th><th className="px-3 py-3 text-right">Tiền phòng</th><th className="px-3 py-3 text-right">Tổng thu</th><th className="px-3 py-3 text-right">Đã trả</th><th className="px-3 py-3 text-right">Công nợ</th><th className="px-3 py-3">Trạng thái</th><th className="px-3 py-3 text-right">Thao tác</th></tr></thead>
+                <table className="w-full min-w-[1180px] text-left text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-3">Mã / Khách</th><th className="px-3 py-3">Nguồn đặt</th><th className="px-3 py-3">Phòng</th><th className="px-3 py-3">Ngày đến</th><th className="px-3 py-3">Ngày đi</th><th className="px-3 py-3 text-right">Tiền phòng</th><th className="px-3 py-3 text-right">Tổng thu</th><th className="px-3 py-3">Thanh toán / Hóa đơn</th><th className="px-3 py-3">Lưu trú</th><th className="px-3 py-3 text-right">Thao tác</th></tr></thead>
                   <tbody className="divide-y divide-slate-100">{result.items.map((booking) => <LedgerRow booking={booking} deleting={deletingId === booking.id} key={booking.id} onDelete={removeBooking} />)}</tbody>
                 </table>
               </div>
@@ -141,16 +141,26 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
 }
 
 function LedgerRow({ booking, deleting, onDelete }: Readonly<{ booking: BookingListItem; deleting: boolean; onDelete: (booking: BookingListItem) => void }>) {
+  const paymentLabel = booking.grossRevenue <= 0
+    ? "Chưa phát sinh"
+    : booking.paidAmount >= booking.grossRevenue ? "Đã thanh toán"
+      : booking.paidAmount > 0 ? "Đã thanh toán một phần" : "Chưa thanh toán";
+  const paymentClass = booking.paidAmount >= booking.grossRevenue && booking.grossRevenue > 0
+    ? "text-emerald-700"
+    : booking.paidAmount > 0 ? "text-amber-700" : "text-slate-600";
+  const sourceLabel = booking.bookingMode === "WALK_IN"
+    ? "Tại quầy"
+    : booking.channelCategory === "ONLINE" ? "Online" : "Đặt trước";
   return (
     <tr className="hover:bg-slate-50">
       <td className="px-3 py-3"><p className="font-medium text-[var(--primary)]">{booking.bookingCode}</p>{booking.groupCode ? <p className="text-xs font-medium text-blue-700">Nhóm {booking.groupCode}</p> : null}<p className="text-slate-700">{booking.customerName}</p><p className="text-xs text-slate-500">{booking.customerPhone || booking.channelName}</p></td>
+      <td className="px-3 py-3"><p className="font-medium text-slate-800">{sourceLabel}</p><p className="text-xs text-slate-500">{booking.channelName}</p></td>
       <td className="px-3 py-3"><p className="font-medium">{booking.roomNumber}</p><p className="text-xs text-slate-500">{booking.roomTypeName} · {booking.billedNights} đêm</p></td>
       <td className="px-3 py-3">{formatDateTime(booking.checkInAt)}</td>
       <td className="px-3 py-3">{formatDateTime(booking.checkOutAt)}</td>
       <td className="px-3 py-3 text-right">{formatCurrency(booking.roomRevenue)}</td>
       <td className="px-3 py-3 text-right font-medium text-[var(--primary)]">{formatCurrency(booking.grossRevenue)}</td>
-      <td className="px-3 py-3 text-right">{formatCurrency(booking.paidAmount)}</td>
-      <td className="px-3 py-3 text-right">{formatCurrency(booking.debtAmount)}</td>
+      <td className="px-3 py-3"><p className={`font-semibold ${paymentClass}`}>{paymentLabel}</p><p className="text-xs text-slate-500">Đã thu {formatCurrency(booking.paidAmount)}</p>{booking.invoiceId ? <Link className="text-xs font-medium text-blue-700 hover:underline" href={`/invoices?invoiceId=${booking.invoiceId}`}>{booking.invoiceNumber} · {booking.invoiceStatus === "ISSUED" ? "Đã phát hành" : booking.invoiceStatus === "VOID" ? "Đã hủy" : "Nháp"}</Link> : <p className="text-xs text-red-600">Chưa có hóa đơn</p>}</td>
       <td className="px-3 py-3"><StatusBadge status={booking.status} /></td>
       <td className="px-3 py-3 text-right">
         <div className="flex justify-end gap-2">

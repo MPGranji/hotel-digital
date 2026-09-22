@@ -10,6 +10,10 @@ export function getInvoices(search = "", status = "") {
   return apiRequest<InvoiceItem[]>(`/api/invoices?${params}`);
 }
 
+export function getInvoice(id: number) {
+  return apiRequest<InvoiceItem>(`/api/invoices/${id}`);
+}
+
 export function createInvoice(request: InvoiceWriteRequest) {
   return apiRequest<InvoiceItem>("/api/invoices", { method: "POST", headers: jsonHeaders, body: JSON.stringify(request) });
 }

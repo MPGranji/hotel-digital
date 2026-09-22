@@ -25,6 +25,7 @@ public sealed class FoundationTests
         Assert.Equal("hotel", db.Model.FindEntityType(typeof(Booking))?.GetSchema());
         Assert.Equal("Booking", db.Model.FindEntityType(typeof(Booking))?.GetTableName());
         Assert.Equal("AuditLog", db.Model.FindEntityType(typeof(AuditLog))?.GetTableName());
+        Assert.Equal(12, db.Model.FindEntityType(typeof(Booking))?.FindProperty(nameof(Booking.BookingMode))?.GetMaxLength());
     }
 
     [Fact]

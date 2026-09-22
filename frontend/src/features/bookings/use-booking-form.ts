@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getApiErrorMessage, getApiProblem } from "@/lib/api-client";
+import { toDateTimeLocal } from "@/lib/format";
 import { findCustomerDuplicates, getCustomers } from "@/features/customers/customers-api";
 import type { CustomerDuplicateItem, CustomerListItem } from "@/features/customers/types";
 import {
@@ -19,6 +20,7 @@ import {
   createInitialBookingForm,
   formFromBooking,
   toBookingRequest,
+  type BookingEntryMode,
   type BookingFormState,
 } from "./booking-form-state";
 import { calculateSuggestedRoomRevenue } from "./booking-pricing";
@@ -28,6 +30,10 @@ function getDefaultChannel(channels: BookingOptions["channels"]) {
   return channels.find((channel) => channel.code === "DIRECT")
     ?? channels.find((channel) => channel.category === "OFFLINE")
     ?? channels[0];
+}
+
+function getOnlineChannel(channels: BookingOptions["channels"]) {
+  return channels.find((channel) => channel.category === "ONLINE");
 }
 
 export function useBookingForm(bookingId?: number, initialRoomId?: number, initialCheckInDate?: string, initialCheckOutDate?: string) {
@@ -191,12 +197,38 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
       return withSuggestedRoomRevenue({
         ...current,
         [field]: value,
+        entryMode: field === "channelId" && current.entryMode !== "WALK_IN"
+          ? selectedChannel?.category === "ONLINE" ? "ONLINE" : "ADVANCE"
+          : current.entryMode,
         roomRevenue: field === "channelId" && !directChannel ? "" : current.roomRevenue,
         externalBookingCode: directChannel ? "" : current.externalBookingCode,
         additionalRoomIds: field === "roomId" ? current.additionalRoomIds.filter((id) => id !== value) : current.additionalRoomIds,
       });
     });
     clearFieldErrors(field, "roomRevenue", "externalBookingCode");
+  }
+
+  function updateEntryMode(entryMode: BookingEntryMode) {
+    const channel = entryMode === "ONLINE"
+      ? getOnlineChannel(options.channels)
+      : getDefaultChannel(options.channels);
+    const walkInCheckIn = new Date();
+    walkInCheckIn.setSeconds(0, 0);
+    const walkInCheckOut = new Date(walkInCheckIn);
+    walkInCheckOut.setDate(walkInCheckOut.getDate() + 1);
+    walkInCheckOut.setHours(12, 0, 0, 0);
+    setAvailableRoomIds(undefined);
+    setCheckingAvailability(true);
+    setForm((current) => withSuggestedRoomRevenue({
+      ...current,
+      entryMode,
+      channelId: channel ? String(channel.id) : "",
+      externalBookingCode: entryMode === "ONLINE" ? current.externalBookingCode : "",
+      checkInAt: entryMode === "WALK_IN" ? toDateTimeLocal(walkInCheckIn) : current.checkInAt,
+      checkOutAt: entryMode === "WALK_IN" ? toDateTimeLocal(walkInCheckOut) : current.checkOutAt,
+      billedNights: entryMode === "WALK_IN" ? "1" : current.billedNights,
+    }));
+    clearFieldErrors("channelId", "externalBookingCode", "checkInAt", "checkOutAt", "billedNights");
   }
 
   function updateRoomMode(mode: "single" | "multiple") {
@@ -267,8 +299,8 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
       setMessage(bookingId
         ? "Đã lưu thay đổi đặt phòng."
         : saved.groupCode
-          ? `Đã tạo nhóm ${saved.groupCode} gồm ${form.additionalRoomIds.length + 1} phòng.`
-          : `Đã tạo đặt phòng ${saved.bookingCode}.`);
+          ? `Đã tạo nhóm ${saved.groupCode} gồm ${form.additionalRoomIds.length + 1} phòng và hóa đơn nháp.`
+          : `${saved.bookingMode === "WALK_IN" ? "Đã nhận phòng" : "Đã tạo đặt phòng"} ${saved.bookingCode} và hóa đơn nháp ${saved.invoiceNumber ?? ""}.`);
       if (!bookingId) router.replace(`/bookings?bookingId=${saved.id}`);
     } catch (reason) {
       const problem = getApiProblem(reason);
@@ -341,6 +373,7 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
     updateStayDate,
     updateStayNights,
     updateStayOption,
+    updateEntryMode,
     updateRoomMode,
     toggleRoom,
     refreshBooking,

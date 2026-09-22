@@ -19,6 +19,8 @@ public static class BookingValidator
             errors["checkOutAt"] = ["Ngày giờ đi phải sau ngày giờ đến."];
         if (request.BilledNights < 1)
             errors["billedNights"] = ["Booking phải có ít nhất một đêm tính tiền."];
+        if (request.BookingMode is not ("RESERVATION" or "WALK_IN"))
+            errors["bookingMode"] = ["Hình thức tiếp nhận booking không hợp lệ."];
 
         var amounts = new Dictionary<string, decimal>
         {
@@ -37,6 +39,10 @@ public static class BookingValidator
 
         if (request.RoomRevenue + request.ServiceRevenue + request.SurchargeAmount - request.DiscountAmount < 0)
             errors["discountAmount"] = ["Giảm giá không được làm tổng doanh thu âm."];
+        var grossAmount = request.PreviousDebt + request.RoomRevenue + request.ServiceRevenue + request.SurchargeAmount - request.DiscountAmount;
+        var recordedAmount = request.CashAmount + request.CardAmount + request.TransferAmount + request.DebtAmount;
+        if (!requireVersion && recordedAmount > grossAmount)
+            errors["cashAmount"] = ["Tổng tiền cọc và công nợ không được vượt quá tổng tiền booking."];
         if (request.DiscountAmount > 0 && string.IsNullOrWhiteSpace(request.DiscountReason))
             errors["discountReason"] = ["Vui lòng nhập lý do giảm giá."];
 

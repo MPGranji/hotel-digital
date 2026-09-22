@@ -103,6 +103,7 @@ public sealed class Booking
     public int RoomId { get; set; }
     public long CustomerId { get; set; }
     public int ChannelId { get; set; }
+    public string BookingMode { get; set; } = "RESERVATION";
     public string? ExternalBookingCode { get; set; }
     public string? GroupCode { get; set; }
     public DateTime CheckInAt { get; set; }

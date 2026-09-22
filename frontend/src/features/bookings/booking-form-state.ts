@@ -3,8 +3,10 @@ import { VIETNAM_NATIONALITY } from "./country-options";
 import type { BookingDetail, BookingWriteRequest } from "./types";
 
 export type PaymentMethod = "unpaid" | "cashAmount" | "cardAmount" | "transferAmount" | "split";
+export type BookingEntryMode = "ADVANCE" | "WALK_IN" | "ONLINE";
 
 export interface BookingFormState {
+  entryMode: BookingEntryMode;
   roomMode: "single" | "multiple";
   roomId: string;
   additionalRoomIds: string[];
@@ -48,6 +50,7 @@ export function createInitialBookingForm(): BookingFormState {
   checkOut.setHours(12, 0, 0, 0);
 
   return {
+    entryMode: "ADVANCE",
     roomMode: "single",
     roomId: "",
     additionalRoomIds: [],
@@ -72,7 +75,7 @@ export function createInitialBookingForm(): BookingFormState {
     discountReason: "",
     promotionCode: "",
     previousDebt: "0",
-    paymentMethod: "cashAmount",
+    paymentMethod: "unpaid",
     cashAmount: "0",
     cardAmount: "0",
     transferAmount: "0",
@@ -85,6 +88,9 @@ export function createInitialBookingForm(): BookingFormState {
 
 export function formFromBooking(booking: BookingDetail): BookingFormState {
   return {
+    entryMode: booking.bookingMode === "WALK_IN"
+      ? "WALK_IN"
+      : booking.channelCategory === "ONLINE" ? "ONLINE" : "ADVANCE",
     roomMode: "single",
     roomId: String(booking.roomId),
     additionalRoomIds: [],
@@ -125,6 +131,7 @@ export function toBookingRequest(form: BookingFormState): BookingWriteRequest {
     roomId: Number(form.roomId),
     additionalRoomIds: form.roomMode === "multiple" ? form.additionalRoomIds.map(Number) : [],
     channelId: Number(form.channelId),
+    bookingMode: form.entryMode === "WALK_IN" ? "WALK_IN" : "RESERVATION",
     externalBookingCode: form.externalBookingCode,
     checkInAt: form.checkInAt,
     checkOutAt: form.checkOutAt,

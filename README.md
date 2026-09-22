@@ -188,7 +188,25 @@ Sửa ngày thu ước tính của thanh toán lịch sử: workbook nguồn kh�
 dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/23_correct_estimated_payment_dates.sql --schema-only --commit
 ```
 
+Tách booking đặt trước/nhận phòng tại quầy, bổ sung chỉ mục cho màn hình vận hành và Power BI DirectQuery:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/24_booking_mode_invoice_performance.sql --schema-only --commit
+```
+
+Đối chiếu dấu vân tay dữ liệu (chỉ số lượng và tổng tiền, không in dữ liệu khách) trước và sau migration:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --verify-only
+```
+
 ## Phạm vi triển khai hiện tại
+
+### Cấu trúc dashboard đã chốt
+
+- Báo cáo Power BI có đúng **2 sheet**: `Tổng quan kinh doanh` và `Phân tích chi tiết`.
+- Trang web nội bộ `Khách & phòng` được giữ riêng để hiển thị trạng thái từng phòng, khách hiện tại và booking kế tiếp.
+- `Khách & phòng` không được tính là sheet Power BI và dữ liệu nhận diện khách không được đưa vào báo cáo Publish to web.
 
 - Đặt phòng/check-in/check-out.
 - Sổ đặt phòng.
@@ -196,6 +214,7 @@ dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backen
 - Khách hàng có dò trùng, gộp hồ sơ và ngừng sử dụng.
 - Một lượt có thể đặt nhiều phòng cùng mã nhóm.
 - Quản lý hóa đơn nháp/đã phát hành/đã hủy, liên kết với booking.
+- Sổ thu tiền chỉ ghi nhận khoản thu nội bộ (tiền mặt, thẻ, chuyển khoản); không kết nối cổng thanh toán hoặc ngân hàng. Trạng thái chưa thu/thu một phần/đã thu đủ được tự tính từ các khoản đã ghi.
 - Đăng nhập quản trị nội bộ và audit ở mức MVP.
 
 Read model database cho Dashboard đã hoàn thành. API/UI Dashboard, nhập/xuất Excel và Power BI Embedded được thực hiện ở giai đoạn tiếp theo.

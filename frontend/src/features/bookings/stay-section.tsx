@@ -9,7 +9,7 @@ type FormModel = ReturnType<typeof useBookingForm>;
 export function StaySection({ model, disabled }: Readonly<{ model: FormModel; disabled: boolean }>) {
   const {
     form, booking, options, availableRoomIds, checkingAvailability, fieldErrors,
-    updateField, updateRoomMode, toggleRoom, updateStayDate, updateStayNights, updateStayOption,
+    updateField, updateRoomMode, toggleRoom, updateStayDate, updateStayNights, updateStayOption, updateEntryMode,
   } = model;
   const selectedRoomIds = [form.roomId, ...form.additionalRoomIds].filter(Boolean);
   const availableRooms = options.rooms.filter((room) =>
@@ -17,11 +17,37 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
   const selectedChannel = options.channels.find((channel) => String(channel.id) === form.channelId);
   const showExternalBookingCode = selectedChannel
     && selectedChannel.category !== "OFFLINE";
+  const availableChannels = options.channels.filter((channel) =>
+    form.entryMode === "ONLINE" ? channel.category === "ONLINE" : channel.category !== "ONLINE");
+  const entryModes = [
+    { value: "ADVANCE" as const, title: "Đặt trước", description: "Khách gọi hoặc liên hệ trực tiếp, chưa nhận phòng." },
+    { value: "WALK_IN" as const, title: "Nhận phòng tại quầy", description: "Khách đến trực tiếp và check-in ngay." },
+    { value: "ONLINE" as const, title: "Booking online", description: "Đơn đến từ Agoda, Booking.com hoặc OTA khác." },
+  ];
 
   return (
     <div>
       <SectionTitle>1. Thời gian, phòng và kênh đặt</SectionTitle>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="md:col-span-2 xl:col-span-3">
+          <p className="mb-2 text-sm font-medium text-slate-700">Hình thức tiếp nhận</p>
+          <div className="grid gap-3 md:grid-cols-3">
+            {entryModes.map((mode) => {
+              const selected = form.entryMode === mode.value;
+              return <button
+                aria-pressed={selected}
+                className={`rounded-xl border p-4 text-left transition ${selected ? "border-blue-500 bg-blue-50 ring-1 ring-blue-300" : "border-slate-200 bg-white hover:border-blue-300"}`}
+                disabled={disabled || Boolean(booking)}
+                key={mode.value}
+                onClick={() => updateEntryMode(mode.value)}
+                type="button"
+              >
+                <span className="flex items-center gap-2 font-semibold text-slate-900">{selected ? <Check className="text-blue-600" size={17} /> : null}{mode.title}</span>
+                <span className="mt-1 block text-xs leading-5 text-slate-500">{mode.description}</span>
+              </button>;
+            })}
+          </div>
+        </div>
         <Field error={fieldErrors.checkInAt?.[0]} htmlFor="checkInAt" label="Ngày giờ đến" required>
           <Input disabled={disabled} id="checkInAt" onChange={(event) => updateStayDate("checkInAt", event.target.value)} type="datetime-local" value={form.checkInAt} />
         </Field>
@@ -71,8 +97,8 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
           )}
         </div>
 
-        <Field error={fieldErrors.channelId?.[0]} hint="Mặc định là kênh Đặt trực tiếp; chỉ đổi khi booking đến từ kênh khác." htmlFor="channelId" label="Kênh đặt phòng">
-          <SearchableSelect disabled={disabled} id="channelId" onChange={(value) => updateStayOption("channelId", value)} options={options.channels.map((channel) => ({ value: String(channel.id), label: channel.name, searchText: `${channel.code} ${channel.category}` }))} placeholder="Chọn kênh" searchPlaceholder="Nhập tên hoặc mã kênh…" value={form.channelId} />
+        <Field error={fieldErrors.channelId?.[0]} hint={form.entryMode === "ONLINE" ? "Chọn đúng OTA để lưu nguồn và mã booking ngoài." : "Nguồn khách trực tiếp, điện thoại hoặc đối tác offline."} htmlFor="channelId" label="Nguồn / kênh đặt">
+          <SearchableSelect disabled={disabled || form.entryMode === "WALK_IN"} id="channelId" onChange={(value) => updateStayOption("channelId", value)} options={availableChannels.map((channel) => ({ value: String(channel.id), label: channel.name, searchText: `${channel.code} ${channel.category}` }))} placeholder="Chọn kênh" searchPlaceholder="Nhập tên hoặc mã kênh…" value={form.channelId} />
         </Field>
         {showExternalBookingCode ? (
           <Field error={fieldErrors.externalBookingCode?.[0]} htmlFor="externalBookingCode" label={`Mã booking từ ${selectedChannel.name}`}>

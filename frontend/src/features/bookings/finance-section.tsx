@@ -34,7 +34,7 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
   const paymentMethod = form.paymentMethod;
   const hasAdditionalDetails = additionalMoneyFields.some(({ key }) => Number(form[key]) > 0)
     || Boolean(form.discountReason || form.promotionCode)
-    || paymentMethod === "split";
+    || (!booking && paymentMethod === "split");
   const [detailsOpen, setDetailsOpen] = useState(hasAdditionalDetails);
 
   function changePaymentMethod(method: PaymentMethod) {
@@ -65,7 +65,7 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
           <Select disabled={disabled} id="paymentMethod" onChange={(event) => changePaymentMethod(event.target.value as PaymentMethod)} value={paymentMethod}>
             <option value="unpaid">Chưa thanh toán</option>
             <option value="cashAmount">Tiền mặt</option>
-            <option value="transferAmount">Chuyển khoản / thanh toán online</option>
+            <option value="transferAmount">Chuyển khoản</option>
             <option value="cardAmount">Thẻ</option>
             {paymentMethod === "split" ? <option value="split">Nhiều phương thức</option> : null}
           </Select>
@@ -104,7 +104,7 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
             <Field htmlFor="promotionCode" label="Mã chương trình">
               <Input disabled={disabled} id="promotionCode" onChange={(event) => updateField("promotionCode", event.target.value)} value={form.promotionCode} />
             </Field>
-            <div className="border-t border-slate-200 pt-4 md:col-span-2 xl:col-span-3">
+            {!booking ? <div className="border-t border-slate-200 pt-4 md:col-span-2 xl:col-span-3">
               <p className="text-sm font-semibold text-slate-900">Tách nhiều phương thức thanh toán</p>
               <p className="mb-3 mt-0.5 text-xs text-slate-500">Dùng khi khách thanh toán bằng từ hai phương thức trở lên.</p>
               <div className="grid gap-4 md:grid-cols-3">
@@ -114,11 +114,12 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
                   </Field>
                 ))}
               </div>
-            </div>
+            </div> : null}
           </div>
         </div>
       ) : null}
 
+      {booking ? <p className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">Số tiền đã thu được lấy từ sổ thu tiền bên dưới và không thay đổi khi sửa thông tin booking.</p> : null}
       {!booking ? <PaymentLine gross={summary.gross} paid={summary.paid} /> : null}
     </div>
   );
