@@ -27,6 +27,7 @@ public sealed class BookingWorkflowTests
 
         Assert.Equal(expectedStatus, booking.Status);
         Assert.Equal(bookingMode, booking.BookingMode);
+        Assert.Equal((short?)1, booking.GuestCount);
         Assert.NotNull(booking.Invoice);
         Assert.Equal("DRAFT", booking.Invoice.Status);
         Assert.Equal(booking.Invoice.InvoiceNumber, booking.InvoiceNumber);
@@ -68,6 +69,32 @@ public sealed class BookingWorkflowTests
 
         Assert.Equal("room_time_conflict", exception.Code);
         Assert.Single(db.Bookings);
+    }
+
+    [Fact]
+    public async Task Create_rejects_guest_count_above_room_capacity()
+    {
+        await using var db = await CreateContextAsync(channelCategory: "OFFLINE");
+
+        var exception = await Assert.ThrowsAsync<RequestValidationException>(() =>
+            CreateService(db).CreateAsync(
+                CreateRequest("RESERVATION") with { GuestCount = 3 },
+                CancellationToken.None));
+
+        Assert.Contains("guestCount", exception.Errors.Keys);
+        Assert.Empty(db.Bookings);
+    }
+
+    [Fact]
+    public async Task Create_preserves_unknown_guest_count_as_null()
+    {
+        await using var db = await CreateContextAsync(channelCategory: "OFFLINE");
+
+        var id = await CreateService(db).CreateAsync(
+            CreateRequest("RESERVATION") with { GuestCount = null },
+            CancellationToken.None);
+
+        Assert.Null((await db.Bookings.SingleAsync(x => x.BookingId == id)).GuestCount);
     }
 
     [Fact]
@@ -170,6 +197,7 @@ public sealed class BookingWorkflowTests
         CheckInAt: new DateTime(2026, 10, 10, 14, 0, 0),
         CheckOutAt: new DateTime(2026, 10, 11, 12, 0, 0),
         BilledNights: 1,
+        GuestCount: 1,
         RoomRevenue: 500_000,
         ServiceRevenue: 0,
         SurchargeAmount: 0,

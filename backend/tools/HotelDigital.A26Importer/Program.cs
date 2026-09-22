@@ -34,10 +34,22 @@ if (connectionString.Contains("Authentication=Active Directory Device Code Flow"
     SqlAuthenticationProvider.SetProvider(SqlAuthenticationMethod.ActiveDirectoryDeviceCodeFlow, provider);
 }
 
+var databaseAccessToken = Environment.GetEnvironmentVariable("HOTEL_DATABASE_ACCESS_TOKEN");
+if (!string.IsNullOrWhiteSpace(databaseAccessToken))
+{
+    var connectionBuilder = new SqlConnectionStringBuilder(connectionString);
+    connectionBuilder.Remove("Authentication");
+    connectionString = connectionBuilder.ConnectionString;
+}
+
 var dbOptions = new DbContextOptionsBuilder<HotelDbContext>()
     .UseAzureSql(connectionString, options => options.EnableRetryOnFailure())
     .Options;
 await using var db = new HotelDbContext(dbOptions);
+if (!string.IsNullOrWhiteSpace(databaseAccessToken))
+{
+    ((SqlConnection)db.Database.GetDbConnection()).AccessToken = databaseAccessToken;
+}
 if (arguments.SchemaScriptPath is not null)
 {
     await ApplySqlScriptAsync(db, arguments.SchemaScriptPath, CancellationToken.None);
@@ -96,7 +108,62 @@ static async Task PrintDatabaseFingerprintAsync(HotelDbContext db, CancellationT
           (SELECT COALESCE(SUM(Amount), 0) FROM hotel.Payment) AS PaymentTotal,
           (SELECT COUNT_BIG(*) FROM hotel.Invoice) AS InvoiceCount,
           (SELECT COUNT_BIG(*) FROM (SELECT BookingID FROM hotel.Invoice GROUP BY BookingID HAVING COUNT_BIG(*) > 1) duplicates) AS DuplicateInvoiceBookings,
-          (SELECT COUNT_BIG(*) FROM hotel.Invoice invoice LEFT JOIN hotel.Booking booking ON booking.BookingID = invoice.BookingID WHERE booking.BookingID IS NULL) AS OrphanInvoices;
+          (SELECT COUNT_BIG(*) FROM hotel.Invoice invoice LEFT JOIN hotel.Booking booking ON booking.BookingID = invoice.BookingID WHERE booking.BookingID IS NULL) AS OrphanInvoices,
+          (SELECT COUNT_BIG(*) FROM hotel.Booking WHERE GuestCount IS NULL) AS MissingGuestCounts,
+          (SELECT COUNT_BIG(*)
+             FROM hotel.Booking booking
+             JOIN hotel.Room room ON room.RoomID = booking.RoomID
+             JOIN hotel.RoomType roomType ON roomType.RoomTypeID = room.RoomTypeID
+            WHERE booking.GuestCount <= 0 OR booking.GuestCount > roomType.Capacity) AS InvalidGuestCounts,
+          (SELECT COUNT_BIG(*) FROM hotel.vDimDate) AS DateRows,
+          (SELECT COUNT_BIG(*) FROM hotel.vDimRoom WHERE IsPhysicalRoom = 1) AS PhysicalRoomCount,
+          (SELECT COUNT_BIG(*) FROM hotel.vFactBooking) AS FactBookingCount,
+          (SELECT COALESCE(SUM(GrossRevenue), 0) FROM hotel.vFactBooking) AS FactBookingGross,
+          (SELECT COUNT_BIG(*) FROM hotel.vFactPayment) AS FactPaymentCount,
+          (SELECT COALESCE(SUM(Amount), 0) FROM hotel.vFactPayment) AS FactPaymentTotal,
+          (SELECT COUNT_BIG(*) FROM hotel.vFactRoomNight) AS FactRoomNightCount,
+          (SELECT COUNT_BIG(*) FROM hotel.vFactRoomDay) AS FactRoomDayCount,
+          (SELECT COUNT_BIG(*)
+             FROM (
+               SELECT RoomID, DateKey
+               FROM hotel.vFactRoomDay
+               GROUP BY RoomID, DateKey
+               HAVING COUNT_BIG(*) > 1
+             ) duplicates) AS DuplicateRoomDays,
+          (SELECT COUNT_BIG(*)
+             FROM hotel.vFactRoomDay
+            WHERE RoomStatusKey NOT BETWEEN 1 AND 5
+               OR PaymentStatusKey NOT BETWEEN 0 AND 2) AS InvalidRoomDayStatuses,
+          (SELECT COUNT_BIG(*)
+             FROM (
+               SELECT RoomID, StayDateKey
+               FROM hotel.vFactRoomNight
+               GROUP BY RoomID, StayDateKey
+               HAVING COUNT_BIG(*) > 1
+             ) overlaps) AS OverlappingRoomNights,
+          (SELECT COUNT_BIG(*)
+             FROM hotel.vFactRoomDay
+            WHERE BookingID IS NOT NULL
+              AND IsMaintenanceBlocked = 1) AS BookingMaintenanceConflicts,
+          (SELECT COUNT_BIG(*)
+             FROM hotel.vFactRoomDay
+            WHERE BookingID IS NOT NULL
+              AND RoomIsCurrentlyActive = 0) AS InactiveRoomBookingDays,
+          (SELECT COUNT_BIG(*)
+             FROM hotel.Booking booking
+             OUTER APPLY (
+               SELECT COALESCE(SUM(payment.Amount), 0) AS PaymentTotal
+               FROM hotel.Payment payment
+               WHERE payment.BookingID = booking.BookingID
+             ) payments
+            WHERE booking.PaidAmount <> payments.PaymentTotal) AS BookingPaymentMismatches,
+          (SELECT COUNT_BIG(*)
+             FROM sys.columns columnInfo
+             JOIN sys.views viewInfo ON viewInfo.object_id = columnInfo.object_id
+             JOIN sys.schemas schemaInfo ON schemaInfo.schema_id = viewInfo.schema_id
+            WHERE schemaInfo.name = N'hotel'
+              AND viewInfo.name IN (N'vFactBooking', N'vFactPayment', N'vFactRoomNight', N'vFactRoomDay')
+              AND columnInfo.name IN (N'CustomerID', N'CustomerName', N'FullName', N'Phone', N'Email', N'Address')) AS PublicFactPiiColumns;
         """;
 
     await db.Database.OpenConnectionAsync(cancellationToken);
@@ -115,7 +182,24 @@ static async Task PrintDatabaseFingerprintAsync(HotelDbContext db, CancellationT
             PaymentTotal = reader.GetDecimal(4),
             InvoiceCount = reader.GetInt64(5),
             DuplicateInvoiceBookings = reader.GetInt64(6),
-            OrphanInvoices = reader.GetInt64(7)
+            OrphanInvoices = reader.GetInt64(7),
+            MissingGuestCounts = reader.GetInt64(8),
+            InvalidGuestCounts = reader.GetInt64(9),
+            DateRows = reader.GetInt64(10),
+            PhysicalRoomCount = reader.GetInt64(11),
+            FactBookingCount = reader.GetInt64(12),
+            FactBookingGross = reader.GetDecimal(13),
+            FactPaymentCount = reader.GetInt64(14),
+            FactPaymentTotal = reader.GetDecimal(15),
+            FactRoomNightCount = reader.GetInt64(16),
+            FactRoomDayCount = reader.GetInt64(17),
+            DuplicateRoomDays = reader.GetInt64(18),
+            InvalidRoomDayStatuses = reader.GetInt64(19),
+            OverlappingRoomNights = reader.GetInt64(20),
+            BookingMaintenanceConflicts = reader.GetInt64(21),
+            InactiveRoomBookingDays = reader.GetInt64(22),
+            BookingPaymentMismatches = reader.GetInt64(23),
+            PublicFactPiiColumns = reader.GetInt64(24)
         };
         Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
     }

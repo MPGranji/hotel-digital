@@ -29,6 +29,7 @@ public sealed class BookingCommandService(
             var activeRoomIds = await db.Rooms.AsNoTracking().Where(x => roomIds.Contains(x.RoomId) && x.IsActive).Select(x => x.RoomId).ToListAsync(token);
             if (activeRoomIds.Count != roomIds.Length)
                 throw new BusinessRuleException("room_unavailable", "Một hoặc nhiều phòng không tồn tại hoặc đã ngừng hoạt động.");
+            await EnsureGuestCountFitsAsync(request.GuestCount, roomIds, token);
             foreach (var roomId in roomIds)
                 await EnsureRoomAvailableAsync(roomId, request.CheckInAt, request.CheckOutAt, null, token);
 
@@ -80,6 +81,7 @@ public sealed class BookingCommandService(
                 booking.CheckInAt,
                 booking.CheckOutAt,
                 booking.BilledNights,
+                booking.GuestCount,
                 booking.Status,
                 booking.GroupCode
             });
@@ -116,6 +118,7 @@ public sealed class BookingCommandService(
 
             db.Entry(booking).Property(x => x.Version).OriginalValue = version;
             await EnsureReferencesAsync(request, token);
+            await EnsureGuestCountFitsAsync(request.GuestCount, [request.RoomId], token);
             await EnsureRoomAvailableAsync(request.RoomId, request.CheckInAt, request.CheckOutAt, id, token);
             var collectedAmount = booking.Payments.Sum(x => x.Amount);
             var revisedTotal = request.PreviousDebt + request.RoomRevenue + request.ServiceRevenue
@@ -366,6 +369,22 @@ public sealed class BookingCommandService(
             throw new BusinessRuleException(
                 "room_time_conflict",
                 "Phòng đã có đặt phòng trong khoảng thời gian này.");
+    }
+
+    private async Task EnsureGuestCountFitsAsync(
+        short? guestCount,
+        IReadOnlyCollection<int> roomIds,
+        CancellationToken cancellationToken)
+    {
+        if (!guestCount.HasValue) return;
+        var smallestCapacity = await db.Rooms.AsNoTracking()
+            .Where(x => roomIds.Contains(x.RoomId))
+            .MinAsync(x => (short?)x.RoomType.Capacity, cancellationToken);
+        if (!smallestCapacity.HasValue || guestCount.Value <= smallestCapacity.Value) return;
+        throw new RequestValidationException(new Dictionary<string, string[]>
+        {
+            ["guestCount"] = [$"Số khách mỗi phòng không được vượt quá sức chứa {smallestCapacity.Value} người của phòng đã chọn."]
+        });
     }
 
     private async Task EnsureNewCustomerIdentityAvailableAsync(string? identityDocument, CancellationToken token)

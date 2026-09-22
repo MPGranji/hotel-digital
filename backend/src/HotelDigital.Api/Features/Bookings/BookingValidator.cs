@@ -19,6 +19,8 @@ public static class BookingValidator
             errors["checkOutAt"] = ["Ngày giờ đi phải sau ngày giờ đến."];
         if (request.BilledNights < 1)
             errors["billedNights"] = ["Booking phải có ít nhất một đêm tính tiền."];
+        if (request.GuestCount is <= 0)
+            errors["guestCount"] = ["Số lượng khách phải lớn hơn 0 hoặc để trống nếu chưa xác định."];
         if (request.BookingMode is not ("RESERVATION" or "WALK_IN"))
             errors["bookingMode"] = ["Hình thức tiếp nhận booking không hợp lệ."];
 

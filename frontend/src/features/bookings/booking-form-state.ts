@@ -15,6 +15,7 @@ export interface BookingFormState {
   checkInAt: string;
   checkOutAt: string;
   billedNights: string;
+  guestCount: string;
   customerMode: "existing" | "new";
   customerId: string;
   customerName: string;
@@ -59,6 +60,7 @@ export function createInitialBookingForm(): BookingFormState {
     checkInAt: toDateTimeLocal(checkIn),
     checkOutAt: toDateTimeLocal(checkOut),
     billedNights: "1",
+    guestCount: "1",
     customerMode: "new",
     customerId: "",
     customerName: "",
@@ -99,6 +101,7 @@ export function formFromBooking(booking: BookingDetail): BookingFormState {
     checkInAt: toDateTimeLocal(booking.checkInAt),
     checkOutAt: toDateTimeLocal(booking.checkOutAt),
     billedNights: String(booking.billedNights),
+    guestCount: booking.guestCount == null ? "" : String(booking.guestCount),
     customerMode: "existing",
     customerId: String(booking.customerId),
     customerName: booking.customerName,
@@ -136,6 +139,7 @@ export function toBookingRequest(form: BookingFormState): BookingWriteRequest {
     checkInAt: form.checkInAt,
     checkOutAt: form.checkOutAt,
     billedNights: Number(form.billedNights),
+    guestCount: nullablePositiveInteger(form.guestCount),
     customerId: form.customerMode === "existing" ? Number(form.customerId) || null : null,
     newCustomer: form.customerMode === "new" ? {
       fullName: form.fullName,
@@ -193,6 +197,12 @@ export function calculateCheckOutAt(checkInAt: string, currentCheckOutAt: string
 function money(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function nullablePositiveInteger(value: string) {
+  if (value.trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? parsed : null;
 }
 
 function paymentMethodFromAmounts(amounts: Pick<BookingDetail, "cashAmount" | "cardAmount" | "transferAmount">): PaymentMethod {

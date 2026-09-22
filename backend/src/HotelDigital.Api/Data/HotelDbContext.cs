@@ -137,6 +137,7 @@ public sealed class HotelDbContext(DbContextOptions<HotelDbContext> options) : D
             entity.Property(x => x.GroupCode).HasMaxLength(40).IsUnicode(false);
             entity.Property(x => x.CheckInAt).HasPrecision(0);
             entity.Property(x => x.CheckOutAt).HasPrecision(0);
+            entity.Property(x => x.GuestCount);
             entity.Property(x => x.Status).HasMaxLength(15).IsUnicode(false);
             entity.Property(x => x.RoomRevenue).HasPrecision(19, 2);
             entity.Property(x => x.ServiceRevenue).HasPrecision(19, 2);
