@@ -16,8 +16,10 @@ TestResults/
 !.env.example
 appsettings.Local.json
 
-# Local planning documents
+# Local planning and deployment files
 docs/
+infra/
+database/
 
 # IDE and operating system
 .idea/
