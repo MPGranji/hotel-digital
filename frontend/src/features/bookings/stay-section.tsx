@@ -25,8 +25,8 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
     form.entryMode === "ONLINE" ? channel.category === "ONLINE" : channel.category !== "ONLINE");
   const entryModes = [
     { value: "ADVANCE" as const, title: "Đặt trước", description: "Khách gọi hoặc liên hệ trực tiếp, chưa nhận phòng." },
-    { value: "WALK_IN" as const, title: "Nhận phòng tại quầy", description: "Khách đến trực tiếp và check-in ngay." },
-    { value: "ONLINE" as const, title: "Booking online", description: "Đơn đến từ Agoda, Booking.com hoặc OTA khác." },
+    { value: "WALK_IN" as const, title: "Nhận phòng tại quầy", description: "Khách đến trực tiếp và nhận phòng ngay." },
+    { value: "ONLINE" as const, title: "Đặt qua kênh online", description: "Đặt phòng từ Agoda, Booking.com hoặc kênh tương tự." },
   ];
 
   return (
@@ -34,20 +34,20 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
       <SectionTitle>1. Thời gian, phòng và kênh đặt</SectionTitle>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <div className="md:col-span-2 xl:col-span-3">
-          <p className="mb-2 text-sm font-medium text-slate-700">Hình thức tiếp nhận</p>
+          <p className="mb-2 text-sm font-medium text-[var(--foreground)]">Khách đặt phòng như thế nào?</p>
           <div className="grid gap-3 md:grid-cols-3">
             {entryModes.map((mode) => {
               const selected = form.entryMode === mode.value;
               return <button
                 aria-pressed={selected}
-                className={`rounded-xl border p-4 text-left transition ${selected ? "border-blue-500 bg-blue-50 ring-1 ring-blue-300" : "border-slate-200 bg-white hover:border-blue-300"}`}
+                className={`rounded-xl border p-4 text-left transition-colors ${selected ? "border-[var(--primary)] bg-[var(--nav-active)] ring-1 ring-[var(--primary)]" : "border-[var(--border)] bg-white hover:border-[var(--primary)]"}`}
                 disabled={disabled || Boolean(booking)}
                 key={mode.value}
                 onClick={() => updateEntryMode(mode.value)}
                 type="button"
               >
-                <span className="flex items-center gap-2 font-semibold text-slate-900">{selected ? <Check className="text-blue-600" size={17} /> : null}{mode.title}</span>
-                <span className="mt-1 block text-xs leading-5 text-slate-500">{mode.description}</span>
+                <span className="flex items-center gap-2 font-semibold text-[var(--foreground)]">{selected ? <Check className="text-[var(--primary)]" size={17} /> : null}{mode.title}</span>
+                <span className="mt-1 block text-xs leading-5 text-[var(--muted)]">{mode.description}</span>
               </button>;
             })}
           </div>
@@ -65,21 +65,21 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
           error={fieldErrors.guestCount?.[0]}
           hint={form.roomMode === "multiple" && !booking ? "Áp dụng cho từng phòng trong nhóm; có thể để trống nếu chưa xác định." : guestCapacity ? `Tối đa ${guestCapacity} người; có thể để trống nếu chưa xác định.` : "Có thể để trống nếu chưa xác định."}
           htmlFor="guestCount"
-          label={form.roomMode === "multiple" && !booking ? "Số khách mỗi phòng" : "Số lượng khách"}
+          label={form.roomMode === "multiple" && !booking ? "Số khách mỗi phòng" : "Số khách trong phòng"}
         >
           <Input disabled={disabled} id="guestCount" max={guestCapacity} min="1" onChange={(event) => updateField("guestCount", event.target.value)} placeholder="Chưa nhập" type="number" value={form.guestCount} />
         </Field>
 
         {!booking ? <div className="md:col-span-2 xl:col-span-3">
-          <p className="mb-1.5 text-sm font-medium text-slate-700">Số phòng cần đặt</p>
-          <div className="inline-flex rounded-lg border border-slate-300 bg-slate-100 p-1">
-            <button className={`rounded-md px-4 py-2 text-sm font-medium ${form.roomMode === "single" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600"}`} onClick={() => updateRoomMode("single")} type="button">Một phòng</button>
-            <button className={`rounded-md px-4 py-2 text-sm font-medium ${form.roomMode === "multiple" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600"}`} onClick={() => updateRoomMode("multiple")} type="button">Nhiều phòng</button>
+          <p className="mb-1.5 text-sm font-medium text-[var(--foreground)]">Số phòng cần đặt</p>
+          <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-1">
+            <button aria-pressed={form.roomMode === "single"} className={`rounded-md px-4 py-2 text-sm font-medium ${form.roomMode === "single" ? "bg-white text-[var(--primary)] shadow-sm" : "text-[var(--muted)]"}`} onClick={() => updateRoomMode("single")} type="button">Một phòng</button>
+            <button aria-pressed={form.roomMode === "multiple"} className={`rounded-md px-4 py-2 text-sm font-medium ${form.roomMode === "multiple" ? "bg-white text-[var(--primary)] shadow-sm" : "text-[var(--muted)]"}`} onClick={() => updateRoomMode("multiple")} type="button">Nhiều phòng</button>
           </div>
-        </div> : booking.groupCode ? <p className="md:col-span-2 xl:col-span-3 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-800">Booking thuộc nhóm <b>{booking.groupCode}</b>.</p> : null}
+        </div> : booking.groupCode ? <p className="md:col-span-2 xl:col-span-3 rounded-lg bg-[var(--nav-active)] px-4 py-3 text-sm text-[var(--primary-strong)]">Đặt phòng này thuộc nhóm <b>{booking.groupCode}</b>.</p> : null}
 
         <div className={`md:col-span-2 xl:col-span-3 ${form.roomMode === "single" || booking ? "max-w-2xl" : ""}`}>
-          {checkingAvailability ? <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-4 text-sm text-blue-700">Đang kiểm tra phòng trống theo thời gian đã chọn…</div> : form.roomMode === "single" || booking ? (
+          {checkingAvailability ? <div className="rounded-lg border border-[#bdd1cb] bg-[var(--nav-active)] px-4 py-4 text-sm text-[var(--primary-strong)]">Đang kiểm tra phòng trống theo thời gian đã chọn…</div> : form.roomMode === "single" || booking ? (
             <Field error={fieldErrors.roomId?.[0]} htmlFor="roomId" label="Phòng còn trống" required>
               <SearchableSelect
                 disabled={disabled || availableRoomIds === undefined}
@@ -98,8 +98,8 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
                 {availableRooms.length === 0 ? <p className="px-2 py-5 text-center text-sm text-slate-500">Không còn phòng phù hợp trong khoảng thời gian này.</p> : <div className="grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {availableRooms.map((room) => {
                     const selected = selectedRoomIds.includes(String(room.id));
-                    return <button aria-pressed={selected} className={`flex min-h-16 items-center gap-3 rounded-lg border p-3 text-left transition ${selected ? "border-blue-500 bg-blue-50 ring-1 ring-blue-300" : "border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/40"}`} disabled={disabled} key={room.id} onClick={() => toggleRoom(String(room.id))} type="button">
-                      <span className={`flex size-5 shrink-0 items-center justify-center rounded border ${selected ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 bg-white"}`}>{selected ? <Check size={14} /> : null}</span>
+                    return <button aria-pressed={selected} className={`flex min-h-16 items-center gap-3 rounded-lg border p-3 text-left transition-colors ${selected ? "border-[var(--primary)] bg-[var(--nav-active)] ring-1 ring-[var(--primary)]" : "border-[var(--border)] bg-white hover:border-[var(--primary)] hover:bg-[var(--sidebar)]"}`} disabled={disabled} key={room.id} onClick={() => toggleRoom(String(room.id))} type="button">
+                      <span className={`flex size-5 shrink-0 items-center justify-center rounded border ${selected ? "border-[var(--primary)] bg-[var(--primary)] text-white" : "border-[var(--border-strong)] bg-white"}`}>{selected ? <Check size={14} /> : null}</span>
                       <span><b className="block text-slate-900">Phòng {room.roomNumber}</b><span className="text-xs text-slate-500">{room.roomTypeName}</span></span>
                     </button>;
                   })}
@@ -109,11 +109,11 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
           )}
         </div>
 
-        <Field error={fieldErrors.channelId?.[0]} hint={form.entryMode === "ONLINE" ? "Chọn đúng OTA để lưu nguồn và mã booking ngoài." : "Nguồn khách trực tiếp, điện thoại hoặc đối tác offline."} htmlFor="channelId" label="Nguồn / kênh đặt">
+        <Field error={fieldErrors.channelId?.[0]} hint={form.entryMode === "ONLINE" ? "Chọn đúng kênh để lưu nguồn và mã đặt phòng bên ngoài." : "Ví dụ: tại quầy, qua điện thoại hoặc đại lý."} htmlFor="channelId" label="Kênh đặt phòng">
           <SearchableSelect disabled={disabled || form.entryMode === "WALK_IN"} id="channelId" onChange={(value) => updateStayOption("channelId", value)} options={availableChannels.map((channel) => ({ value: String(channel.id), label: channel.name, searchText: `${channel.code} ${channel.category}` }))} placeholder="Chọn kênh" searchPlaceholder="Nhập tên hoặc mã kênh…" value={form.channelId} />
         </Field>
         {showExternalBookingCode ? (
-          <Field error={fieldErrors.externalBookingCode?.[0]} htmlFor="externalBookingCode" label={`Mã booking từ ${selectedChannel.name}`}>
+          <Field error={fieldErrors.externalBookingCode?.[0]} htmlFor="externalBookingCode" label={`Mã đặt phòng từ ${selectedChannel.name}`}>
             <Input disabled={disabled} id="externalBookingCode" onChange={(event) => updateField("externalBookingCode", event.target.value)} placeholder={`Nhập mã do ${selectedChannel.name} cung cấp`} value={form.externalBookingCode} />
           </Field>
         ) : null}

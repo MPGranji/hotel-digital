@@ -11,19 +11,19 @@ import { RoomHourlyCalendar } from "./room-hourly-calendar";
 import type { RoomCalendarCell, RoomCalendarResponse } from "./types";
 
 const statusStyles = {
-  AVAILABLE: "bg-emerald-50/80 text-emerald-800 shadow-[inset_3px_0_0_#6ee7b7]",
-  BOOKED: "bg-blue-50/80 text-blue-800 shadow-[inset_3px_0_0_#93c5fd] hover:bg-blue-100/80",
-  CHECKED_IN: "bg-amber-50/80 text-amber-900 shadow-[inset_3px_0_0_#fcd34d] hover:bg-amber-100/80",
-  MAINTENANCE: "bg-rose-50/80 text-rose-800 shadow-[inset_3px_0_0_#fda4af]",
-  INACTIVE: "bg-slate-100 text-slate-500 shadow-[inset_3px_0_0_#cbd5e1]",
+  AVAILABLE: "bg-[#edf5f2] text-[#24544d] shadow-[inset_3px_0_0_#2f5d62]",
+  BOOKED: "bg-[#faf4e9] text-[#755b2e] shadow-[inset_3px_0_0_#b08d57] hover:bg-[#f3ead8]",
+  CHECKED_IN: "bg-[#edf4ed] text-[#365c42] shadow-[inset_3px_0_0_#5f8d7a] hover:bg-[#e2eee2]",
+  MAINTENANCE: "bg-[#f9efec] text-[#8c493e] shadow-[inset_3px_0_0_#b85c4a]",
+  INACTIVE: "bg-[var(--surface-muted)] text-[var(--muted)] shadow-[inset_3px_0_0_#a5aaa5]",
 };
 
 const statusDots = {
-  AVAILABLE: "bg-emerald-400",
-  BOOKED: "bg-blue-400",
-  CHECKED_IN: "bg-amber-400",
-  MAINTENANCE: "bg-rose-400",
-  INACTIVE: "bg-slate-400",
+  AVAILABLE: "bg-[#2f5d62]",
+  BOOKED: "bg-[#b08d57]",
+  CHECKED_IN: "bg-[#5f8d7a]",
+  MAINTENANCE: "bg-[#b85c4a]",
+  INACTIVE: "bg-[#a5aaa5]",
 };
 
 function localDate(date = new Date()) {
@@ -38,7 +38,7 @@ function dateLabel(value: string) {
 export function RoomCalendar() {
   const [mode, setMode] = useState<"daily" | "hourly">("daily");
   return <>
-    <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm" aria-label="Kiểu lịch phòng">
+    <div className="mb-4 inline-flex rounded-lg border border-[var(--border)] bg-white p-1" aria-label="Kiểu lịch phòng">
       <ModeButton active={mode === "daily"} label="Theo ngày" onClick={() => setMode("daily")} />
       <ModeButton active={mode === "hourly"} label="Theo giờ" onClick={() => setMode("hourly")} />
     </div>
@@ -58,7 +58,7 @@ function DailyRoomCalendar() {
 
   useEffect(() => {
     let active = true;
-    void getRoomCalendar(dateFrom, days).then((result) => { if (active) setData(result); }).catch((reason) => setError(getApiErrorMessage(reason, "Không thể tải ma trận phòng."))).finally(() => setLoading(false));
+    void getRoomCalendar(dateFrom, days).then((result) => { if (active) setData(result); }).catch((reason) => setError(getApiErrorMessage(reason, "Không thể tải lịch phòng."))).finally(() => setLoading(false));
     return () => { active = false; };
   }, [dateFrom, days, reloadKey]);
 
@@ -70,17 +70,17 @@ function DailyRoomCalendar() {
     (!roomType || room.roomTypeName === roomType) && (!floor || room.floorLabel === floor)), [data, floor, roomType]);
 
   return <>
-    <div className="mb-4 flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 lg:flex-row lg:items-center">
+    <div className="mb-4 flex flex-col gap-4 rounded-xl border border-[var(--border)] bg-white p-4 lg:flex-row lg:items-center">
       <div className="flex flex-wrap items-end gap-3">
-        <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Từ ngày<Input className="mt-1 w-44" onChange={(e) => { setLoading(true); setError(undefined); setDateFrom(e.target.value); }} type="date" value={dateFrom} /></label>
-        <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Khoảng xem<Select className="mt-1 w-36" onChange={(e) => { setLoading(true); setError(undefined); setDays(Number(e.target.value)); }} value={days}><option value={7}>7 ngày</option><option value={14}>14 ngày</option><option value={21}>21 ngày</option><option value={31}>31 ngày</option></Select></label>
-        <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Hạng phòng<Select className="mt-1 w-44" onChange={(event) => setRoomType(event.target.value)} value={roomType}><option value="">Tất cả hạng</option>{roomTypes.map((item) => <option key={item}>{item}</option>)}</Select></label>
-        <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Tầng<Select className="mt-1 w-36" onChange={(event) => setFloor(event.target.value)} value={floor}><option value="">Tất cả tầng</option>{floors.map((item) => <option key={item} value={item}>Tầng {item}</option>)}</Select></label>
+        <label className="text-xs font-medium text-[var(--muted)]">Từ ngày<Input className="mt-1 w-44" onChange={(e) => { setLoading(true); setError(undefined); setDateFrom(e.target.value); }} type="date" value={dateFrom} /></label>
+        <label className="text-xs font-medium text-[var(--muted)]">Khoảng xem<Select className="mt-1 w-36" onChange={(e) => { setLoading(true); setError(undefined); setDays(Number(e.target.value)); }} value={days}><option value={7}>7 ngày</option><option value={14}>14 ngày</option><option value={21}>21 ngày</option><option value={31}>31 ngày</option></Select></label>
+        <label className="text-xs font-medium text-[var(--muted)]">Hạng phòng<Select className="mt-1 w-44" onChange={(event) => setRoomType(event.target.value)} value={roomType}><option value="">Tất cả hạng</option>{roomTypes.map((item) => <option key={item}>{item}</option>)}</Select></label>
+        <label className="text-xs font-medium text-[var(--muted)]">Tầng<Select className="mt-1 w-36" onChange={(event) => setFloor(event.target.value)} value={floor}><option value="">Tất cả tầng</option>{floors.map((item) => <option key={item} value={item}>Tầng {item}</option>)}</Select></label>
         <Button onClick={() => { setLoading(true); setError(undefined); setDateFrom(localDate()); }} variant="secondary">Hôm nay</Button>
       </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-600 lg:ml-auto"><Legend color="bg-emerald-200" label="Trống" /><Legend color="bg-blue-200" label="Đã đặt" /><Legend color="bg-amber-200" label="Đang ở" /><Legend color="bg-rose-200" label="Bảo trì" /><Legend color="bg-slate-300" label="Ngừng dùng" /></div>
+      <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-[var(--muted)] lg:ml-auto"><Legend color="bg-[#2f5d62]" label="Trống" /><Legend color="bg-[#b08d57]" label="Đã đặt" /><Legend color="bg-[#5f8d7a]" label="Đang ở" /><Legend color="bg-[#b85c4a]" label="Bảo trì" /><Legend color="bg-[#a5aaa5]" label="Ngừng dùng" /></div>
     </div>
-    {error ? <DataMessage action={<Button onClick={refresh}>Thử lại</Button>} description={error} title="Không thể tải ma trận" /> : loading ? <DataMessage title="Đang kiểm tra lịch phòng…" /> : !visibleRooms.length ? <DataMessage description="Thử thay đổi hạng phòng hoặc tầng." title="Không có phòng phù hợp" /> : <div className="max-h-[68vh] overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+    {error ? <DataMessage action={<Button onClick={refresh}>Thử lại</Button>} description={error} title="Chưa tải được lịch phòng" /> : loading ? <DataMessage title="Đang lấy lịch phòng…" /> : !visibleRooms.length ? <DataMessage description="Bạn thử hạng phòng hoặc tầng khác nhé." title="Không có phòng phù hợp" /> : <div className="max-h-[68vh] overflow-auto rounded-xl border border-[var(--border)] bg-white">
       <table className="border-separate border-spacing-0 text-left text-xs">
         <thead className="sticky top-0 z-20 bg-slate-50"><tr><th className="sticky left-0 z-30 min-w-44 border-b border-r border-slate-200 bg-slate-50 px-4 py-3">Phòng</th>{data?.dates.map((date) => <th className="min-w-28 border-b border-r border-slate-200 px-2 py-3 text-center font-semibold capitalize text-slate-600" key={date}>{dateLabel(date)}</th>)}</tr></thead>
         <tbody>{visibleRooms.map((room) => <tr key={room.roomId}><th className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-4 py-3"><b className="block text-sm text-slate-900">{room.roomNumber}</b><span className="font-normal text-slate-500">{room.roomTypeName}{room.floorLabel ? ` · Tầng ${room.floorLabel}` : ""}</span></th>{room.cells.map((cell) => <td className="border-b border-r border-slate-200 p-0" key={cell.date}><CalendarCell cell={cell} /></td>)}</tr>)}</tbody>
@@ -90,7 +90,7 @@ function DailyRoomCalendar() {
 }
 
 function ModeButton({ active, label, onClick }: Readonly<{ active: boolean; label: string; onClick: () => void }>) {
-  return <button aria-pressed={active} className={`min-h-9 rounded-md px-4 text-sm font-medium transition ${active ? "bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-200" : "text-slate-600 hover:bg-slate-50"}`} onClick={onClick} type="button">{label}</button>;
+  return <button aria-pressed={active} className={`min-h-9 rounded-md px-4 text-sm font-medium transition-colors ${active ? "bg-[var(--nav-active)] text-[var(--primary-strong)] ring-1 ring-[#bdd1cb]" : "text-[var(--muted)] hover:bg-[var(--surface-muted)]"}`} onClick={onClick} type="button">{label}</button>;
 }
 
 function CalendarCell({ cell }: Readonly<{ cell: RoomCalendarCell }>) {

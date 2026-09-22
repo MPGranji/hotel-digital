@@ -23,11 +23,11 @@ const statusLabels = {
 };
 
 const statusStyles = {
-  AVAILABLE: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  RESERVED: "border-blue-200 bg-blue-50 text-blue-700",
-  OCCUPIED: "border-amber-200 bg-amber-50 text-amber-800",
-  MAINTENANCE: "border-rose-200 bg-rose-50 text-rose-700",
-  INACTIVE: "border-slate-200 bg-slate-100 text-slate-600",
+  AVAILABLE: "border-[#bdd1cb] bg-[#edf5f2] text-[#24544d]",
+  RESERVED: "border-[#d8c6a7] bg-[#faf4e9] text-[#755b2e]",
+  OCCUPIED: "border-[#bbd0bd] bg-[#edf4ed] text-[#365c42]",
+  MAINTENANCE: "border-[#dfc0b9] bg-[#f9efec] text-[#8c493e]",
+  INACTIVE: "border-[var(--border)] bg-[var(--surface-muted)] text-[var(--nav-text)]",
 };
 
 export function RoomDirectory() {
@@ -87,23 +87,23 @@ export function RoomDirectory() {
 
   return (
     <>
-      <PageHeader actions={<><Button onClick={() => setManagingTypes(true)} variant="secondary">Hạng phòng</Button><Button onClick={() => setEditing("new")}>Thêm phòng</Button></>} description="Quản lý phòng, theo dõi hiện trạng và thiết lập lịch bảo trì." title="Phòng" />
-      <nav aria-label="Chế độ quản lý phòng" className="mb-4 flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+      <PageHeader actions={<><Button onClick={() => setManagingTypes(true)} variant="secondary">Hạng phòng</Button><Button onClick={() => setEditing("new")}>Thêm phòng</Button></>} description="Xem danh sách, lịch phòng và các lịch bảo trì tại đây." title="Phòng" />
+      <nav aria-label="Chế độ quản lý phòng" className="mb-5 flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
         <ViewButton active={view === "list"} label="Danh sách phòng" onClick={() => setView("list")} />
         <ViewButton active={view === "calendar"} label="Hiện trạng phòng" onClick={() => setView("calendar")} />
         <ViewButton active={view === "maintenance"} label="Lịch bảo trì" onClick={() => setView("maintenance")} />
       </nav>
       {view === "calendar" ? <RoomCalendar /> : view === "maintenance" ? <RoomMaintenance rooms={rooms} /> : (
       <Panel>
-        <div className="mb-5 flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-center">
+        <div className="mb-5 flex flex-col gap-3 border-b border-[var(--border)] pb-5 md:flex-row md:items-center">
           <Input aria-label="Tìm phòng" className="md:max-w-sm" onChange={(event) => { setQuery(event.target.value); setLoading(true); }} placeholder="Tìm số phòng, hạng phòng hoặc tầng" value={query} />
           <Select aria-label="Trạng thái phòng" className="md:max-w-xs" onChange={(event) => { setStatus(event.target.value); setLoading(true); }} value={status}><option value="">Tất cả trạng thái</option><option value="AVAILABLE">Trống</option><option value="RESERVED">Đã đặt</option><option value="OCCUPIED">Đang có khách</option><option value="MAINTENANCE">Bảo trì</option><option value="INACTIVE">Ngừng hoạt động</option></Select>
           <Button className="md:ml-auto" onClick={refresh} variant="secondary">Làm mới</Button>
         </div>
         {error ? <DataMessage action={<Button onClick={refresh}>Thử lại</Button>} description={error} title="Không thể tải dữ liệu" /> : loading ? <DataMessage title="Đang tải danh sách phòng…" /> : rooms.length === 0 ? <DataMessage description="Thử thay đổi từ khóa hoặc trạng thái." title="Không có phòng phù hợp" /> : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <div className="overflow-x-auto rounded-lg border border-[var(--border)]">
             <table className="w-full min-w-[900px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Phòng</th><th className="px-4 py-3">Hạng phòng</th><th className="px-4 py-3">Tầng</th><th className="px-4 py-3 text-right">Giá niêm yết / đêm</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3">Khách / Lịch kế tiếp</th><th className="px-4 py-3 text-right">Thao tác</th></tr></thead>
+              <thead className="bg-[var(--sidebar)] text-xs text-[var(--muted)]"><tr><th className="px-4 py-3">Phòng</th><th className="px-4 py-3">Hạng phòng</th><th className="px-4 py-3">Tầng</th><th className="px-4 py-3 text-right">Giá / đêm</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3">Khách / Lịch kế tiếp</th><th className="px-4 py-3 text-right">Thao tác</th></tr></thead>
               <tbody className="divide-y divide-slate-100">{rooms.map((room) => <RoomRow key={room.id} onEdit={() => setEditing(room)} onToggle={() => void toggleRoom(room)} room={room} updating={updatingId === room.id} />)}</tbody>
             </table>
           </div>
@@ -117,13 +117,13 @@ export function RoomDirectory() {
 }
 
 function ViewButton({ active, label, onClick }: Readonly<{ active: boolean; label: string; onClick: () => void }>) {
-  return <button className={`min-h-10 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${active ? "border-blue-200 bg-blue-50 text-blue-800" : "border-transparent text-slate-600 hover:bg-slate-50"}`} onClick={onClick} type="button">{label}</button>;
+  return <button aria-pressed={active} className={`min-h-10 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${active ? "border-[#bdd1cb] bg-[var(--nav-active)] text-[var(--primary-strong)]" : "border-transparent text-[var(--muted)] hover:bg-[var(--surface-muted)]"}`} onClick={onClick} type="button">{label}</button>;
 }
 
 function RoomRow({ room, onEdit, onToggle, updating }: Readonly<{ room: RoomListItem; onEdit: () => void; onToggle: () => void; updating: boolean }>) {
   const actionHref = room.currentBookingId ? `/bookings?bookingId=${room.currentBookingId}` : `/bookings?roomId=${room.id}`;
-  const actionLabel = room.status === "OCCUPIED" ? "Mở booking" : room.status === "RESERVED" ? "Check-in" : "Tạo đặt phòng";
-  const actionStyle = room.status === "OCCUPIED" ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100" : room.status === "RESERVED" ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100" : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100";
+  const actionLabel = room.status === "OCCUPIED" ? "Xem đặt phòng" : room.status === "RESERVED" ? "Nhận phòng" : "Tạo đặt phòng";
+  const actionStyle = room.status === "OCCUPIED" ? "border-[#bbd0bd] bg-[#edf4ed] text-[#365c42] hover:bg-[#e2eee2]" : room.status === "RESERVED" ? "border-[#d8c6a7] bg-[#faf4e9] text-[#755b2e] hover:bg-[#f3ead8]" : "border-[#bdd1cb] bg-[#edf5f2] text-[#24544d] hover:bg-[#e1eee9]";
   return (
     <tr className="hover:bg-slate-50">
       <td className="px-4 py-3 text-base font-semibold text-[var(--primary)]">{room.roomNumber}</td>

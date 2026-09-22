@@ -25,9 +25,9 @@ export function BookingForm({ bookingId, initialRoomId, initialCheckInDate, init
     <>
       <PageHeader
         actions={readOnly && model.booking ? (
-          <Link className="inline-flex min-h-10 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2" href={`/bookings?bookingId=${model.booking.id}`}>Sửa đặt phòng</Link>
+          <Link className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d8c6a7] bg-[#faf4e9] px-4 py-2 text-sm font-medium text-[#755b2e] transition-colors hover:bg-[#f3ead8]" href={`/bookings?bookingId=${model.booking.id}`}>Sửa đặt phòng</Link>
         ) : <Button onClick={model.reset} variant="secondary">Tạo đặt phòng mới</Button>}
-        description="Chọn rõ đặt trước, nhận phòng tại quầy hoặc booking online. Hóa đơn nháp được tạo cùng booking và cập nhật theo các khoản thu đã ghi."
+        description="Điền thông tin khách và thời gian lưu trú. Tiền phòng, khoản thu và hóa đơn sẽ đi cùng đặt phòng này."
         title={model.booking ? `${readOnly ? "Xem" : "Đặt phòng"} ${model.booking.bookingCode}` : "Tạo đặt phòng"}
       />
       <form onSubmit={(event) => { event.preventDefault(); void model.submit(); }}>
@@ -37,13 +37,13 @@ export function BookingForm({ bookingId, initialRoomId, initialCheckInDate, init
           <StaySection disabled={Boolean(closed)} model={model} />
           <CustomerSection disabled={Boolean(closed)} model={model} />
           <FinanceSection disabled={Boolean(closed)} model={model} />
-          {readOnly ? <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">Bạn đang xem ở chế độ chỉ đọc.</p> : null}
+          {readOnly ? <p className="rounded-lg border border-[#bdd1cb] bg-[var(--nav-active)] px-4 py-3 text-sm text-[var(--primary-strong)]">Bạn đang xem thông tin đặt phòng. Nhấn Sửa đặt phòng để thay đổi.</p> : null}
           <PaymentSection model={model} readOnly={readOnly} />
           <OperationSection disabled={Boolean(closed)} model={model} />
           {!closed ? (
             <div className="flex justify-end border-t border-slate-200 pt-5">
               <Button className="w-full md:w-auto" disabled={model.saving} type="submit">
-                {model.saving ? "Đang lưu…" : model.booking ? "Lưu thay đổi" : model.form.entryMode === "WALK_IN" ? "Nhận phòng ngay" : model.form.entryMode === "ONLINE" ? "Lưu booking online" : "Lưu đặt phòng"}
+                {model.saving ? "Đang lưu…" : model.booking ? "Lưu thay đổi" : model.form.entryMode === "WALK_IN" ? "Nhận phòng ngay" : model.form.entryMode === "ONLINE" ? "Lưu đặt phòng online" : "Lưu đặt phòng"}
               </Button>
             </div>
           ) : null}

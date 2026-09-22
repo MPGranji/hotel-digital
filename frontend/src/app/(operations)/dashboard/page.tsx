@@ -12,25 +12,26 @@ export default async function DashboardPage({ searchParams }: Readonly<{ searchP
     <>
       <PageHeader
         title="Báo cáo quản trị"
+        description="Xem tình hình phòng và kết quả kinh doanh. Bạn có thể chuyển giữa hai trang ngay trong báo cáo."
         actions={embedUrl ? (
           <a
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-[var(--primary)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--surface-muted)]"
             href={embedUrl}
             rel="noreferrer"
             target="_blank"
           >
-            Mở trong Power BI
+            Mở báo cáo toàn màn hình
             <ExternalLink aria-hidden="true" size={16} />
           </a>
         ) : undefined}
       />
 
-      <Panel className="overflow-hidden p-0">
+      <Panel className="overflow-hidden rounded-2xl p-0 shadow-[0_18px_45px_rgba(36,52,77,0.08)]">
         {embedUrl ? (
           <iframe
             allow="fullscreen"
             allowFullScreen
-            className="block h-[calc(100dvh-170px)] min-h-[720px] w-full border-0"
+            className="block h-[calc(100dvh-220px)] min-h-[720px] w-full border-0 bg-[var(--surface)]"
             loading="eager"
             referrerPolicy="strict-origin-when-cross-origin"
             src={embedUrl}
@@ -39,8 +40,8 @@ export default async function DashboardPage({ searchParams }: Readonly<{ searchP
         ) : (
           <div className="p-5">
             <DataMessage
-              title="Dashboard Power BI chưa được kết nối"
-              description="Cấu hình NEXT_PUBLIC_POWER_BI_PUBLIC_URL bằng đường dẫn Publish to web của báo cáo."
+              title="Báo cáo chưa sẵn sàng"
+              description="Bạn thử mở lại sau hoặc kiểm tra đường dẫn báo cáo."
             />
           </div>
         )}

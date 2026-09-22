@@ -56,7 +56,7 @@ export function InvoiceViewer({ invoice, onClose }: Readonly<{ invoice: InvoiceI
         <div className="invoice-print-hide flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-8">
           <div>
             <h2 className="text-lg font-bold">Hóa đơn lưu trú</h2>
-            <p className="text-sm text-slate-500">Chi tiết tiền phòng và thanh toán của booking.</p>
+            <p className="text-sm text-slate-500">Chi tiết tiền phòng và các khoản thanh toán của đặt phòng.</p>
           </div>
           <div className="flex gap-2">
             <Button onClick={() => window.print()} variant="secondary">In hóa đơn</Button>

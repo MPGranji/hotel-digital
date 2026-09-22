@@ -17,7 +17,7 @@ export function OperationSection({ model, disabled }: Readonly<{ model: FormMode
     <div>
       <SectionTitle>5. Vận hành và ghi chú</SectionTitle>
       <div>
-        <Field error={fieldErrors.note?.[0]} htmlFor="note" label="Ghi chú booking">
+        <Field error={fieldErrors.note?.[0]} htmlFor="note" label="Ghi chú đặt phòng">
           <Textarea disabled={disabled} id="note" onChange={(event) => updateField("note", event.target.value)} rows={2} value={form.note} />
         </Field>
       </div>
@@ -39,13 +39,13 @@ export function OperationSection({ model, disabled }: Readonly<{ model: FormMode
           {!disabled ? <div className="flex flex-wrap gap-2">
             {booking.status === "BOOKED" ? (
               <>
-                <Button disabled={saving} onClick={() => void changeStatus("check-in")}>Check-in</Button>
+                <Button disabled={saving} onClick={() => void changeStatus("check-in")}>Nhận phòng</Button>
                 <Button disabled={saving} onClick={() => confirmAndChange("no-show", "Xác nhận khách không đến?")} variant="secondary">Đánh dấu không đến</Button>
                 <Button disabled={saving} onClick={() => confirmAndChange("cancel", "Hủy đặt phòng này? Lịch sử vẫn được giữ lại.")} variant="danger">Hủy đặt phòng</Button>
               </>
             ) : null}
             {booking.status === "CHECKED_IN" ? (
-              <Button disabled={saving} onClick={() => confirmAndChange("check-out", "Xác nhận khách đã trả phòng?")}>Check-out</Button>
+              <Button disabled={saving} onClick={() => confirmAndChange("check-out", "Xác nhận khách đã trả phòng?")}>Trả phòng</Button>
             ) : null}
           </div> : null}
         </div>

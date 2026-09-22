@@ -78,7 +78,7 @@ export function RoomMaintenance({ rooms }: Readonly<{ rooms: RoomListItem[] }>) 
       <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-end">
         <div>
           <h2 className="text-lg font-semibold">Lịch bảo trì phòng</h2>
-          <p className="mt-1 text-sm text-slate-500">Thiết lập và quản lý lịch khóa phòng riêng, không thao tác trong ma trận hiện trạng.</p>
+          <p className="mt-1 text-sm text-[var(--muted)]">Chọn phòng và thời gian cần bảo trì. Lịch phòng sẽ hiển thị khoảng thời gian này.</p>
         </div>
         <label className="text-xs font-medium uppercase tracking-wide text-slate-500 md:ml-auto">Xem từ ngày<Input className="mt-1 w-44" onChange={(event) => { setLoading(true); setError(undefined); setDateFrom(event.target.value); }} type="date" value={dateFrom} /></label>
         <Button onClick={() => { setLoading(true); setError(undefined); setDateFrom(localDate()); }} variant="secondary">Hôm nay</Button>

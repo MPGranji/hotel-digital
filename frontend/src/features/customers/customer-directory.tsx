@@ -48,7 +48,7 @@ export function CustomerDirectory() {
 
   async function toggleCustomer(customer: CustomerListItem) {
     const action = customer.isActive ? "ngừng sử dụng" : "kích hoạt lại";
-    if (!window.confirm(`Xác nhận ${action} hồ sơ ${customer.fullName}? Booking và lịch sử lưu trú vẫn được giữ nguyên.`)) return;
+    if (!window.confirm(`Xác nhận ${action} hồ sơ ${customer.fullName}? Các đặt phòng và lịch sử lưu trú vẫn được giữ nguyên.`)) return;
     setUpdatingId(customer.id);
     setError(undefined);
     try {
@@ -75,7 +75,7 @@ export function CustomerDirectory() {
     <>
       <PageHeader
         actions={<Button onClick={() => setEditingId("new")}>Thêm khách hàng</Button>}
-        description="Tra cứu hồ sơ khách và lần check-in gần nhất. Hệ thống không tự gộp khách chỉ vì trùng một trường."
+        description="Tìm hồ sơ, số liên lạc và lần lưu trú gần nhất của khách."
         title="Khách hàng"
       />
       <Panel>
@@ -92,7 +92,7 @@ export function CustomerDirectory() {
           <>
             <div className="overflow-x-auto rounded-lg border border-slate-200">
               <table className="w-full min-w-[900px] text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-3">Khách hàng</th><th className="px-3 py-3">Liên hệ</th><th className="px-3 py-3">CCCD/Passport</th><th className="px-3 py-3">Quốc tịch</th><th className="px-3 py-3">Check-in gần nhất</th><th className="px-3 py-3 text-right">Thao tác</th></tr></thead>
+                <thead className="bg-[var(--sidebar)] text-xs text-[var(--muted)]"><tr><th className="px-3 py-3">Khách hàng</th><th className="px-3 py-3">Liên hệ</th><th className="px-3 py-3">CCCD / Hộ chiếu</th><th className="px-3 py-3">Quốc tịch</th><th className="px-3 py-3">Lần nhận phòng gần nhất</th><th className="px-3 py-3 text-right">Thao tác</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {result.items.map((customer) => (
                     <tr className="hover:bg-slate-50" key={customer.id}>

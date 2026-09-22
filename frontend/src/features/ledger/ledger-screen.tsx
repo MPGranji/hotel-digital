@@ -107,12 +107,12 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
     <>
       <PageHeader
         actions={<Link className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--primary-strong)] focus-visible:outline focus-visible:outline-2" href="/bookings">Thêm đặt phòng</Link>}
-        description="Một dòng tương ứng một lượt lưu trú. Bộ lọc và phân trang được xử lý tại máy chủ."
+        description="Tìm đặt phòng theo mã, tên khách, số điện thoại hoặc ngày đến."
         title="Sổ đặt phòng"
       />
       <Panel>
         <form className="grid gap-3 border-b border-slate-200 pb-5 md:grid-cols-2 xl:grid-cols-4" onSubmit={(event) => { event.preventDefault(); applyFilters(); }}>
-          <Input aria-label="Tìm đặt phòng" onChange={(event) => setDraft((current) => ({ ...current, search: event.target.value }))} placeholder="Mã booking/nhóm, tên hoặc SĐT" value={draft.search} />
+          <Input aria-label="Tìm đặt phòng" onChange={(event) => setDraft((current) => ({ ...current, search: event.target.value }))} placeholder="Mã đặt phòng, tên khách hoặc SĐT" value={draft.search} />
           <Input aria-label="Từ ngày đến" onChange={(event) => setDraft((current) => ({ ...current, dateFrom: event.target.value }))} title="Từ ngày đến" type="date" value={draft.dateFrom} />
           <Input aria-label="Đến ngày đến" onChange={(event) => setDraft((current) => ({ ...current, dateTo: event.target.value }))} title="Đến ngày đến" type="date" value={draft.dateTo} />
           <Select aria-label="Phòng" onChange={(event) => setDraft((current) => ({ ...current, roomId: event.target.value }))} value={draft.roomId}><option value="">Tất cả phòng</option>{options.rooms.map((room) => <option key={room.id} value={room.id}>{room.roomNumber} · {room.roomTypeName}</option>)}</Select>

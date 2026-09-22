@@ -6,10 +6,10 @@ export function PageHeader({
   actions,
 }: Readonly<{ title: string; description?: string; actions?: ReactNode }>) {
   return (
-    <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-start">
+    <div className="mb-6 flex flex-col justify-between gap-4 border-b border-[var(--border)] pb-6 md:flex-row md:items-end">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-950">{title}</h1>
-        {description ? <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">{description}</p> : null}
+        <h1 className="text-[1.75rem] font-semibold leading-tight tracking-[-0.025em] text-[var(--foreground)] sm:text-[2rem]">{title}</h1>
+        {description ? <p className="mt-2 max-w-[68ch] text-sm leading-6 text-[var(--muted)]">{description}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
     </div>
@@ -17,12 +17,12 @@ export function PageHeader({
 }
 
 export function Panel({ children, className = "" }: Readonly<{ children: ReactNode; className?: string }>) {
-  return <section className={`rounded-xl border border-[var(--border)] bg-white p-5 shadow-sm ${className}`}>{children}</section>;
+  return <section className={`rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5 ${className}`}>{children}</section>;
 }
 
 export function SectionTitle({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <h2 className="mb-4 border-b border-slate-200 pb-3 text-base font-semibold text-slate-900">{children}</h2>
+    <h2 className="mb-4 border-b border-[var(--border)] pb-3 text-base font-semibold tracking-tight text-[var(--foreground)]">{children}</h2>
   );
 }
 
@@ -32,9 +32,9 @@ export function DataMessage({
   action,
 }: Readonly<{ title: string; description?: string; action?: ReactNode }>) {
   return (
-    <div className="rounded-lg border border-dashed border-slate-300 px-5 py-10 text-center">
-      <p className="font-medium text-slate-800">{title}</p>
-      {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--sidebar)] px-5 py-10 text-center">
+      <p className="font-semibold text-[var(--foreground)]">{title}</p>
+      {description ? <p className="mx-auto mt-1 max-w-lg text-sm leading-6 text-[var(--muted)]">{description}</p> : null}
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );

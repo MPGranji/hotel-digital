@@ -66,10 +66,10 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
 
 function CenteredMessage({ title, description }: Readonly<{ title: string; description: string }>) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6 text-center">
+    <main className="flex min-h-dvh items-center justify-center bg-[var(--background)] px-6 text-center">
       <div>
-        <h1 className="text-xl font-semibold text-slate-950">{title}</h1>
-        <p className="mt-2 text-sm text-slate-600">{description}</p>
+        <h1 className="text-xl font-semibold text-[var(--foreground)]">{title}</h1>
+        <p className="mt-2 text-sm text-[var(--muted)]">{description}</p>
       </div>
     </main>
   );

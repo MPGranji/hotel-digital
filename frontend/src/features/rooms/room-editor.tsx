@@ -46,7 +46,7 @@ export function RoomEditor({ room, onClose, onSaved }: Readonly<{ room?: RoomLis
 
   return <div aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" role="dialog">
     <form className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl" onSubmit={(event) => { event.preventDefault(); void save(); }}>
-      <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4"><div><h2 className="text-lg font-semibold">{room ? "Cập nhật phòng" : "Thêm phòng"}</h2><p className="mt-1 text-sm text-slate-500">Phòng đã phát sinh booking nên ngừng hoạt động thay vì xóa.</p></div><Button onClick={onClose} variant="ghost">Đóng</Button></div>
+      <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4"><div><h2 className="text-lg font-semibold">{room ? "Cập nhật phòng" : "Thêm phòng"}</h2><p className="mt-1 text-sm text-slate-500">Phòng đã có lịch sử đặt phòng có thể ngừng sử dụng khi cần.</p></div><Button onClick={onClose} variant="ghost">Đóng</Button></div>
       {error ? <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <Field error={fieldErrors.roomNumber?.[0]} htmlFor="roomNumber" label="Số phòng" required><Input autoFocus id="roomNumber" onChange={(e) => setForm((x) => ({ ...x, roomNumber: e.target.value }))} value={form.roomNumber} /></Field>
@@ -57,7 +57,7 @@ export function RoomEditor({ room, onClose, onSaved }: Readonly<{ room?: RoomLis
         <Field htmlFor="roomOccupancy" label="Tính vào công suất phòng"><Select id="roomOccupancy" onChange={(e) => setForm((x) => ({ ...x, countsTowardOccupancy: e.target.value === "true" }))} value={String(form.countsTowardOccupancy)}><option value="true">Có</option><option value="false">Không (phòng ảo/nội bộ)</option></Select></Field>
         <div className="md:col-span-2"><Field error={fieldErrors.note?.[0]} htmlFor="roomNote" label="Ghi chú"><Textarea id="roomNote" onChange={(e) => setForm((x) => ({ ...x, note: e.target.value }))} value={form.note} /></Field></div>
       </div>
-      {room?.bookingCount ? <p className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">Phòng đã có {room.bookingCount} booking trong lịch sử.</p> : null}
+      {room?.bookingCount ? <p className="mt-4 rounded-lg bg-[#faf4e9] px-4 py-3 text-sm text-[#755b2e]">Phòng này đã có {room.bookingCount} lượt đặt trong lịch sử.</p> : null}
       <div className="mt-6 flex justify-end gap-2 border-t border-slate-200 pt-4"><Button onClick={onClose} variant="secondary">Hủy</Button><Button disabled={saving} type="submit">{saving ? "Đang lưu…" : "Lưu phòng"}</Button></div>
     </form>
     {pricingRoomType ? <RoomRateManager onClose={() => setPricingRoomType(undefined)} roomType={pricingRoomType} /> : null}

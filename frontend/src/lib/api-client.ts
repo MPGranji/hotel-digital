@@ -17,6 +17,9 @@ export function getApiProblem(error: unknown): ProblemDetails | undefined {
 }
 
 export function getApiErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof DOMException && error.name === "TimeoutError") {
+    return "Kết nối đang chậm. Bạn thử lại sau ít phút nhé.";
+  }
   return getApiProblem(error)?.detail ?? fallback;
 }
 
@@ -31,9 +34,11 @@ export class ApiError extends Error {
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const accessToken = await accessTokenProvider?.();
+  const isRead = !init?.method || init.method.toUpperCase() === "GET";
   const response = await fetch(`${env.apiBaseUrl}${path}`, {
     ...init,
     cache: "no-store",
+    signal: init?.signal ?? (isRead ? AbortSignal.timeout(15_000) : undefined),
     headers: {
       Accept: "application/json",
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
