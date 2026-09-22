@@ -205,7 +205,7 @@ dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backen
 ### Cấu trúc dashboard đã chốt
 
 - Báo cáo Power BI có đúng **2 sheet**: `Tổng quan kinh doanh` và `Phân tích chi tiết`.
-- Trang web nội bộ `Khách & phòng` được giữ riêng để hiển thị trạng thái từng phòng, khách hiện tại và booking kế tiếp.
+- Trang web nội bộ `/operations` (`Khách & phòng`) được giữ riêng để hiển thị trạng thái từng phòng, khách hiện tại và booking kế tiếp.
 - `Khách & phòng` không được tính là sheet Power BI và dữ liệu nhận diện khách không được đưa vào báo cáo Publish to web.
 
 - Đặt phòng/check-in/check-out.
@@ -217,7 +217,7 @@ dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backen
 - Sổ thu tiền chỉ ghi nhận khoản thu nội bộ (tiền mặt, thẻ, chuyển khoản); không kết nối cổng thanh toán hoặc ngân hàng. Trạng thái chưa thu/thu một phần/đã thu đủ được tự tính từ các khoản đã ghi.
 - Đăng nhập quản trị nội bộ và audit ở mức MVP.
 
-Read model database cho Dashboard đã hoàn thành. API/UI Dashboard, nhập/xuất Excel và Power BI Embedded được thực hiện ở giai đoạn tiếp theo.
+Dashboard Power BI hai trang và màn hình vận hành `Khách & phòng` đã được tích hợp vào web. Nhập/xuất Excel và Power BI Embedded có xác thực được thực hiện ở giai đoạn tiếp theo.
 
 ## Đăng nhập quản trị nội bộ
 

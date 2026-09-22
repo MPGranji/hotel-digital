@@ -14,6 +14,7 @@ internal static class BookingMutation
         booking.CheckInAt = request.CheckInAt;
         booking.CheckOutAt = request.CheckOutAt;
         booking.BilledNights = request.BilledNights;
+        booking.GuestCount = request.GuestCount;
         booking.RoomRevenue = request.RoomRevenue;
         booking.ServiceRevenue = request.ServiceRevenue;
         booking.SurchargeAmount = request.SurchargeAmount;
@@ -62,6 +63,7 @@ internal static class BookingMutation
         AddIfChanged(fields, "CheckInAt", current.CheckInAt, request.CheckInAt);
         AddIfChanged(fields, "CheckOutAt", current.CheckOutAt, request.CheckOutAt);
         AddIfChanged(fields, "BilledNights", current.BilledNights, request.BilledNights);
+        AddIfChanged(fields, "GuestCount", current.GuestCount, request.GuestCount);
         AddIfChanged(fields, "RoomRevenue", current.RoomRevenue, request.RoomRevenue);
         AddIfChanged(fields, "ServiceRevenue", current.ServiceRevenue, request.ServiceRevenue);
         AddIfChanged(fields, "SurchargeAmount", current.SurchargeAmount, request.SurchargeAmount);

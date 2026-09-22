@@ -109,6 +109,7 @@ public sealed class Booking
     public DateTime CheckInAt { get; set; }
     public DateTime CheckOutAt { get; set; }
     public short BilledNights { get; set; }
+    public short? GuestCount { get; set; }
     public string Status { get; set; } = "BOOKED";
     public decimal RoomRevenue { get; set; }
     public decimal ServiceRevenue { get; set; }

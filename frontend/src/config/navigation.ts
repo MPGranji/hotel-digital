@@ -4,6 +4,7 @@ import {
   ChartNoAxesCombined,
   ClipboardPlus,
   ContactRound,
+  LayoutGrid,
   RadioTower,
   ReceiptText,
   type LucideIcon,
@@ -16,7 +17,8 @@ export interface NavigationItem {
 }
 
 export const navigationItems: NavigationItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: ChartNoAxesCombined },
+  { href: "/dashboard", label: "Báo cáo quản trị", icon: ChartNoAxesCombined },
+  { href: "/operations", label: "Vận hành phòng", icon: LayoutGrid },
   { href: "/bookings", label: "Đặt / nhận phòng", icon: ClipboardPlus },
   { href: "/ledger", label: "Sổ đặt phòng", icon: BookOpenText },
   { href: "/rooms", label: "Phòng", icon: BedDouble },

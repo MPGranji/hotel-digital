@@ -15,7 +15,11 @@ export interface RoomListItem {
   currentBookingId?: number;
   currentBookingCode?: string;
   currentGuestName?: string;
+  currentGuestPhone?: string;
+  currentCheckInAt?: string;
+  currentCheckOutAt?: string;
   nextCheckInAt?: string;
+  nextCheckOutAt?: string;
 }
 
 export interface RoomWriteRequest {

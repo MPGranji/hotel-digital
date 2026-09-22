@@ -86,6 +86,17 @@ public sealed class BookingValidatorTests
         BookingValidator.Validate(request, requireVersion: true);
     }
 
+    [Fact]
+    public void Guest_count_can_be_unknown_but_not_zero()
+    {
+        BookingValidator.Validate(ValidRequest() with { GuestCount = null }, requireVersion: false);
+
+        var exception = Assert.Throws<RequestValidationException>(() =>
+            BookingValidator.Validate(ValidRequest() with { GuestCount = 0 }, requireVersion: false));
+
+        Assert.Contains("guestCount", exception.Errors.Keys);
+    }
+
     private static BookingWriteRequest ValidRequest() => new(
         RoomId: 1,
         CustomerId: 1,
@@ -96,6 +107,7 @@ public sealed class BookingValidatorTests
         CheckInAt: new DateTime(2026, 9, 17, 14, 0, 0),
         CheckOutAt: new DateTime(2026, 9, 18, 12, 0, 0),
         BilledNights: 1,
+        GuestCount: 1,
         RoomRevenue: 500_000,
         ServiceRevenue: 0,
         SurchargeAmount: 0,

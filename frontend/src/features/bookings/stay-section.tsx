@@ -12,6 +12,10 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
     updateField, updateRoomMode, toggleRoom, updateStayDate, updateStayNights, updateStayOption, updateEntryMode,
   } = model;
   const selectedRoomIds = [form.roomId, ...form.additionalRoomIds].filter(Boolean);
+  const selectedRooms = options.rooms.filter((room) => selectedRoomIds.includes(String(room.id)));
+  const guestCapacity = selectedRooms.length > 0
+    ? Math.min(...selectedRooms.map((room) => room.capacity))
+    : undefined;
   const availableRooms = options.rooms.filter((room) =>
     availableRoomIds?.includes(room.id) || (booking && String(room.id) === form.roomId));
   const selectedChannel = options.channels.find((channel) => String(channel.id) === form.channelId);
@@ -56,6 +60,14 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
         </Field>
         <Field error={fieldErrors.billedNights?.[0]} htmlFor="billedNights" label="Số đêm tính tiền" required>
           <Input disabled={disabled} id="billedNights" min="1" onChange={(event) => updateStayNights(event.target.value)} type="number" value={form.billedNights} />
+        </Field>
+        <Field
+          error={fieldErrors.guestCount?.[0]}
+          hint={form.roomMode === "multiple" && !booking ? "Áp dụng cho từng phòng trong nhóm; có thể để trống nếu chưa xác định." : guestCapacity ? `Tối đa ${guestCapacity} người; có thể để trống nếu chưa xác định.` : "Có thể để trống nếu chưa xác định."}
+          htmlFor="guestCount"
+          label={form.roomMode === "multiple" && !booking ? "Số khách mỗi phòng" : "Số lượng khách"}
+        >
+          <Input disabled={disabled} id="guestCount" max={guestCapacity} min="1" onChange={(event) => updateField("guestCount", event.target.value)} placeholder="Chưa nhập" type="number" value={form.guestCount} />
         </Field>
 
         {!booking ? <div className="md:col-span-2 xl:col-span-3">

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/field";
 import { DataMessage, Panel } from "@/components/ui/page";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/format";
@@ -22,6 +23,7 @@ export function OperationsDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [reloadKey, setReloadKey] = useState(0);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -32,13 +34,27 @@ export function OperationsDashboard() {
     return () => { active = false; };
   }, [reloadKey]);
 
+  const physicalRooms = useMemo(
+    () => rooms.filter((room) => room.countsTowardOccupancy && room.isActive),
+    [rooms],
+  );
   const counts = useMemo(() => ({
-    physical: rooms.filter((room) => room.countsTowardOccupancy && room.isActive).length,
-    occupied: rooms.filter((room) => room.status === "OCCUPIED").length,
-    reserved: rooms.filter((room) => room.status === "RESERVED").length,
-    available: rooms.filter((room) => room.status === "AVAILABLE").length,
-    maintenance: rooms.filter((room) => room.status === "MAINTENANCE").length,
-  }), [rooms]);
+    physical: physicalRooms.length,
+    occupied: physicalRooms.filter((room) => room.status === "OCCUPIED").length,
+    reserved: physicalRooms.filter((room) => room.status === "RESERVED").length,
+    available: physicalRooms.filter((room) => room.status === "AVAILABLE").length,
+    maintenance: physicalRooms.filter((room) => room.status === "MAINTENANCE").length,
+  }), [physicalRooms]);
+  const visibleRooms = useMemo(() => {
+    const term = query.trim().toLocaleLowerCase("vi");
+    if (!term) return rooms;
+    return rooms.filter((room) => [
+      room.roomNumber,
+      room.currentGuestName,
+      room.currentGuestPhone,
+      room.currentBookingCode,
+    ].some((value) => value?.toLocaleLowerCase("vi").includes(term)));
+  }, [query, rooms]);
 
   function refresh() {
     setLoading(true);
@@ -49,7 +65,16 @@ export function OperationsDashboard() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-600">Dữ liệu nội bộ theo thời điểm hiện tại; tên khách không được gửi sang báo cáo Power BI công khai.</p>
+        <div className="min-w-64 flex-1">
+          <p className="text-sm text-slate-600">Trạng thái được tính tại thời điểm mở trang. Nhấn Làm mới để lấy dữ liệu mới nhất.</p>
+          <Input
+            aria-label="Tìm phòng hoặc khách"
+            className="mt-3 max-w-md"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Tìm số phòng, tên khách, SĐT hoặc mã đặt phòng"
+            value={query}
+          />
+        </div>
         <div className="flex gap-2"><Button onClick={refresh} variant="secondary">Làm mới</Button><Link className="inline-flex min-h-10 items-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white" href="/rooms">Mở lịch phòng</Link></div>
       </div>
 
@@ -64,8 +89,8 @@ export function OperationsDashboard() {
           </div>
 
           <Panel>
-            {rooms.length === 0 ? <DataMessage title="Chưa có dữ liệu phòng" /> : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {rooms.map((room) => {
+            {visibleRooms.length === 0 ? <DataMessage title={rooms.length === 0 ? "Chưa có dữ liệu phòng" : "Không tìm thấy phòng hoặc khách phù hợp"} /> : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {visibleRooms.map((room) => {
                 const meta = statusMeta[room.status];
                 return <article className={`rounded-xl border p-4 ${meta.className}`} key={room.id}>
                   <div className="flex items-start justify-between gap-3">
@@ -73,7 +98,14 @@ export function OperationsDashboard() {
                     <span className="rounded-full bg-white/70 px-2.5 py-1 text-xs font-semibold">{meta.label}</span>
                   </div>
                   <div className="mt-4 min-h-14 text-sm">
-                    {room.currentGuestName ? <><p className="font-semibold">{room.currentGuestName}</p><p className="text-xs opacity-75">{room.currentBookingCode}</p></> : room.nextCheckInAt ? <><p className="font-medium">Booking kế tiếp</p><p className="text-xs opacity-75">{formatDateTime(room.nextCheckInAt)}</p></> : <p className="opacity-75">Chưa có khách hoặc booking kế tiếp.</p>}
+                    {room.currentGuestName ? <>
+                      <p className="font-semibold">{room.currentGuestName}</p>
+                      <p className="text-xs opacity-75">{room.currentGuestPhone || "Chưa có SĐT"} · {room.currentBookingCode}</p>
+                      <StayPeriod end={room.currentCheckOutAt} start={room.currentCheckInAt} />
+                    </> : room.nextCheckInAt ? <>
+                      <p className="font-medium">Đặt phòng kế tiếp</p>
+                      <StayPeriod end={room.nextCheckOutAt} start={room.nextCheckInAt} />
+                    </> : <p className="opacity-75">Chưa có khách hoặc lượt đặt phòng kế tiếp.</p>}
                   </div>
                   {room.currentBookingId ? <Link className="mt-3 inline-flex text-sm font-semibold underline underline-offset-2" href={`/bookings?bookingId=${room.currentBookingId}&mode=view`}>Xem booking</Link> : null}
                 </article>;
@@ -84,6 +116,10 @@ export function OperationsDashboard() {
       )}
     </div>
   );
+}
+
+function StayPeriod({ start, end }: Readonly<{ start?: string; end?: string }>) {
+  return <p className="mt-1 text-xs opacity-75">Từ {formatDateTime(start)} đến {formatDateTime(end)}</p>;
 }
 
 function Metric({ label, value, tone = "slate" }: Readonly<{ label: string; value: number; tone?: "slate" | "amber" | "blue" | "green" | "red" }>) {

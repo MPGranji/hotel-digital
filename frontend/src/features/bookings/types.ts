@@ -18,6 +18,7 @@ export interface BookingWriteRequest {
   checkInAt: string;
   checkOutAt: string;
   billedNights: number;
+  guestCount: number | null;
   roomRevenue: number;
   serviceRevenue: number;
   surchargeAmount: number;
@@ -71,6 +72,7 @@ export interface BookingListItem {
   checkInAt: string;
   checkOutAt: string;
   billedNights: number;
+  guestCount: number | null;
   roomRevenue: number;
   serviceRevenue: number;
   grossRevenue: number;
