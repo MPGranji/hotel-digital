@@ -3,6 +3,7 @@ using HotelDigital.Api.Data.Entities;
 using HotelDigital.Api.Infrastructure.Auditing;
 using HotelDigital.Api.Infrastructure.Errors;
 using HotelDigital.Api.Infrastructure.Persistence;
+using HotelDigital.Api.Features.Invoices;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,7 +12,8 @@ namespace HotelDigital.Api.Features.Bookings;
 public sealed class BookingCommandService(
     HotelDbContext db,
     IAuditWriter auditWriter,
-    ITransactionExecutor transactionExecutor)
+    ITransactionExecutor transactionExecutor,
+    InvoiceLifecycleService invoiceLifecycle)
 {
     public async Task<long> CreateAsync(
         BookingWriteRequest request,
@@ -48,15 +50,21 @@ public sealed class BookingCommandService(
             {
                 var item = new Booking();
                 if (request.CustomerId.HasValue) item.CustomerId = request.CustomerId.Value; else item.Customer = newCustomer!;
-                BookingMutation.Apply(item, request);
+                BookingMutation.Apply(item, request, includeInitialPayments: true);
                 item.RoomId = roomId;
                 item.GroupCode = groupCode;
+                item.Status = request.BookingMode == "WALK_IN" ? "CHECKED_IN" : "BOOKED";
                 return item;
             }).ToList();
             foreach (var booking in bookings) AddInitialPayments(booking, request);
             db.Bookings.AddRange(bookings);
 
             await SaveWithBusinessErrorsAsync(token);
+            foreach (var booking in bookings)
+            {
+                var invoiceResult = await invoiceLifecycle.EnsureAsync(booking, issue: false, token);
+                AuditInvoiceLifecycle(invoiceResult);
+            }
             if (newCustomer is not null)
             {
                 auditWriter.Add("CREATE", "Customer", newCustomer.CustomerId.ToString(), new
@@ -98,7 +106,8 @@ public sealed class BookingCommandService(
 
         await transactionExecutor.ExecuteAsync(async token =>
         {
-            var booking = await db.Bookings.SingleOrDefaultAsync(x => x.BookingId == id, token)
+            var booking = await db.Bookings.Include(x => x.Invoice).Include(x => x.Payments)
+                .SingleOrDefaultAsync(x => x.BookingId == id, token)
                 ?? throw new ResourceNotFoundException("booking_not_found", "Không tìm thấy đặt phòng.");
             if (booking.Status is "CHECKED_OUT" or "CANCELLED" or "NO_SHOW")
                 throw new BusinessRuleException(
@@ -108,14 +117,24 @@ public sealed class BookingCommandService(
             db.Entry(booking).Property(x => x.Version).OriginalValue = version;
             await EnsureReferencesAsync(request, token);
             await EnsureRoomAvailableAsync(request.RoomId, request.CheckInAt, request.CheckOutAt, id, token);
+            var collectedAmount = booking.Payments.Sum(x => x.Amount);
+            var revisedTotal = request.PreviousDebt + request.RoomRevenue + request.ServiceRevenue
+                + request.SurchargeAmount - request.DiscountAmount;
+            if (collectedAmount + request.DebtAmount > revisedTotal)
+                throw new BusinessRuleException(
+                    "booking_total_below_settlement",
+                    "Không thể giảm tổng tiền xuống thấp hơn số đã thu và số chuyển công nợ.");
             var changedFields = BookingMutation.GetChangedFields(booking, request);
             AssignCustomer(booking, request);
-            BookingMutation.Apply(booking, request);
+            BookingMutation.Apply(booking, request, includeInitialPayments: false);
             auditWriter.Add("UPDATE", "Booking", booking.BookingId.ToString(), new { fields = changedFields });
 
             try
             {
                 await SaveWithBusinessErrorsAsync(token);
+                var invoiceResult = await invoiceLifecycle.EnsureAsync(booking, issue: false, token);
+                AuditInvoiceLifecycle(invoiceResult);
+                await db.SaveChangesAsync(token);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -147,25 +166,34 @@ public sealed class BookingCommandService(
 
         await transactionExecutor.ExecuteAsync(async token =>
         {
-            var booking = await db.Bookings.Include(x => x.Payments).SingleOrDefaultAsync(x => x.BookingId == id, token)
+            var booking = await db.Bookings.Include(x => x.Payments).Include(x => x.Invoice)
+                .SingleOrDefaultAsync(x => x.BookingId == id, token)
                 ?? throw new ResourceNotFoundException("booking_not_found", "Không tìm thấy đặt phòng.");
             db.Entry(booking).Property(x => x.Version).OriginalValue = version;
             BookingMutation.EnsureTransition(booking.Status, targetStatus);
             if (targetStatus == "CHECKED_OUT")
             {
                 var paidAmount = booking.Payments.Sum(x => x.Amount);
-                if (paidAmount + booking.DebtAmount < booking.GrossRevenue)
+                if (paidAmount + booking.DebtAmount < booking.PreviousDebt + booking.GrossRevenue)
                     throw new BusinessRuleException(
                         "checkout_payment_required",
                         "Vui lòng thu đủ tiền hoặc chuyển phần còn lại sang công nợ trước khi check-out.");
             }
             var previousStatus = booking.Status;
             booking.Status = targetStatus;
+            InvoiceLifecycleResult? invoiceResult = targetStatus switch
+            {
+                "CHECKED_IN" => await invoiceLifecycle.EnsureAsync(booking, issue: false, token),
+                "CHECKED_OUT" => await invoiceLifecycle.EnsureAsync(booking, issue: true, token),
+                "CANCELLED" or "NO_SHOW" => await invoiceLifecycle.VoidDraftAsync(booking, token),
+                _ => null
+            };
             auditWriter.Add("STATUS_CHANGE", "Booking", booking.BookingId.ToString(), new
             {
                 from = previousStatus,
                 to = targetStatus
             });
+            if (invoiceResult is not null) AuditInvoiceLifecycle(invoiceResult);
 
             try
             {
@@ -201,10 +229,24 @@ public sealed class BookingCommandService(
                 throw new BusinessRuleException(
                     "booking_cannot_be_deleted",
                     "Không thể xóa đặt phòng đang hoặc đã lưu trú. Hãy hủy đặt phòng nếu cần giữ lịch sử.");
-            if (booking.Payments.Count > 0 || booking.Invoice is not null || !string.IsNullOrWhiteSpace(booking.InvoiceNumber))
+            if (booking.Payments.Count > 0
+                || booking.Invoice is { Status: not "DRAFT" }
+                || (booking.Invoice is null && !string.IsNullOrWhiteSpace(booking.InvoiceNumber)))
                 throw new BusinessRuleException(
                     "booking_has_financial_history",
                     "Không thể xóa đặt phòng đã phát sinh thanh toán hoặc hóa đơn.");
+
+            if (booking.Invoice is not null)
+            {
+                auditWriter.Add("DELETE", "Invoice", booking.Invoice.InvoiceId.ToString(), new
+                {
+                    booking.Invoice.InvoiceNumber,
+                    booking.Invoice.Status,
+                    booking.Invoice.BookingId
+                });
+                db.Invoices.Remove(booking.Invoice);
+                booking.InvoiceNumber = null;
+            }
 
             db.Entry(booking).Property(x => x.Version).OriginalValue = version;
             auditWriter.Add("DELETE", "Booking", booking.BookingId.ToString(), new
@@ -238,10 +280,14 @@ public sealed class BookingCommandService(
         if (!roomIsActive)
             throw new BusinessRuleException("room_unavailable", "Phòng không tồn tại hoặc đã ngừng hoạt động.");
 
-        var channelIsActive = await db.Channels.AsNoTracking()
-            .AnyAsync(x => x.ChannelId == request.ChannelId && x.IsActive, cancellationToken);
-        if (!channelIsActive)
+        var channel = await db.Channels.AsNoTracking()
+            .Where(x => x.ChannelId == request.ChannelId && x.IsActive)
+            .Select(x => new { x.Category })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (channel is null)
             throw new BusinessRuleException("channel_inactive", "Kênh đặt phòng không tồn tại hoặc đã ngừng hoạt động.");
+        if (request.BookingMode == "WALK_IN" && channel.Category == "ONLINE")
+            throw new BusinessRuleException("walk_in_channel_invalid", "Khách nhận phòng tại quầy không thể dùng kênh đặt online.");
 
         if (request.CustomerId.HasValue
             && !await db.Customers.AsNoTracking().AnyAsync(x => x.CustomerId == request.CustomerId && x.IsActive, cancellationToken))
@@ -272,6 +318,12 @@ public sealed class BookingCommandService(
 
     private async Task<BookingWriteRequest> WithDefaultChannelAsync(BookingWriteRequest request, CancellationToken token)
     {
+        request = request with
+        {
+            BookingMode = string.IsNullOrWhiteSpace(request.BookingMode)
+                ? "RESERVATION"
+                : request.BookingMode.Trim().ToUpperInvariant()
+        };
         if (request.ChannelId > 0) return request;
         var defaultChannelId = await db.Channels.AsNoTracking()
             .Where(x => x.IsActive)
@@ -372,6 +424,24 @@ public sealed class BookingCommandService(
         {
             throw new BusinessRuleException("room_under_maintenance", "Phòng vừa có lịch bảo trì trong khoảng thời gian này.");
         }
+    }
+
+    private void AuditInvoiceLifecycle(InvoiceLifecycleResult result)
+    {
+        var action = result.Created ? "CREATE" : result.PreviousStatus == result.Invoice.Status ? "SYNC" : "STATUS_CHANGE";
+        auditWriter.Add(
+            action,
+            "Invoice",
+            result.Invoice.InvoiceId > 0 ? result.Invoice.InvoiceId.ToString() : $"booking:{result.Invoice.BookingId}",
+            new
+        {
+            result.Invoice.InvoiceNumber,
+            result.Invoice.BookingId,
+            from = result.PreviousStatus,
+            to = result.Invoice.Status,
+            result.Invoice.GrossAmount,
+            result.Invoice.PaidAmount
+        });
     }
 
     private static SqlException? FindSqlException(Exception exception)

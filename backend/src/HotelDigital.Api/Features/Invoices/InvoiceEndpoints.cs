@@ -6,6 +6,7 @@ public static class InvoiceEndpoints
     {
         var group = endpoints.MapGroup("/api/invoices").WithTags("Invoices");
         group.MapGet("/", (string? search, string? status, InvoiceService service, CancellationToken token) => service.GetAsync(search, status, token));
+        group.MapGet("/{id:long}", (long id, InvoiceService service, CancellationToken token) => service.GetByIdAsync(id, token));
         group.MapPost("/", async (InvoiceWriteRequest request, InvoiceService service, CancellationToken token) =>
         {
             var invoice = await service.CreateAsync(request, token);

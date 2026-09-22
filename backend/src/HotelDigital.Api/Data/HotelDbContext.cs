@@ -132,6 +132,7 @@ public sealed class HotelDbContext(DbContextOptions<HotelDbContext> options) : D
             entity.Property(x => x.RoomId).HasColumnName("RoomID");
             entity.Property(x => x.CustomerId).HasColumnName("CustomerID");
             entity.Property(x => x.ChannelId).HasColumnName("ChannelID");
+            entity.Property(x => x.BookingMode).HasMaxLength(12).IsUnicode(false).HasDefaultValue("RESERVATION");
             entity.Property(x => x.ExternalBookingCode).HasMaxLength(100);
             entity.Property(x => x.GroupCode).HasMaxLength(40).IsUnicode(false);
             entity.Property(x => x.CheckInAt).HasPrecision(0);

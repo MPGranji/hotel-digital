@@ -52,11 +52,46 @@ public sealed class BookingValidatorTests
         Assert.Contains("customerId", exception.Errors.Keys);
     }
 
+    [Fact]
+    public void Booking_mode_must_be_supported()
+    {
+        var request = ValidRequest() with { BookingMode = "UNKNOWN" };
+
+        var exception = Assert.Throws<RequestValidationException>(() =>
+            BookingValidator.Validate(request, requireVersion: false));
+
+        Assert.Contains("bookingMode", exception.Errors.Keys);
+    }
+
+    [Fact]
+    public void Initial_collection_cannot_exceed_booking_total()
+    {
+        var request = ValidRequest() with { CashAmount = 500_001 };
+
+        var exception = Assert.Throws<RequestValidationException>(() =>
+            BookingValidator.Validate(request, requireVersion: false));
+
+        Assert.Contains("cashAmount", exception.Errors.Keys);
+    }
+
+    [Fact]
+    public void Existing_payment_values_are_not_revalidated_as_an_edit()
+    {
+        var request = ValidRequest() with
+        {
+            CashAmount = 600_000,
+            Version = Convert.ToBase64String(new byte[8])
+        };
+
+        BookingValidator.Validate(request, requireVersion: true);
+    }
+
     private static BookingWriteRequest ValidRequest() => new(
         RoomId: 1,
         CustomerId: 1,
         NewCustomer: null,
         ChannelId: 1,
+        BookingMode: "RESERVATION",
         ExternalBookingCode: null,
         CheckInAt: new DateTime(2026, 9, 17, 14, 0, 0),
         CheckOutAt: new DateTime(2026, 9, 18, 12, 0, 0),

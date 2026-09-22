@@ -8,16 +8,24 @@ import { getApiErrorMessage } from "@/lib/api-client";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { InvoiceEditor } from "./invoice-editor";
 import { InvoiceViewer } from "./invoice-viewer";
-import { getInvoices, updateInvoice } from "./invoices-api";
+import { getInvoice, getInvoices, updateInvoice } from "./invoices-api";
 import type { InvoiceItem } from "./types";
 
 const statusLabels = { DRAFT: "Nháp", ISSUED: "Đã phát hành", VOID: "Đã hủy" };
 
-export function InvoiceDirectory() {
+export function InvoiceDirectory({ initialInvoiceId }: Readonly<{ initialInvoiceId?: number }>) {
   const [query, setQuery] = useState(""); const [search, setSearch] = useState(""); const [status, setStatus] = useState("");
   const [items, setItems] = useState<InvoiceItem[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState<string>(); const [reloadKey, setReloadKey] = useState(0); const [editing, setEditing] = useState<InvoiceItem | "new">(); const [viewing, setViewing] = useState<InvoiceItem>(); const [voidingId, setVoidingId] = useState<number>();
   useEffect(() => { const timer = window.setTimeout(() => setSearch(query.trim()), 300); return () => window.clearTimeout(timer); }, [query]);
   useEffect(() => { let active = true; void getInvoices(search, status).then((data) => { if (active) setItems(data); }).catch((reason) => setError(getApiErrorMessage(reason, "Không thể tải hóa đơn."))).finally(() => setLoading(false)); return () => { active = false; }; }, [reloadKey, search, status]);
+  useEffect(() => {
+    if (!initialInvoiceId) return;
+    let active = true;
+    void getInvoice(initialInvoiceId)
+      .then((invoice) => { if (active) setViewing(invoice); })
+      .catch((reason) => { if (active) setError(getApiErrorMessage(reason, "Không thể mở hóa đơn.")); });
+    return () => { active = false; };
+  }, [initialInvoiceId]);
   function refresh() { setLoading(true); setError(undefined); setReloadKey((x) => x + 1); }
   async function voidInvoice(item: InvoiceItem) {
     if (!window.confirm(`Hủy hóa đơn ${item.invoiceNumber}? Hóa đơn vẫn được giữ trong lịch sử.`)) return;

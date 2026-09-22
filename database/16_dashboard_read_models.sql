@@ -275,6 +275,7 @@ AS
 SELECT
     booking.BookingID,
     booking.BookingCode,
+    booking.BookingMode,
     booking.GroupCode,
     booking.RoomID,
     room.RoomNumber,

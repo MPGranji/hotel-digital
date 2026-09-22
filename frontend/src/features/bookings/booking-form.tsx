@@ -27,7 +27,7 @@ export function BookingForm({ bookingId, initialRoomId, initialCheckInDate, init
         actions={readOnly && model.booking ? (
           <Link className="inline-flex min-h-10 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2" href={`/bookings?bookingId=${model.booking.id}`}>Sửa đặt phòng</Link>
         ) : <Button onClick={model.reset} variant="secondary">Tạo đặt phòng mới</Button>}
-        description="Thông tin phòng, khách và thanh toán được lưu trong cùng một lượt. Các giá trị tổng hợp do hệ thống tính tự động."
+        description="Chọn rõ đặt trước, nhận phòng tại quầy hoặc booking online. Hóa đơn nháp được tạo cùng booking và cập nhật theo các khoản thu đã ghi."
         title={model.booking ? `${readOnly ? "Xem" : "Đặt phòng"} ${model.booking.bookingCode}` : "Tạo đặt phòng"}
       />
       <form onSubmit={(event) => { event.preventDefault(); void model.submit(); }}>
@@ -43,7 +43,7 @@ export function BookingForm({ bookingId, initialRoomId, initialCheckInDate, init
           {!closed ? (
             <div className="flex justify-end border-t border-slate-200 pt-5">
               <Button className="w-full md:w-auto" disabled={model.saving} type="submit">
-                {model.saving ? "Đang lưu…" : model.booking ? "Lưu thay đổi" : "Lưu đặt phòng"}
+                {model.saving ? "Đang lưu…" : model.booking ? "Lưu thay đổi" : model.form.entryMode === "WALK_IN" ? "Nhận phòng ngay" : model.form.entryMode === "ONLINE" ? "Lưu booking online" : "Lưu đặt phòng"}
               </Button>
             </div>
           ) : null}

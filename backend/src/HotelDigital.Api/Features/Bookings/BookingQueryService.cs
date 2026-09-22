@@ -62,6 +62,11 @@ public sealed class BookingQueryService(HotelDbContext db)
                 x.Customer.Phone,
                 x.ChannelId,
                 x.Channel.Name,
+                x.Channel.Category,
+                x.BookingMode,
+                x.Invoice == null ? null : (long?)x.Invoice.InvoiceId,
+                x.InvoiceNumber,
+                x.Invoice == null ? null : x.Invoice.Status,
                 x.CheckInAt,
                 x.CheckOutAt,
                 x.BilledNights,
@@ -83,6 +88,7 @@ public sealed class BookingQueryService(HotelDbContext db)
             .Include(x => x.Room).ThenInclude(x => x.RoomType)
             .Include(x => x.Customer)
             .Include(x => x.Channel)
+            .Include(x => x.Invoice)
             .SingleOrDefaultAsync(x => x.BookingId == id, cancellationToken)
             ?? throw new ResourceNotFoundException("booking_not_found", "Không tìm thấy đặt phòng.");
 
@@ -202,6 +208,8 @@ public sealed class BookingQueryService(HotelDbContext db)
         x.Customer.FullName,
         x.ChannelId,
         x.Channel.Name,
+        x.Channel.Category,
+        x.BookingMode,
         x.ExternalBookingCode,
         x.CheckInAt,
         x.CheckOutAt,
@@ -221,7 +229,9 @@ public sealed class BookingQueryService(HotelDbContext db)
         x.DebtAmount,
         x.GrossRevenue,
         x.AverageRoomRate,
+        x.Invoice?.InvoiceId,
         x.InvoiceNumber,
+        x.Invoice?.Status,
         x.Note,
         Convert.ToBase64String(x.Version));
 }
