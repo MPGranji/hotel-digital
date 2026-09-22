@@ -32,13 +32,17 @@ export function OperationsDashboard() {
     return () => { active = false; };
   }, [reloadKey]);
 
+  const physicalRooms = useMemo(
+    () => rooms.filter((room) => room.countsTowardOccupancy && room.isActive),
+    [rooms],
+  );
   const counts = useMemo(() => ({
-    physical: rooms.filter((room) => room.countsTowardOccupancy && room.isActive).length,
-    occupied: rooms.filter((room) => room.status === "OCCUPIED").length,
-    reserved: rooms.filter((room) => room.status === "RESERVED").length,
-    available: rooms.filter((room) => room.status === "AVAILABLE").length,
-    maintenance: rooms.filter((room) => room.status === "MAINTENANCE").length,
-  }), [rooms]);
+    physical: physicalRooms.length,
+    occupied: physicalRooms.filter((room) => room.status === "OCCUPIED").length,
+    reserved: physicalRooms.filter((room) => room.status === "RESERVED").length,
+    available: physicalRooms.filter((room) => room.status === "AVAILABLE").length,
+    maintenance: physicalRooms.filter((room) => room.status === "MAINTENANCE").length,
+  }), [physicalRooms]);
 
   function refresh() {
     setLoading(true);

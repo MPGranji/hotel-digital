@@ -1,20 +1,19 @@
-import Link from "next/link";
 import { ExternalLink } from "lucide-react";
+import { redirect } from "next/navigation";
 import { DataMessage, PageHeader, Panel } from "@/components/ui/page";
-import { OperationsDashboard } from "@/features/dashboard/operations-dashboard";
 import { env } from "@/lib/env";
 
 export default async function DashboardPage({ searchParams }: Readonly<{ searchParams: Promise<{ view?: string }> }>) {
   const params = await searchParams;
-  const operationsView = params.view === "operations";
+  if (params.view === "operations") redirect("/operations");
   const embedUrl = env.powerBiEmbedUrl;
 
   return (
     <>
       <PageHeader
-        title={operationsView ? "Theo dõi khách & phòng" : "Tổng quan"}
-        description={operationsView ? "Hiện trạng từng phòng, khách đang lưu trú và booking kế tiếp trên màn hình nội bộ." : "Báo cáo Power BI tổng quan. Khung báo cáo tự mở rộng theo chiều cao màn hình để dễ đọc hơn."}
-        actions={!operationsView && embedUrl ? (
+        title="Dashboard kinh doanh"
+        description="Báo cáo Power BI được tối giản còn đúng hai trang: Tổng quan kinh doanh và Phân tích chi tiết."
+        actions={embedUrl ? (
           <a
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             href={embedUrl}
@@ -27,17 +26,16 @@ export default async function DashboardPage({ searchParams }: Readonly<{ searchP
         ) : undefined}
       />
 
-      <nav aria-label="Hai trang dashboard" className="mb-5 flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-        <DashboardTab active={!operationsView} href="/dashboard" label="1. Tổng quan" />
-        <DashboardTab active={operationsView} href="/dashboard?view=operations" label="2. Khách & phòng" />
-      </nav>
-
-      {operationsView ? <OperationsDashboard /> : <Panel className="overflow-hidden p-0">
+      <Panel className="overflow-hidden p-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          <p>Chuyển giữa hai trang bằng thanh trang ở cuối khung Power BI.</p>
+          <p className="font-medium text-slate-800">1. Tổng quan kinh doanh · 2. Phân tích chi tiết</p>
+        </div>
         {embedUrl ? (
           <iframe
             allow="fullscreen"
             allowFullScreen
-            className="block h-[calc(100dvh-190px)] min-h-[820px] w-full border-0"
+            className="block h-[calc(100dvh-215px)] min-h-[760px] w-full border-0"
             loading="eager"
             referrerPolicy="strict-origin-when-cross-origin"
             src={embedUrl}
@@ -51,11 +49,7 @@ export default async function DashboardPage({ searchParams }: Readonly<{ searchP
             />
           </div>
         )}
-      </Panel>}
+      </Panel>
     </>
   );
-}
-
-function DashboardTab({ active, href, label }: Readonly<{ active: boolean; href: string; label: string }>) {
-  return <Link className={`min-h-10 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${active ? "border-blue-200 bg-blue-50 text-blue-800" : "border-transparent text-slate-600 hover:bg-slate-50"}`} href={href}>{label}</Link>;
 }
