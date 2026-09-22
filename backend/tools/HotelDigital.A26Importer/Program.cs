@@ -133,7 +133,7 @@ static async Task PrintDatabaseFingerprintAsync(HotelDbContext db, CancellationT
           (SELECT COUNT_BIG(*)
              FROM hotel.vFactRoomDay
             WHERE RoomStatusKey NOT BETWEEN 1 AND 5
-               OR PaymentStatusKey NOT BETWEEN 0 AND 2) AS InvalidRoomDayStatuses,
+               OR PaymentStatusKey NOT BETWEEN 0 AND 3) AS InvalidRoomDayStatuses,
           (SELECT COUNT_BIG(*)
              FROM (
                SELECT RoomID, StayDateKey

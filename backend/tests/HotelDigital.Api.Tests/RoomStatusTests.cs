@@ -24,6 +24,7 @@ public sealed class RoomStatusTests
 
         Assert.Equal("OCCUPIED", room.Status);
         Assert.Equal("Khách kiểm thử", room.CurrentGuestName);
+        Assert.Equal("0901234567", room.CurrentGuestPhone);
         Assert.Equal(1, room.CurrentBookingId);
     }
 
@@ -94,7 +95,7 @@ public sealed class RoomStatusTests
 
     private static void SeedReferences(HotelDbContext db)
     {
-        db.Customers.Add(new Customer { CustomerId = 1, FullName = "Khách kiểm thử", IsActive = true });
+        db.Customers.Add(new Customer { CustomerId = 1, FullName = "Khách kiểm thử", Phone = "0901234567", IsActive = true });
         db.Channels.Add(new Channel { ChannelId = 1, Code = "DIRECT", Name = "Trực tiếp", Category = "OFFLINE", IsActive = true });
     }
 

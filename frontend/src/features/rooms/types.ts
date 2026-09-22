@@ -15,6 +15,7 @@ export interface RoomListItem {
   currentBookingId?: number;
   currentBookingCode?: string;
   currentGuestName?: string;
+  currentGuestPhone?: string;
   nextCheckInAt?: string;
 }
 
