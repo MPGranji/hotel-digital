@@ -11,8 +11,7 @@ export default async function DashboardPage({ searchParams }: Readonly<{ searchP
   return (
     <>
       <PageHeader
-        title="Dashboard kinh doanh"
-        description="Báo cáo Power BI được tối giản còn đúng hai trang: Tổng quan kinh doanh và Phân tích chi tiết."
+        title="Báo cáo quản trị"
         actions={embedUrl ? (
           <a
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
@@ -27,15 +26,11 @@ export default async function DashboardPage({ searchParams }: Readonly<{ searchP
       />
 
       <Panel className="overflow-hidden p-0">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          <p>Chuyển giữa hai trang bằng thanh trang ở cuối khung Power BI.</p>
-          <p className="font-medium text-slate-800">1. Tổng quan kinh doanh · 2. Phân tích chi tiết</p>
-        </div>
         {embedUrl ? (
           <iframe
             allow="fullscreen"
             allowFullScreen
-            className="block h-[calc(100dvh-215px)] min-h-[760px] w-full border-0"
+            className="block h-[calc(100dvh-170px)] min-h-[720px] w-full border-0"
             loading="eager"
             referrerPolicy="strict-origin-when-cross-origin"
             src={embedUrl}

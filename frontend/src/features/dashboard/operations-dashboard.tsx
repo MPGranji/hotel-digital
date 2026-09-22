@@ -66,7 +66,7 @@ export function OperationsDashboard() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-64 flex-1">
-          <p className="text-sm text-slate-600">Dữ liệu nội bộ theo thời điểm hiện tại; tên và số điện thoại khách không được gửi sang báo cáo Power BI công khai.</p>
+          <p className="text-sm text-slate-600">Trạng thái được tính tại thời điểm mở trang. Nhấn Làm mới để lấy dữ liệu mới nhất.</p>
           <Input
             aria-label="Tìm phòng hoặc khách"
             className="mt-3 max-w-md"
@@ -98,7 +98,14 @@ export function OperationsDashboard() {
                     <span className="rounded-full bg-white/70 px-2.5 py-1 text-xs font-semibold">{meta.label}</span>
                   </div>
                   <div className="mt-4 min-h-14 text-sm">
-                    {room.currentGuestName ? <><p className="font-semibold">{room.currentGuestName}</p><p className="text-xs opacity-75">{room.currentGuestPhone || "Chưa có SĐT"} · {room.currentBookingCode}</p></> : room.nextCheckInAt ? <><p className="font-medium">Đặt phòng kế tiếp</p><p className="text-xs opacity-75">{formatDateTime(room.nextCheckInAt)}</p></> : <p className="opacity-75">Chưa có khách hoặc lượt đặt phòng kế tiếp.</p>}
+                    {room.currentGuestName ? <>
+                      <p className="font-semibold">{room.currentGuestName}</p>
+                      <p className="text-xs opacity-75">{room.currentGuestPhone || "Chưa có SĐT"} · {room.currentBookingCode}</p>
+                      <StayPeriod end={room.currentCheckOutAt} start={room.currentCheckInAt} />
+                    </> : room.nextCheckInAt ? <>
+                      <p className="font-medium">Đặt phòng kế tiếp</p>
+                      <StayPeriod end={room.nextCheckOutAt} start={room.nextCheckInAt} />
+                    </> : <p className="opacity-75">Chưa có khách hoặc lượt đặt phòng kế tiếp.</p>}
                   </div>
                   {room.currentBookingId ? <Link className="mt-3 inline-flex text-sm font-semibold underline underline-offset-2" href={`/bookings?bookingId=${room.currentBookingId}&mode=view`}>Xem booking</Link> : null}
                 </article>;
@@ -109,6 +116,10 @@ export function OperationsDashboard() {
       )}
     </div>
   );
+}
+
+function StayPeriod({ start, end }: Readonly<{ start?: string; end?: string }>) {
+  return <p className="mt-1 text-xs opacity-75">Từ {formatDateTime(start)} đến {formatDateTime(end)}</p>;
 }
 
 function Metric({ label, value, tone = "slate" }: Readonly<{ label: string; value: number; tone?: "slate" | "amber" | "blue" | "green" | "red" }>) {

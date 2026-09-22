@@ -26,6 +26,8 @@ public sealed class RoomStatusTests
         Assert.Equal("Khách kiểm thử", room.CurrentGuestName);
         Assert.Equal("0901234567", room.CurrentGuestPhone);
         Assert.Equal(1, room.CurrentBookingId);
+        Assert.Equal(now.AddHours(-2), room.CurrentCheckInAt);
+        Assert.Equal(now.AddHours(20), room.CurrentCheckOutAt);
     }
 
     [Fact]
@@ -44,6 +46,7 @@ public sealed class RoomStatusTests
         Assert.Equal("AVAILABLE", room.Status);
         Assert.Null(room.CurrentGuestName);
         Assert.Equal(nextCheckIn, room.NextCheckInAt);
+        Assert.Equal(nextCheckIn.AddDays(1), room.NextCheckOutAt);
     }
 
     [Fact]

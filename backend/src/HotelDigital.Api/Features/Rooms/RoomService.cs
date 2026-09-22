@@ -42,10 +42,16 @@ public sealed class RoomService(
                     booking.BookingCode,
                     booking.Status,
                     booking.Customer.FullName,
-                    booking.Customer.Phone
+                    booking.Customer.Phone,
+                    booking.CheckInAt,
+                    booking.CheckOutAt
                 })
                 .FirstOrDefault(),
-            NextCheckInAt = room.Bookings.Where(booking => booking.Status == "BOOKED" && booking.CheckInAt > now).Min(booking => (DateTime?)booking.CheckInAt)
+            Next = room.Bookings
+                .Where(booking => booking.Status == "BOOKED" && booking.CheckInAt > now)
+                .OrderBy(booking => booking.CheckInAt)
+                .Select(booking => new { booking.CheckInAt, booking.CheckOutAt })
+                .FirstOrDefault()
         });
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -59,7 +65,8 @@ public sealed class RoomService(
             x.RoomId, x.RoomNumber, x.RoomTypeId, x.RoomTypeCode, x.RoomTypeName, x.Capacity, x.FloorLabel,
             x.ListedPricePerNight ?? PhamNguLaoRateCatalog.GetListedPrice(x.RoomTypeCode), x.IsActive,
             x.CountsTowardOccupancy, x.Note, x.BookingCount, GetStatus(x.IsActive, x.IsUnderMaintenance, x.Current?.Status),
-            x.Current?.BookingId, x.Current?.BookingCode, x.Current?.FullName, x.Current?.Phone, x.NextCheckInAt));
+            x.Current?.BookingId, x.Current?.BookingCode, x.Current?.FullName, x.Current?.Phone,
+            x.Current?.CheckInAt, x.Current?.CheckOutAt, x.Next?.CheckInAt, x.Next?.CheckOutAt));
 
         if (!string.IsNullOrWhiteSpace(status))
         {

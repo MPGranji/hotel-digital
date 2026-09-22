@@ -18,7 +18,10 @@ public sealed record RoomListItem(
     string? CurrentBookingCode,
     string? CurrentGuestName,
     string? CurrentGuestPhone,
-    DateTime? NextCheckInAt);
+    DateTime? CurrentCheckInAt,
+    DateTime? CurrentCheckOutAt,
+    DateTime? NextCheckInAt,
+    DateTime? NextCheckOutAt);
 
 public sealed record RoomWriteRequest(
     string RoomNumber,
