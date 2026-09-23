@@ -87,11 +87,15 @@ public sealed class ChannelService(
             var channel = await db.Channels.SingleOrDefaultAsync(x => x.ChannelId == id, token)
                 ?? throw new ResourceNotFoundException("channel_not_found", "Không tìm thấy kênh đặt phòng.");
             var code = request.Code.Trim().ToUpperInvariant();
+            var category = request.Category.Trim().ToUpperInvariant();
             await EnsureUniqueCodeAsync(code, id, token);
+            if ((channel.Code != code || channel.Category != category)
+                && await db.Bookings.AsNoTracking().AnyAsync(x => x.ChannelId == id, token))
+                throw new BusinessRuleException("channel_identity_has_history", "Kênh đã có lịch sử booking nên không thể đổi mã hoặc nhóm kênh. Hãy tạo kênh mới và ngừng kênh cũ.");
             var changedFields = GetChangedFields(channel, request, code);
             channel.Code = code;
             channel.Name = request.Name.Trim();
-            channel.Category = request.Category.Trim().ToUpperInvariant();
+            channel.Category = category;
             channel.IsActive = request.IsActive;
             channel.Note = Clean(request.Note);
             auditWriter.Add("UPDATE", "Channel", channel.ChannelId.ToString(), new { fields = changedFields });

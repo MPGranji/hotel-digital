@@ -1,14 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f7fa;
+  --background: #f3f6f7;
   --surface: #ffffff;
-  --foreground: #162033;
-  --muted: #667085;
-  --border: #dfe4ec;
-  --primary: #173b7a;
-  --primary-strong: #102d60;
-  --focus: #2563eb;
+  --surface-muted: #edf2f3;
+  --sidebar: #f8fafb;
+  --sidebar-panel: #1d333e;
+  --sidebar-panel-active: #345361;
+  --sidebar-panel-muted: #b9cbd0;
+  --nav-active: #e0edef;
+  --nav-text: #50636d;
+  --foreground: #203139;
+  --muted: #5b6e76;
+  --border: #d9e2e5;
+  --border-strong: #aebfc5;
+  --primary: #285767;
+  --primary-strong: #1c4553;
+  --accent: #698e98;
+  --positive: #4f806f;
+  --warning: #a87943;
+  --danger: #af5a54;
+  --focus: #285767;
 }
 
 * {
@@ -19,8 +31,68 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
   line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: #d6e8eb;
+  color: var(--foreground);
+}
+
+.login-page {
+  background-color: var(--sidebar-panel);
+  background-image: linear-gradient(115deg, rgb(14 35 44 / 58%), rgb(18 40 49 / 22%) 65%, rgb(14 35 44 / 42%)), url("/hotel-lobby.webp");
+  background-position: center;
+  background-size: cover;
+}
+
+.booking-operation-dialog {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(100%, 30rem);
+  max-width: none;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--surface);
+  box-shadow: -20px 0 60px rgb(18 40 49 / 24%);
+}
+
+.booking-operation-dialog:not([open]) {
+  display: none;
+}
+
+.booking-operation-dialog::backdrop {
+  background: rgb(14 35 44 / 54%);
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 0.75rem;
+  left: 0.75rem;
+  transform: translateY(-200%);
+  border-radius: 0.5rem;
+  background: var(--primary);
+  padding: 0.6rem 0.9rem;
+  color: #fff;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.login-field input:focus-visible {
+  outline: none;
 }
 
 @layer base {
@@ -61,6 +133,16 @@ textarea:disabled {
 
 th {
   font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
 
 @media print {

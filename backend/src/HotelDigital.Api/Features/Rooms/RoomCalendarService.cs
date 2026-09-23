@@ -26,9 +26,13 @@ public sealed class RoomCalendarService(
                 x.RoomId, x.RoomNumber, RoomTypeName = x.RoomType.Name, x.FloorLabel, x.IsActive
             }).ToListAsync(token);
         var bookings = await db.Bookings.AsNoTracking()
-            .Where(x => x.Status != "CANCELLED" && x.Status != "NO_SHOW" && x.CheckInAt < end && x.CheckOutAt > start)
+            .Where(x => (x.Status == "BOOKED" || x.Status == "CHECKED_IN" || x.Status == "CHECKED_OUT") && x.CheckInAt < end && x.CheckOutAt > start)
             .Select(x => new { x.BookingId, x.BookingCode, x.RoomId, x.CheckInAt, x.CheckOutAt, x.Status, x.Customer.FullName })
             .ToListAsync(token);
+        bookings = bookings
+            .OrderBy(x => x.Status == "CHECKED_IN" ? 0 : x.Status == "BOOKED" ? 1 : 2)
+            .ThenBy(x => x.CheckInAt)
+            .ToList();
         var blocks = await db.RoomBlocks.AsNoTracking()
             .Where(x => x.IsActive && x.StartAt < end && x.EndAt > start)
             .Select(x => new { x.RoomBlockId, x.RoomId, x.StartAt, x.EndAt, x.Reason })
@@ -47,7 +51,7 @@ public sealed class RoomCalendarService(
                 var block = blocks.FirstOrDefault(x => x.RoomId == room.RoomId && x.StartAt < dayEnd && x.EndAt > dayStart);
                 if (block is not null) return new RoomCalendarCell(date, "MAINTENANCE", null, null, null, block.RoomBlockId, block.Reason);
                 var booking = bookings.FirstOrDefault(x => x.RoomId == room.RoomId && x.CheckInAt < dayEnd && x.CheckOutAt > dayStart);
-                if (booking is not null) return new RoomCalendarCell(date, booking.Status == "CHECKED_IN" ? "CHECKED_IN" : "BOOKED", booking.BookingId, booking.BookingCode, booking.FullName, null, null);
+                if (booking is not null) return new RoomCalendarCell(date, booking.Status, booking.BookingId, booking.BookingCode, booking.FullName, null, null);
                 return new RoomCalendarCell(date, "AVAILABLE", null, null, null, null, null);
             }).ToList())).ToList();
         return new RoomCalendarResponse(dateFrom, dateTo, dates, rows);
@@ -66,7 +70,7 @@ public sealed class RoomCalendarService(
             ?? throw new ResourceNotFoundException("room_not_found", "Không tìm thấy phòng.");
 
         var bookings = await db.Bookings.AsNoTracking()
-            .Where(x => x.RoomId == roomId && x.Status != "CANCELLED" && x.Status != "NO_SHOW" && x.CheckInAt < end && x.CheckOutAt > start)
+            .Where(x => x.RoomId == roomId && (x.Status == "BOOKED" || x.Status == "CHECKED_IN" || x.Status == "CHECKED_OUT") && x.CheckInAt < end && x.CheckOutAt > start)
             .OrderBy(x => x.CheckInAt)
             .Select(x => new RoomHourlyCalendarEvent(
                 "BOOKING", x.Status, x.CheckInAt, x.CheckOutAt,

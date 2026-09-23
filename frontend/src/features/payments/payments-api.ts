@@ -14,3 +14,9 @@ export function createPayment(bookingId: number, request: PaymentWriteRequest) {
     body: JSON.stringify(request),
   });
 }
+
+export function refundDeposit(bookingId: number) {
+  return apiRequest<PaymentItem[]>(`/api/bookings/${bookingId}/payments/refund-deposit`, {
+    method: "POST",
+  });
+}

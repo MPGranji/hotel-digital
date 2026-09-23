@@ -12,6 +12,8 @@ public static class PaymentEndpoints
             var payment = await service.CreateAsync(bookingId, request, token);
             return Results.Created($"/api/bookings/{bookingId}/payments/{payment.Id}", payment);
         });
+        group.MapPost("/refund-deposit", (long bookingId, PaymentService service, CancellationToken token) =>
+            service.RefundDepositAsync(bookingId, token));
         return endpoints;
     }
 }

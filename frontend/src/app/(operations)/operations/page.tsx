@@ -5,8 +5,8 @@ export default function OperationsPage() {
   return (
     <>
       <PageHeader
-        title="Vận hành phòng"
-        description="Theo dõi theo thời gian thực tình trạng phòng, khách đang lưu trú và lượt đặt phòng sắp tới."
+        title="Ca trực hôm nay"
+        description="Xử lý lượt khách đến, khách đang ở và khách chuẩn bị trả phòng. Lịch từng phòng nằm ở mục Hiện trạng phòng."
       />
       <OperationsDashboard />
     </>

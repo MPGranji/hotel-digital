@@ -1,6 +1,6 @@
 import { apiRequest } from "@/lib/api-client";
 import type { PagedResult } from "@/types/api";
-import type { BookingDetail, BookingListItem, BookingOptions, BookingWriteRequest } from "./types";
+import type { BookingDetail, BookingListItem, BookingOperationsSnapshot, BookingOptions, BookingWriteRequest } from "./types";
 
 const jsonHeaders = { "Content-Type": "application/json" };
 
@@ -10,6 +10,10 @@ export function getBookingOptions() {
 
 export function getBooking(id: number) {
   return apiRequest<BookingDetail>(`/api/bookings/${id}`);
+}
+
+export function getBookingOperations() {
+  return apiRequest<BookingOperationsSnapshot>("/api/bookings/operations");
 }
 
 export function createBooking(request: BookingWriteRequest) {
@@ -44,10 +48,10 @@ export function changeBookingStatus(id: number, action: string, version: string)
   });
 }
 
-export function getAvailableRoomIds(checkInAt: string, checkOutAt: string, excludeBookingId?: number) {
+export function getAvailableRoomIds(checkInAt: string, checkOutAt: string, excludeBookingId?: number, signal?: AbortSignal) {
   const params = new URLSearchParams({ checkInAt, checkOutAt });
   if (excludeBookingId) params.set("excludeBookingId", String(excludeBookingId));
-  return apiRequest<number[]>(`/api/bookings/availability?${params}`);
+  return apiRequest<number[]>(`/api/bookings/availability?${params}`, { signal });
 }
 
 export function getBookings(params: URLSearchParams) {

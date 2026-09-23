@@ -6,6 +6,7 @@ using HotelDigital.Api.Features.Payments;
 using HotelDigital.Api.Infrastructure.Auditing;
 using HotelDigital.Api.Infrastructure.Errors;
 using HotelDigital.Api.Infrastructure.Persistence;
+using HotelDigital.Api.Infrastructure.Time;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -48,6 +49,67 @@ public sealed class PaymentLedgerTests
                 CancellationToken.None));
 
         Assert.Equal("payment_exceeds_balance", exception.Code);
+        Assert.Single(db.Payments);
+    }
+
+    [Theory]
+    [InlineData("0.001")]
+    [InlineData("100.001")]
+    public async Task Recorded_payment_rejects_amounts_that_sql_would_round(string value)
+    {
+        await using var db = await CreateContextAsync();
+
+        var exception = await Assert.ThrowsAsync<RequestValidationException>(() => CreateService(db).CreateAsync(
+            1, new PaymentWriteRequest(decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture), "CASH", null, null, null), CancellationToken.None));
+
+        Assert.Contains("amount", exception.Errors.Keys);
+        Assert.Empty(db.Payments);
+    }
+
+    [Fact]
+    public async Task Recorded_payment_rejects_future_collection_time()
+    {
+        await using var db = await CreateContextAsync();
+
+        var exception = await Assert.ThrowsAsync<RequestValidationException>(() => CreateService(db).CreateAsync(
+            1, new PaymentWriteRequest(100_000, "CASH", HotelClock.Now().AddDays(1), null, null), CancellationToken.None));
+
+        Assert.Contains("paidAt", exception.Errors.Keys);
+        Assert.Empty(db.Payments);
+    }
+
+    [Fact]
+    public async Task Cancelled_booking_refund_records_negative_payment_and_cannot_repeat()
+    {
+        await using var db = await CreateContextAsync();
+        var service = CreateService(db);
+        await service.CreateAsync(1, new PaymentWriteRequest(200_000, "CASH", null, null, "Cọc"), CancellationToken.None);
+        await service.CreateAsync(1, new PaymentWriteRequest(100_000, "TRANSFER", null, null, "Cọc"), CancellationToken.None);
+        var booking = await db.Bookings.SingleAsync();
+        booking.Status = "CANCELLED";
+        await db.SaveChangesAsync();
+
+        var refunds = await service.RefundDepositAsync(1, CancellationToken.None);
+
+        Assert.Equal(2, refunds.Count);
+        Assert.Equal(-300_000, refunds.Sum(x => x.Amount));
+        Assert.Equal(0, db.Payments.Sum(x => x.Amount));
+        Assert.Equal(0, booking.CashAmount);
+        Assert.Equal(0, booking.TransferAmount);
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() => service.RefundDepositAsync(1, CancellationToken.None));
+        Assert.Equal("deposit_already_refunded", exception.Code);
+    }
+
+    [Fact]
+    public async Task Active_booking_cannot_record_deposit_refund()
+    {
+        await using var db = await CreateContextAsync();
+        var service = CreateService(db);
+        await service.CreateAsync(1, new PaymentWriteRequest(200_000, "CASH", null, null, "Cọc"), CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() => service.RefundDepositAsync(1, CancellationToken.None));
+
+        Assert.Equal("refund_requires_cancelled_booking", exception.Code);
         Assert.Single(db.Payments);
     }
 

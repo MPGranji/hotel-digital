@@ -11,7 +11,7 @@ export interface RoomListItem {
   countsTowardOccupancy: boolean;
   note?: string;
   bookingCount: number;
-  status: "AVAILABLE" | "RESERVED" | "OCCUPIED" | "MAINTENANCE" | "INACTIVE";
+  status: "AVAILABLE" | "RESERVED" | "OCCUPIED" | "HELD" | "MAINTENANCE" | "INACTIVE";
   currentBookingId?: number;
   currentBookingCode?: string;
   currentGuestName?: string;
@@ -126,7 +126,7 @@ export interface RoomCalendarRow {
 
 export interface RoomCalendarCell {
   date: string;
-  status: "AVAILABLE" | "BOOKED" | "CHECKED_IN" | "MAINTENANCE" | "INACTIVE";
+  status: "AVAILABLE" | "BOOKED" | "CHECKED_IN" | "CHECKED_OUT" | "MAINTENANCE" | "INACTIVE";
   bookingId?: number;
   bookingCode?: string;
   customerName?: string;
