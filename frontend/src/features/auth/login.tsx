@@ -43,7 +43,6 @@ export function Login({ onSignedIn }: Readonly<{ onSignedIn: (session: { accessT
           <div>
             <div className="flex size-12 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20"><Hotel aria-hidden="true" size={25} /></div>
             <p className="mt-6 text-xs font-semibold tracking-[0.16em] text-[var(--sidebar-panel-muted)]">HOTEL DIGITAL</p>
-            <h1 className="mt-12 max-w-sm text-[clamp(2rem,3vw,2.75rem)] font-semibold leading-[1.15] tracking-tight">Một nơi để cả ca làm việc luôn rõ ràng.</h1>
           </div>
           <p className="mt-12 max-w-xs border-t border-white/20 pt-5 text-sm leading-6 text-[var(--sidebar-panel-muted)]">Theo dõi phòng, đặt phòng và khách lưu trú — vừa đủ thông tin, đúng lúc bạn cần.</p>
         </div>
@@ -54,7 +53,7 @@ export function Login({ onSignedIn }: Readonly<{ onSignedIn: (session: { accessT
             <p className="mt-4 text-xs font-semibold tracking-[0.12em] text-[var(--primary)]">HOTEL DIGITAL</p>
           </div>
           <p className="text-sm font-semibold text-[var(--primary)]">Chào bạn,</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)]">Mừng bạn trở lại</h2>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)]">Mừng bạn trở lại</h1>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Đăng nhập để bắt đầu ca làm việc.</p>
 
           <form className="mt-8 space-y-5" onSubmit={submit}>
