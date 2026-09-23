@@ -31,7 +31,7 @@ Mở `http://localhost:3000`.
 
 Web dùng màn hình đăng nhập nội bộ. Tài khoản local/test là `admin` / `admin`; API kiểm tra thông tin đăng nhập rồi cấp token có hạn 8 giờ. Khách hàng không cần tài khoản để nhân viên tạo hồ sơ hoặc đặt phòng cho họ. Production bắt buộc đặt `HOTEL_ADMIN_PASSWORD` khác `admin` và `HOTEL_AUTH_SIGNING_SECRET` (chuỗi bí mật tối thiểu 32 byte) trong `backend/.env` hoặc cấu hình tương đương trên host.
 
-`/dashboard` lấy số liệu kinh doanh và hiện trạng phòng trực tiếp từ API/Azure SQL, rồi cập nhật qua SignalR khi nghiệp vụ thay đổi. Trang web không nhúng Power BI; link Power BI Publish to web được giữ riêng để nộp bài và vẫn dùng model Import, làm mới theo lịch.
+`/dashboard` mặc định nhúng báo cáo Power BI Publish to web công khai, không yêu cầu đăng nhập Microsoft. Hai tab phụ lấy số liệu kinh doanh và hiện trạng phòng trực tiếp từ API/Azure SQL, rồi cập nhật qua SignalR khi nghiệp vụ thay đổi. Báo cáo Power BI hiện dùng model Import và chỉ làm mới theo lịch.
 
 ## Chạy API
 
@@ -58,7 +58,7 @@ Frontend chạy tại `http://localhost:3000`; API chạy tại `http://localhos
 
 ## Cập nhật dữ liệu realtime
 
-Sau khi một thao tác ghi vào Azure SQL hoàn tất, API gửi tín hiệu SignalR tới các phiên nhân viên. Các tab đang mở tự tải lại dữ liệu cho lịch phòng, khách, booking, hóa đơn, sổ thu và màn hình vận hành. Biểu mẫu booking đang sửa sẽ báo có phiên bản mới để nhân viên tự chọn tải lại; nội dung chưa lưu không bị thay thế. Khi mất kết nối, web tự nối lại và đối chiếu dữ liệu khi tab được mở lại hoặc sau mỗi 2 phút. Nếu gửi tín hiệu lỗi, thao tác ghi vẫn thành công; lần đối chiếu kế tiếp sẽ đồng bộ dữ liệu.
+Sau khi một thao tác ghi vào Azure SQL hoàn tất, API gửi tín hiệu SignalR tới các phiên nhân viên. Các tab đang mở tự tải lại dữ liệu cho lịch phòng, khách, booking, hóa đơn, sổ thu và màn hình vận hành. Biểu mẫu booking đang sửa sẽ báo có phiên bản mới để nhân viên tự chọn tải lại; nội dung chưa lưu không bị thay thế. Khi mất kết nối, web tự nối lại và đối chiếu dữ liệu khi tab được mở lại hoặc sau mỗi phút. Nếu gửi tín hiệu lỗi, thao tác ghi vẫn thành công; lần đối chiếu kế tiếp sẽ đồng bộ dữ liệu.
 
 Chạy API một instance có thể dùng SignalR trực tiếp. Khi chạy nhiều instance hoặc cần dịch vụ quản lý kết nối, tạo Azure SignalR Service và cấu hình `Azure__SignalR__ConnectionString` (trong Compose: `HOTEL_SIGNALR_CONNECTION_STRING`) bằng secret của môi trường. Không đưa connection string vào image hay Git. Cấu hình origin frontend trong `Cors:AllowedOrigins` và bảo đảm proxy/App Service cho phép WebSocket. Hub `/hubs/updates` yêu cầu token đăng nhập như API.
 
@@ -66,7 +66,7 @@ Môi trường Azure hiện dùng App Service Linux F1 và Azure SQL free offer,
 
 Sau một thời gian không truy cập, Azure SQL serverless có thể cần khoảng một phút để tự hoạt động lại. API cho phép tối thiểu 60 giây để mở kết nối, còn web chờ tối đa 90 giây cho lệnh đọc; thao tác ghi không được web tự gửi lại. Nếu đã dùng hết hạn mức SQL miễn phí trong tháng, database tự tạm dừng và các màn hình dữ liệu sẽ không hoạt động cho đến khi hạn mức được làm mới.
 
-Dashboard kinh doanh và hiện trạng phòng ở `/dashboard` tự cập nhật từ Azure SQL qua API và SignalR; màn hình ca trực `/operations` cũng tự đồng bộ. Báo cáo Power BI riêng dùng model Import và chỉ thay đổi sau khi semantic model refresh, nên không đại diện cho dữ liệu trực tiếp trên web.
+Hai tab web `Theo dõi trực tiếp` và `Báo cáo web` ở `/dashboard` tự cập nhật từ Azure SQL qua API và SignalR; màn hình ca trực `/operations` cũng tự đồng bộ. Tab Power BI giữ nguyên báo cáo công khai đang dùng model Import; iframe không biến báo cáo này thành realtime.
 
 Connection string chỉ được truyền vào container lúc chạy, không được ghi vào image hoặc commit vào Git. Kết nối đã lưu trong DataGrip không tự động được ứng dụng hoặc container sử dụng.
 
@@ -226,9 +226,9 @@ dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backen
 
 ### Cấu trúc dashboard đã chốt
 
-- File Power BI hiện có **2 trang**: `Tổng quan kinh doanh` và `Theo dõi phòng`. Báo cáo native trên `/dashboard` tự cập nhật; `/operations` phục vụ theo dõi từng booking và phòng.
+- File Power BI hiện có **2 trang**: `Tổng quan kinh doanh` và `Theo dõi phòng`. `/dashboard` nhúng báo cáo này làm tab mặc định; hai tab web trực tiếp và `/operations` phục vụ theo dõi dữ liệu mới.
 - Trang web nội bộ `/operations` (`Khách & phòng`) được giữ riêng để hiển thị trạng thái từng phòng, khách hiện tại và booking kế tiếp.
-- `Khách & phòng` không được tính là trang Power BI. Dữ liệu nhận diện khách chỉ được xem trong web đã đăng nhập; file Power BI hiện tại vẫn chứa dữ liệu này và mã Publish to web của báo cáo cần được chủ sở hữu thu hồi.
+- `Khách & phòng` không được tính là trang Power BI. File Power BI hiện tại vẫn chứa tên và số điện thoại khách, nên link Publish to web công khai cũng làm lộ các trường này.
 
 - Đặt phòng/check-in/check-out.
 - Sổ đặt phòng.
