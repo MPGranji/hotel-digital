@@ -59,6 +59,10 @@ body {
   outline-offset: 2px;
 }
 
+.login-field input:focus-visible {
+  outline: none;
+}
+
 @layer base {
   a {
     color: inherit;

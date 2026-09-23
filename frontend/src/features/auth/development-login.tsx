@@ -43,14 +43,14 @@ export function DevelopmentLogin({ onSignedIn }: Readonly<{ onSignedIn: () => vo
           <form className="mt-8 space-y-5" onSubmit={submit}>
             <label className="block text-sm font-medium text-[var(--foreground)]">
               Tên đăng nhập
-              <span className="mt-2 flex items-center gap-3 rounded-xl border border-[var(--border-strong)] bg-white px-4 focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--nav-active)]">
+              <span className="login-field mt-2 flex items-center gap-3 rounded-xl border border-[var(--border-strong)] bg-white px-4 transition-colors focus-within:border-[var(--primary)]">
                 <UserRound aria-hidden="true" className="shrink-0 text-[var(--muted)]" size={18} />
                 <input autoComplete="username" autoFocus className="min-h-12 w-full border-0 bg-transparent text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]" onChange={(event) => { setUsername(event.target.value); setError(undefined); }} placeholder="Tên đăng nhập" value={username} />
               </span>
             </label>
             <label className="block text-sm font-medium text-[var(--foreground)]">
               Mật khẩu
-              <span className="mt-2 flex items-center gap-3 rounded-xl border border-[var(--border-strong)] bg-white px-4 focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--nav-active)]">
+              <span className="login-field mt-2 flex items-center gap-3 rounded-xl border border-[var(--border-strong)] bg-white px-4 transition-colors focus-within:border-[var(--primary)]">
                 <LockKeyhole aria-hidden="true" className="shrink-0 text-[var(--muted)]" size={18} />
                 <input autoComplete="current-password" className="min-h-12 w-full border-0 bg-transparent text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]" onChange={(event) => { setPassword(event.target.value); setError(undefined); }} placeholder="Mật khẩu" type={showPassword ? "text" : "password"} value={password} />
                 <button aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"} className="shrink-0 rounded-md p-1 text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]" onClick={() => setShowPassword((value) => !value)} type="button">{showPassword ? <EyeOff aria-hidden="true" size={18} /> : <Eye aria-hidden="true" size={18} />}</button>
