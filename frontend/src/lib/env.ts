@@ -1,6 +1,5 @@
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 const configuredEmbedUrl = process.env.NEXT_PUBLIC_POWER_BI_EMBED_URL?.trim();
-const publicPowerBiEmbedUrl = "https://app.powerbi.com/view?r=eyJrIjoiNjNiYWY2NWItMzIwNC00NjMwLTk2NGItZTRkMzkxZmQzN2RjIiwidCI6IjZhYzJhZDA2LTY5MmMtNDY2My1iN2FmLWE5ZmYyYTg2NmQwYyIsImMiOjEwfQ%3D%3D";
 function securePowerBiEmbedUrl(value?: string) {
   if (!value) return undefined;
   try {
@@ -12,7 +11,7 @@ function securePowerBiEmbedUrl(value?: string) {
       ? url.toString() : undefined;
   } catch { return undefined; }
 }
-const powerBiEmbedUrl = securePowerBiEmbedUrl(configuredEmbedUrl) ?? publicPowerBiEmbedUrl;
+const powerBiEmbedUrl = securePowerBiEmbedUrl(configuredEmbedUrl);
 
 export const env = {
   apiBaseUrl: apiBaseUrl?.replace(/\/$/, "") ?? "http://localhost:5080",
