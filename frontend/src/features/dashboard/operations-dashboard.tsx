@@ -1,60 +1,79 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
 import { DataMessage, Panel } from "@/components/ui/page";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { getBookingOperations } from "@/features/bookings/bookings-api";
+import type { BookingListItem, BookingOperationsSnapshot } from "@/features/bookings/types";
 import { getApiErrorMessage } from "@/lib/api-client";
-import { formatDateTime } from "@/lib/format";
-import { getRooms } from "@/features/rooms/rooms-api";
-import type { RoomListItem } from "@/features/rooms/types";
+import { useLiveRevision } from "@/features/realtime/live-updates-provider";
+import { formatCurrency } from "@/lib/format";
+import { BookingOperationDrawer } from "./booking-operation-drawer";
 
-const statusMeta: Record<RoomListItem["status"], { label: string; className: string }> = {
-  AVAILABLE: { label: "Trống", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
-  RESERVED: { label: "Đã đặt", className: "border-blue-200 bg-blue-50 text-blue-800" },
-  OCCUPIED: { label: "Đang có khách", className: "border-amber-200 bg-amber-50 text-amber-900" },
-  MAINTENANCE: { label: "Bảo trì", className: "border-rose-200 bg-rose-50 text-rose-800" },
-  INACTIVE: { label: "Ngừng hoạt động", className: "border-slate-200 bg-slate-100 text-slate-600" },
-};
+type QueueKey = "attention" | "arrivals" | "departures" | "inHouse" | "upcoming";
+
+const queues: Array<{ key: QueueKey; label: string; empty: string }> = [
+  { key: "attention", label: "Cần xử lý", empty: "Không có lượt nhận hoặc trả phòng quá giờ." },
+  { key: "arrivals", label: "Đến hôm nay", empty: "Hôm nay chưa có khách chờ nhận phòng." },
+  { key: "departures", label: "Đi hôm nay", empty: "Hôm nay chưa có khách chờ trả phòng." },
+  { key: "inHouse", label: "Đang ở", empty: "Hiện chưa có khách đang lưu trú." },
+  { key: "upcoming", label: "Sắp đến", empty: "Bảy ngày tới chưa có lượt đặt phòng nào." },
+];
+
+function day(value: string) { return value.slice(0, 10); }
+function dueAt(booking: BookingListItem) { return booking.status === "CHECKED_IN" ? booking.checkOutAt : booking.checkInAt; }
+function isOverdue(booking: BookingListItem, now: string) { return dueAt(booking) < now; }
+function amountToCollect(booking: BookingListItem) {
+  return Math.max(0, booking.previousDebt + booking.grossRevenue - booking.paidAmount - booking.debtAmount);
+}
+
+function belongsToQueue(booking: BookingListItem, key: QueueKey, snapshot: BookingOperationsSnapshot) {
+  const booked = booking.status === "BOOKED";
+  const inHouse = booking.status === "CHECKED_IN";
+  switch (key) {
+    case "attention": return (booked || inHouse) && isOverdue(booking, snapshot.hotelNow);
+    case "arrivals": return booked && day(booking.checkInAt) === snapshot.hotelDate;
+    case "departures": return inHouse && day(booking.checkOutAt) === snapshot.hotelDate;
+    case "inHouse": return inHouse;
+    case "upcoming": return booked && day(booking.checkInAt) > snapshot.hotelDate;
+  }
+}
 
 export function OperationsDashboard() {
-  const [rooms, setRooms] = useState<RoomListItem[]>([]);
+  const liveRevision = useLiveRevision();
+  const [snapshot, setSnapshot] = useState<BookingOperationsSnapshot>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
   const [reloadKey, setReloadKey] = useState(0);
+  const [queue, setQueue] = useState<QueueKey>("attention");
   const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<BookingListItem>();
 
   useEffect(() => {
     let active = true;
-    void getRooms()
-      .then((items) => { if (active) setRooms(items); })
-      .catch((reason) => { if (active) setError(getApiErrorMessage(reason, "Không thể tải hiện trạng phòng.")); })
+    void getBookingOperations()
+      .then((result) => { if (active) { setSnapshot(result); setError(undefined); } })
+      .catch((reason) => { if (active) setError(getApiErrorMessage(reason, "Không thể tải ca trực.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [reloadKey]);
+  }, [reloadKey, liveRevision]);
 
-  const physicalRooms = useMemo(
-    () => rooms.filter((room) => room.countsTowardOccupancy && room.isActive),
-    [rooms],
-  );
-  const counts = useMemo(() => ({
-    physical: physicalRooms.length,
-    occupied: physicalRooms.filter((room) => room.status === "OCCUPIED").length,
-    reserved: physicalRooms.filter((room) => room.status === "RESERVED").length,
-    available: physicalRooms.filter((room) => room.status === "AVAILABLE").length,
-    maintenance: physicalRooms.filter((room) => room.status === "MAINTENANCE").length,
-  }), [physicalRooms]);
-  const visibleRooms = useMemo(() => {
+  const counts = useMemo(() => Object.fromEntries(queues.map((item) => [
+    item.key, snapshot?.items.filter((booking) => belongsToQueue(booking, item.key, snapshot)).length ?? 0,
+  ])) as Record<QueueKey, number>, [snapshot]);
+
+  const visible = useMemo(() => {
+    if (!snapshot) return [];
     const term = query.trim().toLocaleLowerCase("vi");
-    if (!term) return rooms;
-    return rooms.filter((room) => [
-      room.roomNumber,
-      room.currentGuestName,
-      room.currentGuestPhone,
-      room.currentBookingCode,
-    ].some((value) => value?.toLocaleLowerCase("vi").includes(term)));
-  }, [query, rooms]);
+    return snapshot.items.filter((booking) => belongsToQueue(booking, queue, snapshot))
+      .filter((booking) => !term || [booking.roomNumber, booking.customerName, booking.customerPhone, booking.bookingCode, booking.groupCode]
+        .some((value) => value?.toLocaleLowerCase("vi").includes(term)))
+      .sort((a, b) => dueAt(a).localeCompare(dueAt(b)) || a.roomNumber.localeCompare(b.roomNumber, "vi", { numeric: true }));
+  }, [query, queue, snapshot]);
 
   function refresh() {
     setLoading(true);
@@ -62,73 +81,83 @@ export function OperationsDashboard() {
     setReloadKey((value) => value + 1);
   }
 
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-64 flex-1">
-          <p className="text-sm text-slate-600">Trạng thái được tính tại thời điểm mở trang. Nhấn Làm mới để lấy dữ liệu mới nhất.</p>
-          <Input
-            aria-label="Tìm phòng hoặc khách"
-            className="mt-3 max-w-md"
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Tìm số phòng, tên khách, SĐT hoặc mã đặt phòng"
-            value={query}
-          />
-        </div>
-        <div className="flex gap-2"><Button onClick={refresh} variant="secondary">Làm mới</Button><Link className="inline-flex min-h-10 items-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white" href="/rooms">Mở lịch phòng</Link></div>
+  function moveTab(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const next = event.key === "ArrowRight" ? (index + 1) % queues.length
+      : event.key === "ArrowLeft" ? (index - 1 + queues.length) % queues.length
+        : event.key === "Home" ? 0 : event.key === "End" ? queues.length - 1 : -1;
+    if (next < 0) return;
+    event.preventDefault();
+    setQueue(queues[next].key);
+    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("[role='tab']")[next]?.focus();
+  }
+
+  const activeQueue = queues.find((item) => item.key === queue)!;
+  const hotelDay = snapshot?.hotelDate
+    ? new Intl.DateTimeFormat("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(`${snapshot.hotelDate}T12:00:00`))
+    : "Hôm nay";
+
+  return <>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 sm:px-5">
+        <div><p className="text-sm font-semibold text-[var(--foreground)]">{hotelDay}</p><p className="mt-0.5 text-xs text-[var(--muted)]">{snapshot ? `Dữ liệu lúc ${snapshot.hotelNow.slice(11, 16)} · giờ khách sạn` : "Đang lấy dữ liệu ca trực"}</p></div>
+        <div className="flex items-center gap-2"><Button disabled={loading} onClick={refresh} variant="secondary">{loading && snapshot ? "Đang cập nhật…" : "Làm mới"}</Button><Link className="inline-flex min-h-10 items-center rounded-lg bg-[var(--primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--primary-strong)]" href="/bookings">Tạo đặt phòng</Link></div>
       </div>
 
-      {error ? <DataMessage action={<Button onClick={refresh}>Thử lại</Button>} description={error} title="Không thể tải dữ liệu" /> : loading ? <DataMessage title="Đang tải hiện trạng khách và phòng…" /> : (
-        <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <Metric label="Phòng hoạt động" value={counts.physical} />
-            <Metric label="Đang có khách" value={counts.occupied} tone="amber" />
-            <Metric label="Đã đặt" value={counts.reserved} tone="blue" />
-            <Metric label="Phòng trống" value={counts.available} tone="green" />
-            <Metric label="Bảo trì" value={counts.maintenance} tone="red" />
+      <Panel className="!p-0">
+        <div aria-label="Hàng đợi ca trực" className="flex gap-1 overflow-x-auto border-b border-[var(--border-strong)] bg-[var(--surface-muted)] px-3 pt-2" role="tablist">
+          {queues.map((item, index) => {
+            const active = queue === item.key;
+            return <button
+              aria-controls="operations-queue"
+              aria-selected={active}
+              className={`min-h-12 shrink-0 rounded-t-lg border-b-[3px] px-4 text-[0.95rem] font-semibold transition-colors duration-200 focus-visible:outline-offset-[-3px] ${active ? "border-[var(--primary-strong)] bg-[var(--primary)] text-white" : "border-transparent text-[var(--foreground)] hover:bg-[var(--nav-active)] hover:text-[var(--primary-strong)]"}`}
+              id={`queue-${item.key}`}
+              key={item.key}
+              onClick={() => setQueue(item.key)}
+              onKeyDown={(event) => moveTab(event, index)}
+              role="tab"
+              tabIndex={active ? 0 : -1}
+              type="button"
+            >
+              {item.label}
+              <span className={`ml-2 rounded-md px-1.5 py-0.5 text-xs font-bold tabular-nums ${active ? "bg-white/20 text-white" : "border border-[var(--border)] bg-white text-[var(--primary-strong)]"}`}>{counts[item.key]}</span>
+            </button>;
+          })}
+        </div>
+        <div aria-labelledby={`queue-${queue}`} className="p-4 sm:p-5" id="operations-queue" role="tabpanel">
+          {notice ? <p className="mb-4 rounded-lg border border-[#bdd1cb] bg-[#edf5f2] px-4 py-3 text-sm text-[#24544d]" role="status">{notice}</p> : null}
+          <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div><h2 className="text-base font-semibold text-[var(--foreground)]">{activeQueue.label}</h2><p className="mt-0.5 text-xs text-[var(--muted)]">{queue === "upcoming" ? "Lượt đặt trong 7 ngày tới" : queue === "attention" ? "Booking đã qua giờ nhận hoặc trả phòng dự kiến" : "Theo trạng thái booking, không phải trạng thái dọn phòng"}</p></div>
+            <Input aria-label="Tìm trong ca trực" className="sm:max-w-80" onChange={(event) => setQuery(event.target.value)} placeholder="Tên khách, SĐT, phòng hoặc mã" value={query} />
           </div>
-
-          <Panel>
-            {visibleRooms.length === 0 ? <DataMessage title={rooms.length === 0 ? "Chưa có dữ liệu phòng" : "Không tìm thấy phòng hoặc khách phù hợp"} /> : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {visibleRooms.map((room) => {
-                const meta = statusMeta[room.status];
-                return <article className={`rounded-xl border p-4 ${meta.className}`} key={room.id}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div><p className="text-xl font-bold">Phòng {room.roomNumber}</p><p className="text-xs opacity-75">{room.roomTypeName}{room.floorLabel ? ` · Tầng ${room.floorLabel}` : ""}</p></div>
-                    <span className="rounded-full bg-white/70 px-2.5 py-1 text-xs font-semibold">{meta.label}</span>
-                  </div>
-                  <div className="mt-4 min-h-14 text-sm">
-                    {room.currentGuestName ? <>
-                      <p className="font-semibold">{room.currentGuestName}</p>
-                      <p className="text-xs opacity-75">{room.currentGuestPhone || "Chưa có SĐT"} · {room.currentBookingCode}</p>
-                      <StayPeriod end={room.currentCheckOutAt} start={room.currentCheckInAt} />
-                    </> : room.nextCheckInAt ? <>
-                      <p className="font-medium">Đặt phòng kế tiếp</p>
-                      <StayPeriod end={room.nextCheckOutAt} start={room.nextCheckInAt} />
-                    </> : <p className="opacity-75">Chưa có khách hoặc lượt đặt phòng kế tiếp.</p>}
-                  </div>
-                  {room.currentBookingId ? <Link className="mt-3 inline-flex text-sm font-semibold underline underline-offset-2" href={`/bookings?bookingId=${room.currentBookingId}&mode=view`}>Xem booking</Link> : null}
-                </article>;
-              })}
-            </div>}
-          </Panel>
-        </>
-      )}
+          {error ? <p className="mb-4 rounded-lg border border-[#dfc0b9] bg-[#f9efec] px-4 py-3 text-sm text-[#8c493e]" role="alert">{error}{snapshot ? " Dữ liệu bên dưới có thể đã cũ." : ""}</p> : null}
+          {!snapshot && loading ? <QueueSkeleton /> : !snapshot ? <DataMessage action={<Button onClick={refresh}>Thử lại</Button>} title="Chưa tải được ca trực" /> : visible.length === 0 ? <DataMessage description={query ? "Thử từ khóa khác hoặc xóa nội dung tìm kiếm." : activeQueue.empty} title={query ? "Không tìm thấy booking phù hợp" : "Chưa có việc trong mục này"} /> : <div className="overflow-hidden rounded-xl border border-[var(--border)]">
+            <div className="hidden grid-cols-[5.5rem_6.5rem_minmax(11rem,1fr)_8rem_9rem_7rem] gap-3 bg-[var(--sidebar)] px-4 py-3 text-xs font-semibold text-[var(--muted)] xl:grid"><span>Giờ hẹn</span><span>Phòng</span><span>Khách · Mã</span><span>Trạng thái</span><span>Thanh toán</span><span className="text-right">Thao tác</span></div>
+            <div className="divide-y divide-[var(--border)]">{visible.map((booking) => <BookingRow booking={booking} hotelDate={snapshot.hotelDate} hotelNow={snapshot.hotelNow} key={booking.id} onOpen={() => setSelected(booking)} />)}</div>
+          </div>}
+        </div>
+      </Panel>
     </div>
-  );
+    {selected && snapshot ? <BookingOperationDrawer booking={selected} hotelDate={snapshot.hotelDate} hotelNow={snapshot.hotelNow} onChanged={(message) => { setNotice(message); refresh(); }} onClose={() => setSelected(undefined)} /> : null}
+  </>;
 }
 
-function StayPeriod({ start, end }: Readonly<{ start?: string; end?: string }>) {
-  return <p className="mt-1 text-xs opacity-75">Từ {formatDateTime(start)} đến {formatDateTime(end)}</p>;
+function BookingRow({ booking, hotelDate, hotelNow, onOpen }: Readonly<{ booking: BookingListItem; hotelDate: string; hotelNow: string; onOpen: () => void }>) {
+  const overdue = isOverdue(booking, hotelNow);
+  const due = dueAt(booking);
+  const amount = amountToCollect(booking);
+  const action = booking.status === "CHECKED_IN" ? "Trả phòng" : day(booking.checkInAt) <= hotelDate ? "Nhận phòng" : "Xem booking";
+  const needsAction = action !== "Xem booking";
+  return <article className={`grid gap-3 bg-white px-4 py-4 transition-colors hover:bg-[var(--sidebar)] xl:grid-cols-[5.5rem_6.5rem_minmax(11rem,1fr)_8rem_9rem_7rem] xl:items-center xl:gap-3 ${overdue ? "border-l-[3px] border-l-[#b85c4a]" : ""}`}>
+    <div><p className="text-sm font-semibold tabular-nums text-[var(--foreground)]">{due.slice(11, 16)}</p><p className="text-xs text-[var(--muted)]">{day(due) === hotelDate ? "Hôm nay" : new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit" }).format(new Date(due))}</p></div>
+    <div><p className="text-sm font-semibold text-[var(--foreground)]">Phòng {booking.roomNumber}</p><p className="text-xs text-[var(--muted)]">{booking.roomTypeName}</p></div>
+    <div className="min-w-0"><p className="truncate text-sm font-semibold text-[var(--foreground)]">{booking.customerName}</p><p className="truncate text-xs text-[var(--muted)]">{booking.bookingCode}{booking.customerPhone ? ` · ${booking.customerPhone}` : ""}</p></div>
+    <div className="flex flex-wrap items-center gap-1.5"><StatusBadge status={booking.status} />{overdue ? <span className="text-xs font-semibold text-[#9b5145]">{booking.status === "BOOKED" ? "Quá giờ nhận" : "Quá giờ trả"}</span> : null}</div>
+    <div className="text-sm">{amount > 0 ? <p className="font-semibold text-[#8a5a2f]">Còn thu {formatCurrency(amount)}</p> : <p className="font-medium text-[var(--foreground)]">{booking.debtAmount > 0 ? "Đã ghi công nợ" : "Đã thu đủ"}</p>}{booking.debtAmount > 0 ? <p className="text-xs text-[var(--muted)]">Công nợ {formatCurrency(booking.debtAmount)}</p> : null}</div>
+    <div className="xl:text-right"><Button aria-label={`${action} ${booking.bookingCode} của ${booking.customerName}`} className="w-full whitespace-nowrap xl:w-auto" onClick={onOpen} size="sm" variant={needsAction ? "primary" : "secondary"}>{action}</Button></div>
+  </article>;
 }
 
-function Metric({ label, value, tone = "slate" }: Readonly<{ label: string; value: number; tone?: "slate" | "amber" | "blue" | "green" | "red" }>) {
-  const classes = {
-    slate: "border-slate-200 bg-white text-slate-900",
-    amber: "border-amber-200 bg-amber-50 text-amber-900",
-    blue: "border-blue-200 bg-blue-50 text-blue-900",
-    green: "border-emerald-200 bg-emerald-50 text-emerald-900",
-    red: "border-rose-200 bg-rose-50 text-rose-900",
-  };
-  return <div className={`rounded-xl border p-4 shadow-sm ${classes[tone]}`}><p className="text-sm font-medium opacity-75">{label}</p><p className="mt-1 text-3xl font-bold tabular-nums">{value}</p></div>;
+function QueueSkeleton() {
+  return <div aria-label="Đang tải ca trực" className="space-y-2" role="status">{Array.from({ length: 4 }, (_, index) => <div className="h-16 animate-pulse rounded-lg bg-[var(--surface-muted)]" key={index} />)}</div>;
 }

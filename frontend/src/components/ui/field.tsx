@@ -12,17 +12,17 @@ interface FieldProps {
 export function Field({ label, htmlFor, required, error, hint, children }: FieldProps) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-medium text-slate-700" htmlFor={htmlFor}>
-        {label}{required ? <span className="ml-1 text-red-600">*</span> : null}
+      <label className="mb-1.5 block text-sm font-medium text-[var(--foreground)]" htmlFor={htmlFor}>
+        {label}{required ? <span className="ml-1 text-[var(--danger)]">*</span> : null}
       </label>
       {children}
-      {error ? <p className="mt-1 text-xs text-red-600">{error}</p> : null}
-      {!error && hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
+      {error ? <p className="mt-1 text-xs text-[var(--danger)]">{error}</p> : null}
+      {!error && hint ? <p className="mt-1 text-xs text-[var(--muted)]">{hint}</p> : null}
     </div>
   );
 }
 
-const controlClass = "min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-blue-200";
+const controlClass = "min-h-10 w-full rounded-lg border border-[var(--border-strong)] bg-white px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:border-[var(--primary)] focus:outline-2 focus:outline-offset-1";
 
 export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={`${controlClass} ${className}`} {...props} />;

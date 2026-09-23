@@ -35,7 +35,7 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
   const hasAdditionalDetails = additionalMoneyFields.some(({ key }) => Number(form[key]) > 0)
     || Boolean(form.discountReason || form.promotionCode)
     || (!booking && paymentMethod === "split");
-  const [detailsOpen, setDetailsOpen] = useState(hasAdditionalDetails);
+  const [detailsOpen, setDetailsOpen] = useState(booking?.status === "CHECKED_IN" || hasAdditionalDetails);
 
   function changePaymentMethod(method: PaymentMethod) {
     if (method === "split") {
@@ -55,10 +55,10 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
   }
 
   return (
-    <div>
-      <SectionTitle>3. Giá phòng và thanh toán</SectionTitle>
+    <div className="scroll-mt-6" id="booking-finance">
+      <SectionTitle>3. Tiền phòng và chi phí</SectionTitle>
       <div className={`grid gap-4 ${booking ? "max-w-2xl" : "md:grid-cols-3"}`}>
-        <Field error={fieldErrors.roomRevenue?.[0]} hint={usesCounterRate ? "Tự tính theo bảng giá tại quầy; vẫn có thể chỉnh tay." : "Nhập số tiền theo booking từ kênh."} htmlFor="roomRevenue" label="Tiền phòng" required>
+        <Field error={fieldErrors.roomRevenue?.[0]} hint={usesCounterRate ? "Tự tính theo bảng giá tại quầy; bạn vẫn có thể điều chỉnh." : "Nhập tiền phòng theo giá của kênh đặt."} htmlFor="roomRevenue" label={!booking && form.roomMode === "multiple" ? "Tiền phòng mỗi phòng" : "Tiền phòng"} required>
           <MoneyInput disabled={disabled} id="roomRevenue" onChange={(value) => updateField("roomRevenue", value)} value={form.roomRevenue} />
         </Field>
         {!booking ? <Field htmlFor="paymentMethod" label="Phương thức tiền cọc">
@@ -70,14 +70,14 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
             {paymentMethod === "split" ? <option value="split">Nhiều phương thức</option> : null}
           </Select>
         </Field> : null}
-        {!booking ? <Field error={getPaymentError(fieldErrors)} hint={paymentMethod === "split" ? "Xem chi tiết từng phương thức bên dưới." : undefined} htmlFor="paidAmount" label="Tiền cọc đã thu">
+        {!booking ? <Field error={getPaymentError(fieldErrors)} hint={paymentMethod === "split" ? "Xem chi tiết từng phương thức bên dưới." : undefined} htmlFor="paidAmount" label={form.roomMode === "multiple" ? "Tiền cọc mỗi phòng" : "Tiền cọc đã thu"}>
           <MoneyInput disabled={disabled || paymentMethod === "unpaid" || paymentMethod === "split"} id="paidAmount" onChange={changePaidAmount} value={String(summary.paid)} />
         </Field> : null}
       </div>
 
       <Button
         aria-expanded={detailsOpen}
-        className="mt-4 min-h-9 px-3 text-slate-600"
+        className="mt-4 min-h-9 px-3"
         disabled={disabled}
         onClick={() => setDetailsOpen((current) => !current)}
         variant="secondary"
@@ -87,10 +87,10 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
       </Button>
 
       {detailsOpen ? (
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+        <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--sidebar)] p-4 sm:p-5">
           <div className="mb-4">
-            <h3 className="text-sm font-semibold text-slate-900">Khoản phát sinh</h3>
-            <p className="mt-0.5 text-xs text-slate-500">Chỉ nhập khi booking có dịch vụ, phụ thu, giảm giá hoặc công nợ.</p>
+            <h3 className="text-base font-bold text-slate-900">Khoản phát sinh</h3>
+            <p className="mt-0.5 text-xs text-[var(--muted)]">Chỉ điền các khoản có phát sinh trong lần đặt phòng này.</p>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {additionalMoneyFields.map((item) => (
@@ -119,7 +119,10 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
         </div>
       ) : null}
 
-      {booking ? <p className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">Số tiền đã thu được lấy từ sổ thu tiền bên dưới và không thay đổi khi sửa thông tin booking.</p> : null}
+      {booking ? <p className="mt-4 rounded-lg border border-[#bdd1cb] bg-[var(--nav-active)] px-4 py-3 text-sm text-[var(--primary-strong)]">Khoản đã thu được lấy từ sổ thu tiền bên dưới và giữ nguyên khi bạn sửa thông tin đặt phòng.</p> : null}
+      {booking?.status === "CHECKED_IN" && !disabled ? <div className="mt-4 flex justify-end"><Button disabled={model.saving || model.checkingAvailability || model.invalidStayTime || !model.availableRoomIds || Boolean(model.availabilityError)} onClick={() => void model.submit()} type="button">{model.saving ? "Đang lưu…" : "Lưu chi phí"}</Button></div> : null}
+      {booking?.status === "CHECKED_IN" && model.message ? <p className="mt-2 text-right text-sm font-semibold text-emerald-700" role="status">{model.message}</p> : null}
+      {booking?.status === "CHECKED_IN" && model.error ? <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{model.error}</p> : null}
       {!booking ? <PaymentLine gross={summary.gross} paid={summary.paid} /> : null}
     </div>
   );
@@ -132,9 +135,9 @@ function getPaymentError(fieldErrors: Record<string, string[]>) {
 function PaymentLine({ gross, paid }: Readonly<{ gross: number; paid: number }>) {
   return (
     <div className="mt-5 flex justify-end">
-      <div className="grid w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-sm sm:w-auto sm:grid-cols-2 sm:divide-x sm:divide-slate-300">
+      <div className="grid w-full overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--sidebar)] text-sm sm:w-auto sm:grid-cols-2 sm:divide-x sm:divide-[var(--border)]">
         <PaymentValue label="Tổng tiền" value={gross} valueClass="text-[var(--primary)]" />
-        <PaymentValue label="Đã thanh toán" value={paid} valueClass={paid > 0 ? "text-emerald-700" : "text-slate-700"} />
+        <PaymentValue label="Đã thu" value={paid} valueClass={paid > 0 ? "text-[#24544d]" : "text-[var(--foreground)]"} />
       </div>
     </div>
   );

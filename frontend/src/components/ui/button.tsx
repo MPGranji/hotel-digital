@@ -1,25 +1,23 @@
 import type { ButtonHTMLAttributes } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "info" | "success" | "warning" | "danger" | "ghost";
+type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
+  size?: "default" | "sm";
 }
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "border-[var(--primary)] bg-[var(--primary)] text-white hover:bg-[var(--primary-strong)]",
-  secondary: "border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
-  info: "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100",
-  success: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
-  warning: "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100",
-  danger: "border-red-200 bg-white text-red-700 hover:bg-red-50",
-  ghost: "border-transparent bg-transparent text-slate-600 hover:bg-slate-100",
+  primary: "border-[var(--primary)] bg-[var(--primary)] font-semibold text-white hover:bg-[var(--primary-strong)]",
+  secondary: "border-[var(--border-strong)] bg-white text-[var(--foreground)] hover:bg-[var(--surface-muted)]",
+  danger: "border-[#dfc0b9] bg-white text-[#8c493e] hover:bg-[#f9efec]",
+  ghost: "border-transparent bg-transparent text-[var(--nav-text)] hover:bg-[var(--surface-muted)]",
 };
 
-export function Button({ className = "", variant = "primary", type = "button", ...props }: ButtonProps) {
+export function Button({ className = "", variant = "primary", size = "default", type = "button", ...props }: ButtonProps) {
   return (
     <button
-      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 ${variants[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg border text-sm font-medium transition-[background-color,border-color,transform] duration-150 active:translate-y-px ${size === "sm" ? "min-h-11 px-3 py-1.5 sm:min-h-9" : "min-h-10 px-4 py-2"} ${variants[variant]} ${className}`}
       type={type}
       {...props}
     />

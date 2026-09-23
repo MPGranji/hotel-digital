@@ -53,6 +53,16 @@ internal static class BookingMutation
                 "Không thể chuyển trạng thái đặt phòng theo thao tác này.");
     }
 
+    public static void EnsureTransitionTime(Booking booking, string targetStatus, DateTime hotelNow)
+    {
+        if (targetStatus == "CHECKED_IN"
+            && (booking.CheckInAt.Date > hotelNow.Date || booking.CheckOutAt <= hotelNow))
+            throw new BusinessRuleException("check_in_outside_stay", "Lịch lưu trú chưa bắt đầu hoặc đã qua; hãy chỉnh ngày giờ ở trước khi nhận phòng.");
+
+        if (targetStatus == "NO_SHOW" && booking.CheckInAt >= hotelNow)
+            throw new BusinessRuleException("no_show_too_early", "Chỉ đánh dấu không đến sau giờ nhận phòng dự kiến.");
+    }
+
     public static string[] GetChangedFields(Booking current, BookingWriteRequest request)
     {
         var fields = new List<string>();

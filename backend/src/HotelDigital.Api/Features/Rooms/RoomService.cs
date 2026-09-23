@@ -33,8 +33,8 @@ public sealed class RoomService(
             BookingCount = room.Bookings.Count,
             IsUnderMaintenance = room.Blocks.Any(block => block.IsActive && block.StartAt <= now && block.EndAt > now),
             Current = room.Bookings
-                .Where(booking => booking.Status == "CHECKED_IN" || (booking.Status == "BOOKED" && booking.CheckInAt <= now && booking.CheckOutAt > now))
-                .OrderBy(booking => booking.Status == "CHECKED_IN" ? 0 : 1)
+                .Where(booking => booking.Status == "CHECKED_IN" || ((booking.Status == "BOOKED" || booking.Status == "CHECKED_OUT") && booking.CheckInAt <= now && booking.CheckOutAt > now))
+                .OrderBy(booking => booking.Status == "CHECKED_IN" ? 0 : booking.Status == "BOOKED" ? 1 : 2)
                 .ThenBy(booking => booking.CheckInAt)
                 .Select(booking => new
                 {
@@ -83,7 +83,7 @@ public sealed class RoomService(
         {
             var roomNumber = request.RoomNumber.Trim().ToUpperInvariant();
             await EnsureRoomNumberUniqueAsync(roomNumber, null, token);
-            await EnsureRoomTypeExistsAsync(request.RoomTypeId, token);
+            await EnsureRoomTypeExistsAsync(request.RoomTypeId, requireActive: true, token: token);
             var room = new Room
             {
                 RoomNumber = roomNumber,
@@ -113,17 +113,23 @@ public sealed class RoomService(
                 var now = GetHotelNow();
                 var hasOpenBooking = await db.Bookings.AsNoTracking().AnyAsync(x =>
                     x.RoomId == id
-                    && (x.Status == "BOOKED" || x.Status == "CHECKED_IN")
+                    && (x.Status == "BOOKED" || x.Status == "CHECKED_IN" || x.Status == "CHECKED_OUT")
                     && x.CheckOutAt > now,
                     token);
                 if (hasOpenBooking)
                     throw new BusinessRuleException(
                         "room_has_open_booking",
-                        "Không thể ngừng phòng đang có khách hoặc còn booking sắp tới.");
+                        "Không thể ngừng phòng khi khung giờ đã đặt còn hiệu lực hoặc còn booking sắp tới.");
             }
+            if (room.RoomTypeId != request.RoomTypeId
+                && await db.Bookings.AsNoTracking().AnyAsync(x => x.RoomId == id, token))
+                throw new BusinessRuleException("room_type_has_history", "Phòng đã có lịch sử booking nên không thể đổi hạng phòng.");
+            if (room.CountsTowardOccupancy != request.CountsTowardOccupancy
+                && await db.Bookings.AsNoTracking().AnyAsync(x => x.RoomId == id, token))
+                throw new BusinessRuleException("room_occupancy_has_history", "Phòng đã có lịch sử booking nên không thể đổi cách tính công suất.");
             var roomNumber = request.RoomNumber.Trim().ToUpperInvariant();
             await EnsureRoomNumberUniqueAsync(roomNumber, id, token);
-            await EnsureRoomTypeExistsAsync(request.RoomTypeId, token);
+            await EnsureRoomTypeExistsAsync(request.RoomTypeId, room.RoomTypeId != request.RoomTypeId, token);
             var changedFields = new List<string>();
             Track(changedFields, "RoomNumber", room.RoomNumber, roomNumber);
             Track(changedFields, "RoomTypeId", room.RoomTypeId, request.RoomTypeId);
@@ -172,6 +178,15 @@ public sealed class RoomService(
             {
                 roomType = await db.RoomTypes.SingleOrDefaultAsync(x => x.RoomTypeId == id.Value, token)
                     ?? throw new ResourceNotFoundException("room_type_not_found", "Không tìm thấy hạng phòng.");
+                if (roomType.IsActive && !request.IsActive
+                    && await db.Rooms.AsNoTracking().AnyAsync(x => x.RoomTypeId == id.Value && x.IsActive, token))
+                    throw new BusinessRuleException("room_type_has_active_rooms", "Hạng phòng còn phòng đang hoạt động; hãy ngừng các phòng trước.");
+                if (request.Capacity < roomType.Capacity
+                    && await db.Bookings.AsNoTracking().AnyAsync(x => x.Room.RoomTypeId == id.Value && x.GuestCount > request.Capacity, token))
+                    throw new BusinessRuleException("room_type_capacity_has_history", "Sức chứa mới thấp hơn số khách của booking đã ghi nhận.");
+                if (roomType.Code != code
+                    && await db.Bookings.AsNoTracking().AnyAsync(x => x.Room.RoomTypeId == id.Value, token))
+                    throw new BusinessRuleException("room_type_code_has_history", "Hạng phòng đã có lịch sử booking nên không thể đổi mã.");
                 action = "UPDATE";
             }
             else
@@ -201,9 +216,9 @@ public sealed class RoomService(
             throw new ConflictException("room_number_exists", "Số phòng đã được sử dụng.");
     }
 
-    private async Task EnsureRoomTypeExistsAsync(int roomTypeId, CancellationToken token)
+    private async Task EnsureRoomTypeExistsAsync(int roomTypeId, bool requireActive, CancellationToken token)
     {
-        if (!await db.RoomTypes.AsNoTracking().AnyAsync(x => x.RoomTypeId == roomTypeId, token))
+        if (!await db.RoomTypes.AsNoTracking().AnyAsync(x => x.RoomTypeId == roomTypeId && (!requireActive || x.IsActive), token))
             throw new ResourceNotFoundException("room_type_not_found", "Không tìm thấy hạng phòng.");
     }
 
@@ -232,13 +247,13 @@ public sealed class RoomService(
         (true, true, _) => "MAINTENANCE",
         (true, false, "CHECKED_IN") => "OCCUPIED",
         (true, false, "BOOKED") => "RESERVED",
+        (true, false, "CHECKED_OUT") => "HELD",
         _ => "AVAILABLE"
     };
 
     private static DateTime GetHotelNow()
     {
-        var timeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
-        return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, timeZone);
+        return HotelDigital.Api.Infrastructure.Time.HotelClock.Now();
     }
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

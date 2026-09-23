@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getApiErrorMessage, getApiProblem } from "@/lib/api-client";
+import { getApiErrorMessage, getApiProblem, READ_TIMEOUT_MS } from "@/lib/api-client";
 import { toDateTimeLocal } from "@/lib/format";
+import { useLiveRevision } from "@/features/realtime/live-updates-provider";
 import { findCustomerDuplicates, getCustomers } from "@/features/customers/customers-api";
 import type { CustomerDuplicateItem, CustomerListItem } from "@/features/customers/types";
 import {
@@ -37,21 +38,45 @@ function getOnlineChannel(channels: BookingOptions["channels"]) {
 }
 
 export function useBookingForm(bookingId?: number, initialRoomId?: number, initialCheckInDate?: string, initialCheckOutDate?: string) {
+  const liveRevision = useLiveRevision();
   const router = useRouter();
   const [form, setForm] = useState<BookingFormState>(createInitialBookingForm);
   const [booking, setBooking] = useState<BookingDetail>();
   const [options, setOptions] = useState<BookingOptions>({ rooms: [], channels: [] });
-  const [customers, setCustomers] = useState<CustomerListItem[]>([]);
+  const [customerSearchResult, setCustomerSearchResult] = useState<{ key: string; items?: CustomerListItem[]; error?: string }>();
+  const [customerSearchReloadKey, setCustomerSearchReloadKey] = useState(0);
   const [duplicateCustomers, setDuplicateCustomers] = useState<CustomerDuplicateItem[]>([]);
   const [duplicateCheckConfirmed, setDuplicateCheckConfirmed] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
-  const [availableRoomIds, setAvailableRoomIds] = useState<number[]>();
-  const [checkingAvailability, setCheckingAvailability] = useState(true);
+  const [availability, setAvailability] = useState<{ key: string; ids?: number[]; error?: string }>();
+  const [availabilityReloadKey, setAvailabilityReloadKey] = useState(0);
+  const [initialLoadError, setInitialLoadError] = useState<string>();
+  const [formReloadKey, setFormReloadKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const [remoteChangeAvailable, setRemoteChangeAvailable] = useState(false);
+  const latestState = useRef({ form, booking, saving });
+  const hasUnsavedChanges = Boolean(booking) && JSON.stringify(form) !== JSON.stringify(formFromBooking(booking!));
+
+  useEffect(() => { latestState.current = { form, booking, saving }; }, [form, booking, saving]);
+  const customerSearchKey = `${customerSearch}|${customerSearchReloadKey}`;
+  const currentCustomerSearch = customerSearchResult?.key === customerSearchKey ? customerSearchResult : undefined;
+  const customers = currentCustomerSearch?.items ?? [];
+  const customerSearchError = currentCustomerSearch?.error;
+  const checkingCustomerSearch = form.customerMode === "existing" && !currentCustomerSearch;
+  const availabilityKey = `${form.checkInAt}|${form.checkOutAt}|${bookingId ?? "new"}|${availabilityReloadKey}|${liveRevision}`;
+  const checkInTime = new Date(form.checkInAt).getTime();
+  const checkOutTime = new Date(form.checkOutAt).getTime();
+  const invalidStayTime = Boolean(form.checkInAt && form.checkOutAt)
+    && (!Number.isFinite(checkInTime) || !Number.isFinite(checkOutTime) || checkOutTime <= checkInTime);
+  const canCheckAvailability = Boolean(form.checkInAt && form.checkOutAt) && !invalidStayTime;
+  const currentAvailability = availability?.key === availabilityKey ? availability : undefined;
+  const availableRoomIds = currentAvailability?.ids;
+  const availabilityError = currentAvailability?.error;
+  const checkingAvailability = canCheckAvailability && !currentAvailability;
 
   useEffect(() => {
     let active = true;
@@ -77,21 +102,51 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
           setBooking(loadedBooking);
           setForm(formFromBooking(loadedBooking));
           setCustomerSearch(loadedBooking.customerName);
+          setRemoteChangeAvailable(false);
         }
       })
-      .catch((reason) => setError(getApiErrorMessage(reason, "Không thể tải biểu mẫu đặt phòng.")))
-      .finally(() => setLoading(false));
+      .catch((reason) => { if (active) setInitialLoadError(getApiErrorMessage(reason, "Không thể tải biểu mẫu đặt phòng.")); })
+      .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [bookingId, initialCheckInDate, initialCheckOutDate, initialRoomId]);
+  }, [bookingId, formReloadKey, initialCheckInDate, initialCheckOutDate, initialRoomId]);
 
   useEffect(() => {
+    if (!bookingId || liveRevision === 0 || !latestState.current.booking) return;
+    let active = true;
+    const isDirty = () => {
+      const current = latestState.current;
+      return current.saving || (current.booking && JSON.stringify(current.form) !== JSON.stringify(formFromBooking(current.booking)));
+    };
+    void getBooking(bookingId).then((loaded) => {
+      if (!active || latestState.current.booking?.version === loaded.version) return;
+      if (isDirty()) { setRemoteChangeAvailable(true); return; }
+      setBooking(loaded);
+      setForm(formFromBooking(loaded));
+      setCustomerSearch(loaded.customerName);
+      setRemoteChangeAvailable(false);
+    }).catch(() => { /* The current form remains usable; the next signal retries. */ });
+    return () => { active = false; };
+  }, [bookingId, liveRevision]);
+
+  useEffect(() => {
+    if (liveRevision === 0) return;
+    let active = true;
+    void getBookingOptions()
+      .then((loaded) => { if (active) setOptions(loaded); })
+      .catch(() => { /* The current options remain available until the next reconciliation. */ });
+    return () => { active = false; };
+  }, [liveRevision]);
+
+  useEffect(() => {
+    if (form.customerMode !== "existing") return;
+    let active = true;
     const timer = window.setTimeout(() => {
       void getCustomers(customerSearch, 1, 20)
-        .then((result) => setCustomers(result.items))
-        .catch(() => setCustomers([]));
+        .then((result) => { if (active) setCustomerSearchResult({ key: customerSearchKey, items: result.items }); })
+        .catch((reason) => { if (active) setCustomerSearchResult({ key: customerSearchKey, error: getApiErrorMessage(reason, "Không thể tìm khách hàng.") }); });
     }, 300);
-    return () => window.clearTimeout(timer);
-  }, [customerSearch]);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [customerSearch, customerSearchKey, form.customerMode]);
 
   useEffect(() => {
     if (bookingId || form.customerMode !== "new" || duplicateCheckConfirmed || !hasDuplicateSignal(form.phone, form.email, form.identityDocument)) return;
@@ -110,24 +165,25 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
   }, [bookingId, duplicateCheckConfirmed, form.customerMode, form.email, form.identityDocument, form.phone]);
 
   useEffect(() => {
-    if (!form.checkInAt || !form.checkOutAt) return;
+    if (!canCheckAvailability) return;
     let active = true;
+    const controller = new AbortController();
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(READ_TIMEOUT_MS)]);
     const timer = window.setTimeout(() => {
-      void getAvailableRoomIds(form.checkInAt, form.checkOutAt, bookingId)
+      void getAvailableRoomIds(form.checkInAt, form.checkOutAt, bookingId, signal)
         .then((ids) => {
           if (!active) return;
-          setAvailableRoomIds(ids);
+          setAvailability({ key: availabilityKey, ids });
           setForm((current) => ({
             ...current,
-            roomId: current.roomId && (ids.includes(Number(current.roomId)) || bookingId) ? current.roomId : "",
+            roomId: current.roomId && ids.includes(Number(current.roomId)) ? current.roomId : "",
             additionalRoomIds: current.additionalRoomIds.filter((id) => ids.includes(Number(id))),
           }));
         })
-        .catch(() => { if (active) setAvailableRoomIds([]); })
-        .finally(() => { if (active) setCheckingAvailability(false); });
+        .catch((reason) => { if (active) setAvailability({ key: availabilityKey, error: getApiErrorMessage(reason, "Không thể kiểm tra phòng trống.") }); });
     }, 300);
-    return () => { active = false; window.clearTimeout(timer); };
-  }, [bookingId, form.checkInAt, form.checkOutAt]);
+    return () => { active = false; window.clearTimeout(timer); controller.abort(); };
+  }, [availabilityKey, bookingId, canCheckAvailability, form.checkInAt, form.checkOutAt]);
 
   const summary = useMemo(() => {
     const room = Number(form.roomRevenue) || 0;
@@ -145,6 +201,8 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
 
   function updateField<K extends keyof BookingFormState>(field: K, value: BookingFormState[K]) {
     setForm((current) => ({ ...current, [field]: value }));
+    setMessage(undefined);
+    setError(undefined);
     if (["fullName", "phone", "email", "identityDocument", "customerMode"].includes(field)) {
       setDuplicateCustomers([]);
       setDuplicateCheckConfirmed(false);
@@ -162,8 +220,8 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
   }
 
   function updateStayDate(field: "checkInAt" | "checkOutAt", value: string) {
-    setAvailableRoomIds(undefined);
-    setCheckingAvailability(true);
+    setMessage(undefined);
+    setError(undefined);
     setForm((current) => {
       const next = { ...current, [field]: value };
 
@@ -174,12 +232,23 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
       next.billedNights = calculateNights(next.checkInAt, next.checkOutAt);
       return withSuggestedRoomRevenue(next);
     });
-    clearFieldErrors(field, "billedNights");
+    clearFieldErrors("checkInAt", "checkOutAt", "billedNights");
+  }
+
+  function moveStayToNow(now: string) {
+    setMessage(undefined);
+    setError(undefined);
+    setForm((current) => withSuggestedRoomRevenue({
+      ...current,
+      checkInAt: now,
+      checkOutAt: calculateCheckOutAt(now, current.checkOutAt, current.billedNights),
+    }));
+    clearFieldErrors("checkInAt", "checkOutAt", "billedNights");
   }
 
   function updateStayNights(value: string) {
-    setAvailableRoomIds(undefined);
-    setCheckingAvailability(true);
+    setMessage(undefined);
+    setError(undefined);
     setForm((current) => withSuggestedRoomRevenue({
       ...current,
       billedNights: value,
@@ -189,6 +258,8 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
   }
 
   function updateStayOption(field: "roomId" | "channelId", value: string) {
+    setMessage(undefined);
+    setError(undefined);
     setForm((current) => {
       const selectedChannel = field === "channelId"
         ? options.channels.find((channel) => String(channel.id) === value)
@@ -212,26 +283,25 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
     const channel = entryMode === "ONLINE"
       ? getOnlineChannel(options.channels)
       : getDefaultChannel(options.channels);
-    const walkInCheckIn = new Date();
-    walkInCheckIn.setSeconds(0, 0);
-    const walkInCheckOut = new Date(walkInCheckIn);
-    walkInCheckOut.setDate(walkInCheckOut.getDate() + 1);
-    walkInCheckOut.setHours(12, 0, 0, 0);
-    setAvailableRoomIds(undefined);
-    setCheckingAvailability(true);
+    const walkInCheckIn = toDateTimeLocal(new Date());
+    const walkInCheckOut = calculateCheckOutAt(walkInCheckIn, "", "1");
+    setMessage(undefined);
+    setError(undefined);
     setForm((current) => withSuggestedRoomRevenue({
       ...current,
       entryMode,
       channelId: channel ? String(channel.id) : "",
       externalBookingCode: entryMode === "ONLINE" ? current.externalBookingCode : "",
-      checkInAt: entryMode === "WALK_IN" ? toDateTimeLocal(walkInCheckIn) : current.checkInAt,
-      checkOutAt: entryMode === "WALK_IN" ? toDateTimeLocal(walkInCheckOut) : current.checkOutAt,
+      checkInAt: entryMode === "WALK_IN" ? walkInCheckIn : current.checkInAt,
+      checkOutAt: entryMode === "WALK_IN" ? walkInCheckOut : current.checkOutAt,
       billedNights: entryMode === "WALK_IN" ? "1" : current.billedNights,
     }));
     clearFieldErrors("channelId", "externalBookingCode", "checkInAt", "checkOutAt", "billedNights");
   }
 
   function updateRoomMode(mode: "single" | "multiple") {
+    setMessage(undefined);
+    setError(undefined);
     setForm((current) => ({
       ...current,
       roomMode: mode,
@@ -241,6 +311,8 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
   }
 
   function toggleRoom(roomId: string) {
+    setMessage(undefined);
+    setError(undefined);
     setForm((current) => {
       const selectedIds = [current.roomId, ...current.additionalRoomIds].filter(Boolean);
       const nextIds = selectedIds.includes(roomId)
@@ -268,10 +340,26 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
     setBooking(loaded);
     setForm(formFromBooking(loaded));
     setCustomerSearch(loaded.customerName);
+    setRemoteChangeAvailable(false);
     return loaded;
   }
 
+  async function acceptRemoteChanges() {
+    try {
+      await refreshBooking();
+      setError(undefined);
+      setFieldErrors({});
+      setMessage("Đã tải phiên bản đặt phòng mới nhất.");
+    } catch (reason) {
+      setError(getApiErrorMessage(reason, "Không thể tải phiên bản đặt phòng mới nhất."));
+    }
+  }
+
   async function submit() {
+    if (remoteChangeAvailable) {
+      setError("Đặt phòng đã thay đổi ở nơi khác. Tải phiên bản mới trước khi lưu.");
+      return;
+    }
     setSaving(true);
     setError(undefined);
     setMessage(undefined);
@@ -286,7 +374,6 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
         });
         if (matches.length > 0) {
           setDuplicateCustomers(matches);
-          setError("Có hồ sơ khách tương tự. Hãy chọn khách cũ hoặc xác nhận vẫn tạo hồ sơ mới.");
           return;
         }
       }
@@ -296,6 +383,7 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
         : await createBooking(request);
       setBooking(saved);
       setForm(formFromBooking(saved));
+      setRemoteChangeAvailable(false);
       setMessage(bookingId
         ? "Đã lưu thay đổi đặt phòng."
         : saved.groupCode
@@ -327,15 +415,23 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
 
   async function changeStatus(action: string) {
     if (!booking) return;
+    if (remoteChangeAvailable) {
+      setError("Đặt phòng đã thay đổi ở nơi khác. Tải phiên bản mới trước khi đổi trạng thái.");
+      return false;
+    }
     setSaving(true);
     setError(undefined);
+    setMessage(undefined);
     try {
       const updated = await changeBookingStatus(booking.id, action, booking.version);
       setBooking(updated);
       setForm(formFromBooking(updated));
+      setRemoteChangeAvailable(false);
       setMessage("Đã cập nhật trạng thái đặt phòng.");
+      return true;
     } catch (reason) {
       setError(getApiErrorMessage(reason, "Không thể cập nhật trạng thái đặt phòng."));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -349,6 +445,31 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
     setMessage(undefined);
     setError(undefined);
     setFieldErrors({});
+    setRemoteChangeAvailable(false);
+    setAvailabilityReloadKey((value) => value + 1);
+  }
+
+  function discardChanges() {
+    if (!booking) return;
+    setForm(formFromBooking(booking));
+    setCustomerSearch(booking.customerName);
+    setMessage(undefined);
+    setError(undefined);
+    setFieldErrors({});
+  }
+
+  function retryAvailability() {
+    setAvailabilityReloadKey((value) => value + 1);
+  }
+
+  function retryInitialLoad() {
+    setInitialLoadError(undefined);
+    setLoading(true);
+    setFormReloadKey((value) => value + 1);
+  }
+
+  function retryCustomerSearch() {
+    setCustomerSearchReloadKey((value) => value + 1);
   }
 
   return {
@@ -359,26 +480,39 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
     duplicateCustomers,
     customerSearch,
     availableRoomIds,
+    availabilityError,
+    invalidStayTime,
     checkingAvailability,
     loading,
+    initialLoadError,
+    customerSearchError,
+    checkingCustomerSearch,
     saving,
     message,
     error,
+    remoteChangeAvailable,
+    hasUnsavedChanges,
     fieldErrors,
     summary,
     setCustomerSearch,
+    retryCustomerSearch,
     chooseDuplicateCustomer,
     confirmNewCustomer,
     updateField,
     updateStayDate,
+    moveStayToNow,
     updateStayNights,
+    retryAvailability,
+    retryInitialLoad,
     updateStayOption,
     updateEntryMode,
     updateRoomMode,
     toggleRoom,
     refreshBooking,
+    acceptRemoteChanges,
     submit,
     changeStatus,
+    discardChanges,
     reset,
   };
 }

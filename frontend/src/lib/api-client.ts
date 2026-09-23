@@ -3,10 +3,17 @@ import type { ProblemDetails } from "@/types/api";
 
 type AccessTokenProvider = () => Promise<string>;
 
+// Azure SQL serverless may need about a minute to resume after being idle.
+export const READ_TIMEOUT_MS = 90_000;
+
 let accessTokenProvider: AccessTokenProvider | undefined;
 
 export function setAccessTokenProvider(provider?: AccessTokenProvider) {
   accessTokenProvider = provider;
+}
+
+export async function getAccessToken() {
+  return accessTokenProvider?.();
 }
 
 export function getApiProblem(error: unknown): ProblemDetails | undefined {
@@ -17,6 +24,15 @@ export function getApiProblem(error: unknown): ProblemDetails | undefined {
 }
 
 export function getApiErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof ApiError && error.status === 403) {
+    return "Tài khoản chưa được cấp quyền sử dụng khách sạn.";
+  }
+  if (error instanceof ApiError && error.status === 401) {
+    return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+  }
+  if (error instanceof DOMException && error.name === "TimeoutError") {
+    return "Kết nối đang chậm. Bạn thử lại sau ít phút nhé.";
+  }
   return getApiProblem(error)?.detail ?? fallback;
 }
 
@@ -30,10 +46,12 @@ export class ApiError extends Error {
 }
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const accessToken = await accessTokenProvider?.();
+  const accessToken = await getAccessToken();
+  const isRead = !init?.method || init.method.toUpperCase() === "GET";
   const response = await fetch(`${env.apiBaseUrl}${path}`, {
     ...init,
     cache: "no-store",
+    signal: init?.signal ?? (isRead ? AbortSignal.timeout(READ_TIMEOUT_MS) : undefined),
     headers: {
       Accept: "application/json",
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),

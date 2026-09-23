@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency, formatDateTime } from "@/lib/format";
+import { useLiveRevision } from "@/features/realtime/live-updates-provider";
 import { getCustomerStays } from "./customers-api";
 import type { CustomerStay } from "./types";
 
 export function CustomerStays({ customerId, customerName, onClose }: Readonly<{ customerId: number; customerName: string; onClose: () => void }>) {
+  const liveRevision = useLiveRevision();
   const [stays, setStays] = useState<CustomerStay[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -17,7 +19,7 @@ export function CustomerStays({ customerId, customerName, onClose }: Readonly<{ 
       .then((result) => { if (active) setStays(result); })
       .finally(() => setLoading(false));
     return () => { active = false; };
-  }, [customerId]);
+  }, [customerId, liveRevision]);
 
   return (
     <div aria-labelledby="customer-stays-title" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" role="dialog">
@@ -34,7 +36,7 @@ export function CustomerStays({ customerId, customerName, onClose }: Readonly<{ 
         ) : (
           <div className="mt-5 overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-3 py-3">Mã</th><th className="px-3 py-3">Phòng</th><th className="px-3 py-3">Thời gian</th><th className="px-3 py-3">Doanh thu</th><th className="px-3 py-3">Trạng thái</th></tr></thead>
+              <thead className="bg-[var(--sidebar)] text-xs text-[var(--muted)]"><tr><th className="px-3 py-3">Mã</th><th className="px-3 py-3">Phòng</th><th className="px-3 py-3">Thời gian</th><th className="px-3 py-3">Doanh thu</th><th className="px-3 py-3">Trạng thái</th></tr></thead>
               <tbody className="divide-y divide-slate-100">
                 {stays.map((stay) => <tr key={stay.bookingId}><td className="px-3 py-3 font-medium text-[var(--primary)]">{stay.bookingCode}</td><td className="px-3 py-3">{stay.roomNumber}</td><td className="px-3 py-3">{formatDateTime(stay.checkInAt)} – {formatDateTime(stay.checkOutAt)}</td><td className="px-3 py-3 text-right font-medium">{formatCurrency(stay.grossRevenue)}</td><td className="px-3 py-3"><StatusBadge status={stay.status} /></td></tr>)}
               </tbody>

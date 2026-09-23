@@ -12,7 +12,7 @@ export function DevelopmentLogin({ onSignedIn }: Readonly<{ onSignedIn: () => vo
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (username.trim() !== "admin" || password !== "admin") {
-      setError("Tên đăng nhập hoặc mật khẩu không đúng.");
+      setError("Tên đăng nhập hoặc mật khẩu chưa đúng. Bạn thử lại nhé.");
       return;
     }
     setError(undefined);
@@ -20,53 +20,45 @@ export function DevelopmentLogin({ onSignedIn }: Readonly<{ onSignedIn: () => vo
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-100 px-4 py-10">
-      <div className="absolute -left-28 -top-28 size-80 rounded-full bg-blue-200/45 blur-3xl" />
-      <div className="absolute -bottom-36 -right-24 size-96 rounded-full bg-emerald-200/35 blur-3xl" />
-
-      <section className="relative grid w-full max-w-4xl overflow-hidden rounded-3xl border border-white/80 bg-white shadow-[0_28px_80px_-32px_rgba(15,23,42,0.4)] md:grid-cols-[0.9fr_1.1fr]">
-        <div className="relative hidden overflow-hidden bg-[var(--primary)] p-10 text-white md:block">
-          <div className="absolute -right-20 -top-20 size-56 rounded-full border border-white/10 bg-white/5" />
-          <div className="absolute -bottom-24 -left-16 size-64 rounded-full border border-white/10 bg-white/5" />
-          <div className="relative">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-white/12 ring-1 ring-white/20">
-              <Hotel aria-hidden="true" size={25} />
-            </div>
-            <p className="mt-6 text-sm font-bold tracking-[0.24em] text-blue-100">HOTEL DIGITAL</p>
-            <h1 className="mt-4 text-3xl font-bold leading-tight">Quản lý khách sạn</h1>
+    <main className="login-page flex min-h-dvh items-center justify-center px-4 py-8 sm:px-8">
+      <section className="grid w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/40 bg-white shadow-[0_30px_100px_-30px_rgba(9,27,36,0.5)] md:min-h-[560px] md:grid-cols-[0.9fr_1.1fr]">
+        <div className="hidden flex-col justify-between bg-[var(--sidebar-panel)] p-10 text-white md:flex lg:p-12">
+          <div>
+            <div className="flex size-12 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20"><Hotel aria-hidden="true" size={25} /></div>
+            <p className="mt-6 text-xs font-semibold tracking-[0.16em] text-[var(--sidebar-panel-muted)]">HOTEL DIGITAL</p>
+            <h1 className="mt-12 max-w-sm text-[clamp(2rem,3vw,2.75rem)] font-semibold leading-[1.15] tracking-tight">Một nơi để cả ca làm việc luôn rõ ràng.</h1>
           </div>
+          <p className="mt-12 max-w-xs border-t border-white/20 pt-5 text-sm leading-6 text-[var(--sidebar-panel-muted)]">Theo dõi phòng, đặt phòng và khách lưu trú — vừa đủ thông tin, đúng lúc bạn cần.</p>
         </div>
 
-        <div className="px-6 py-9 sm:px-12 sm:py-12">
+        <div className="flex flex-col justify-center bg-white px-6 py-9 sm:px-12 sm:py-12 lg:px-16">
           <div className="mb-8 md:hidden">
-            <div className="flex size-11 items-center justify-center rounded-xl bg-blue-50 text-[var(--primary)]"><Hotel aria-hidden="true" size={23} /></div>
-            <p className="mt-4 text-xs font-bold tracking-[0.2em] text-[var(--primary)]">HOTEL DIGITAL</p>
+            <div className="flex size-11 items-center justify-center rounded-xl bg-[var(--nav-active)] text-[var(--primary)]"><Hotel aria-hidden="true" size={23} /></div>
+            <p className="mt-4 text-xs font-semibold tracking-[0.12em] text-[var(--primary)]">HOTEL DIGITAL</p>
           </div>
-          <p className="text-sm font-medium text-blue-700">Chào mừng trở lại</p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Đăng nhập hệ thống</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-500">Nhập tài khoản quản trị để tiếp tục công việc.</p>
+          <p className="text-sm font-semibold text-[var(--primary)]">Chào bạn,</p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)]">Mừng bạn trở lại</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Đăng nhập để bắt đầu ca làm việc.</p>
 
           <form className="mt-8 space-y-5" onSubmit={submit}>
-            <label className="block text-sm font-medium text-slate-700">
+            <label className="block text-sm font-medium text-[var(--foreground)]">
               Tên đăng nhập
-              <span className="mt-2 flex items-center gap-3 rounded-xl border border-slate-300 bg-white px-4 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100">
-                <UserRound aria-hidden="true" className="shrink-0 text-slate-400" size={18} />
-                <input autoComplete="username" autoFocus className="min-h-12 w-full border-0 bg-transparent text-slate-900 outline-none placeholder:text-slate-400" onChange={(event) => { setUsername(event.target.value); setError(undefined); }} placeholder="Nhập tên đăng nhập" value={username} />
+              <span className="login-field mt-2 flex items-center gap-3 rounded-xl border border-[var(--border-strong)] bg-white px-4 transition-colors focus-within:border-[var(--primary)]">
+                <UserRound aria-hidden="true" className="shrink-0 text-[var(--muted)]" size={18} />
+                <input autoComplete="username" autoFocus className="min-h-12 w-full border-0 bg-transparent text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]" onChange={(event) => { setUsername(event.target.value); setError(undefined); }} placeholder="Tên đăng nhập" value={username} />
               </span>
             </label>
-
-            <label className="block text-sm font-medium text-slate-700">
+            <label className="block text-sm font-medium text-[var(--foreground)]">
               Mật khẩu
-              <span className="mt-2 flex items-center gap-3 rounded-xl border border-slate-300 bg-white px-4 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100">
-                <LockKeyhole aria-hidden="true" className="shrink-0 text-slate-400" size={18} />
-                <input autoComplete="current-password" className="min-h-12 w-full border-0 bg-transparent text-slate-900 outline-none placeholder:text-slate-400" onChange={(event) => { setPassword(event.target.value); setError(undefined); }} placeholder="Nhập mật khẩu" type={showPassword ? "text" : "password"} value={password} />
-                <button aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"} className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={() => setShowPassword((value) => !value)} type="button">{showPassword ? <EyeOff aria-hidden="true" size={18} /> : <Eye aria-hidden="true" size={18} />}</button>
+              <span className="login-field mt-2 flex items-center gap-3 rounded-xl border border-[var(--border-strong)] bg-white px-4 transition-colors focus-within:border-[var(--primary)]">
+                <LockKeyhole aria-hidden="true" className="shrink-0 text-[var(--muted)]" size={18} />
+                <input autoComplete="current-password" className="min-h-12 w-full border-0 bg-transparent text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]" onChange={(event) => { setPassword(event.target.value); setError(undefined); }} placeholder="Mật khẩu" type={showPassword ? "text" : "password"} value={password} />
+                <button aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"} className="shrink-0 rounded-md p-1 text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]" onClick={() => setShowPassword((value) => !value)} type="button">{showPassword ? <EyeOff aria-hidden="true" size={18} /> : <Eye aria-hidden="true" size={18} />}</button>
               </span>
             </label>
 
-            {error ? <p className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700" role="alert">{error}</p> : null}
-
-            <button className="flex min-h-12 w-full items-center justify-center rounded-xl bg-[var(--primary)] px-4 font-medium text-white shadow-sm transition hover:bg-[var(--primary-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600" type="submit">Đăng nhập</button>
+            {error ? <p className="rounded-xl border border-[#dfc0b9] bg-[#f9efec] px-4 py-3 text-sm font-medium text-[#8c493e]" role="alert">{error}</p> : null}
+            <button className="flex min-h-12 w-full items-center justify-center rounded-xl bg-[var(--primary)] px-4 font-semibold text-white transition-colors hover:bg-[var(--primary-strong)]" type="submit">Đăng nhập</button>
           </form>
         </div>
       </section>

@@ -7,7 +7,7 @@ import type { useBookingForm } from "./use-booking-form";
 type FormModel = ReturnType<typeof useBookingForm>;
 
 export function CustomerSection({ model, disabled }: Readonly<{ model: FormModel; disabled: boolean }>) {
-  const { form, customers, duplicateCustomers, customerSearch, fieldErrors, setCustomerSearch, chooseDuplicateCustomer, confirmNewCustomer, updateField } = model;
+  const { form, customers, duplicateCustomers, customerSearch, customerSearchError, checkingCustomerSearch, fieldErrors, setCustomerSearch, retryCustomerSearch, chooseDuplicateCustomer, confirmNewCustomer, updateField } = model;
 
   return (
     <div>
@@ -28,7 +28,7 @@ export function CustomerSection({ model, disabled }: Readonly<{ model: FormModel
           <Field error={fieldErrors.customerId?.[0]} htmlFor="customerId" label="Khách hàng" required>
             <SearchableSelect
               disabled={disabled}
-              emptyText="Không tìm thấy khách phù hợp."
+              emptyText={checkingCustomerSearch ? "Đang tìm khách…" : customerSearchError ? "Chưa tải được khách hàng." : "Không tìm thấy khách phù hợp."}
               id="customerId"
               onChange={(value) => {
                 const customer = customers.find((item) => String(item.id) === value);
@@ -48,11 +48,12 @@ export function CustomerSection({ model, disabled }: Readonly<{ model: FormModel
                 })),
               ]}
               placeholder="Chọn khách hàng"
-              searchPlaceholder="Nhập tên, SĐT hoặc CCCD/Passport…"
+              searchPlaceholder="Nhập tên, SĐT hoặc số giấy tờ…"
               searchValue={customerSearch}
               value={form.customerId}
             />
           </Field>
+          {customerSearchError ? <p className="mt-2 text-sm text-[#8c493e]" role="alert">{customerSearchError} <button className="font-semibold underline" onClick={retryCustomerSearch} type="button">Thử lại</button></p> : null}
         </div>
       ) : (<>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -65,7 +66,7 @@ export function CustomerSection({ model, disabled }: Readonly<{ model: FormModel
           <Field error={fieldErrors["newCustomer.email"]?.[0]} htmlFor="email" label="Email">
             <Input disabled={disabled} id="email" onChange={(event) => updateField("email", event.target.value)} type="email" value={form.email} />
           </Field>
-          <Field error={fieldErrors["newCustomer.identityDocument"]?.[0]} htmlFor="identityDocument" label="CCCD/Passport">
+          <Field error={fieldErrors["newCustomer.identityDocument"]?.[0]} htmlFor="identityDocument" label="CCCD / Hộ chiếu">
             <Input disabled={disabled} id="identityDocument" onChange={(event) => updateField("identityDocument", event.target.value)} value={form.identityDocument} />
           </Field>
           <Field error={fieldErrors["newCustomer.nationality"]?.[0]} htmlFor="nationality" label="Quốc tịch">
@@ -84,7 +85,7 @@ export function CustomerSection({ model, disabled }: Readonly<{ model: FormModel
             <Textarea className="min-h-10" disabled={disabled} id="customerNote" onChange={(event) => updateField("customerNote", event.target.value)} rows={1} value={form.customerNote} />
           </Field>
         </div>
-        {duplicateCustomers.length ? <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4"><p className="font-semibold text-amber-900">Có thể khách này đã tồn tại</p><div className="mt-2 grid gap-2 md:grid-cols-2">{duplicateCustomers.map((customer) => <div className="rounded-md bg-white p-3 text-sm" key={customer.id}><b>{customer.fullName}</b> · ID {customer.id}<p className="text-xs text-slate-500">{customer.phone || "Không có SĐT"} · {customer.identityDocument || "Không có CCCD"}</p><p className="mt-1 text-xs text-amber-800">Trùng: {customer.matchedFields.join(", ")}</p><button className="mt-2 font-semibold text-blue-700 underline" onClick={() => chooseDuplicateCustomer(customer)} type="button">Dùng hồ sơ này</button></div>)}</div><button className="mt-3 text-sm font-semibold text-amber-900 underline" onClick={confirmNewCustomer} type="button">Không phải cùng người — vẫn tạo khách mới</button></div> : null}
+        {duplicateCustomers.length ? <div className="mt-4 rounded-lg border border-[#d8c6a7] bg-[#faf4e9] p-4" role="status"><p className="font-semibold text-[#755b2e]">Có thể khách này đã có hồ sơ</p><p className="mt-1 text-sm text-[#755b2e]">Dùng hồ sơ cũ hoặc xác nhận đây là khách khác trước khi lưu.</p><div className="mt-2 grid gap-2 md:grid-cols-2">{duplicateCustomers.map((customer) => <div className="rounded-md bg-white p-3 text-sm" key={customer.id}><b>{customer.fullName}</b> · ID {customer.id}<p className="text-xs text-[var(--muted)]">{customer.phone || "Chưa có SĐT"} · {customer.identityDocument || "Chưa có giấy tờ"}</p><p className="mt-1 text-xs text-[#755b2e]">Thông tin giống: {customer.matchedFields.join(", ")}</p><button className="mt-2 font-semibold text-[var(--primary)] underline" onClick={() => chooseDuplicateCustomer(customer)} type="button">Dùng hồ sơ này</button></div>)}</div><button className="mt-3 text-sm font-semibold text-[#755b2e] underline" onClick={confirmNewCustomer} type="button">Đây là khách khác, tạo hồ sơ mới</button></div> : null}
       </>)}
       <p className="mt-3 text-xs text-slate-500">Số điện thoại, email và giấy tờ không bắt buộc. Hệ thống không tự gộp hồ sơ khách.</p>
     </div>

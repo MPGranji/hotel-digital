@@ -43,12 +43,9 @@ export interface BookingFormState {
 }
 
 export function createInitialBookingForm(): BookingFormState {
-  const checkIn = new Date();
-  checkIn.setMinutes(0, 0, 0);
-  checkIn.setHours(Math.max(checkIn.getHours(), 14));
-  const checkOut = new Date(checkIn);
-  checkOut.setDate(checkOut.getDate() + 1);
-  checkOut.setHours(12, 0, 0, 0);
+  const hotelNow = toDateTimeLocal(new Date());
+  const checkInAt = `${hotelNow.slice(0, 10)}T${String(Math.max(Number(hotelNow.slice(11, 13)), 14)).padStart(2, "0")}:00`;
+  const checkOutAt = calculateCheckOutAt(checkInAt, "", "1");
 
   return {
     entryMode: "ADVANCE",
@@ -57,8 +54,8 @@ export function createInitialBookingForm(): BookingFormState {
     additionalRoomIds: [],
     channelId: "",
     externalBookingCode: "",
-    checkInAt: toDateTimeLocal(checkIn),
-    checkOutAt: toDateTimeLocal(checkOut),
+    checkInAt,
+    checkOutAt,
     billedNights: "1",
     guestCount: "1",
     customerMode: "new",
@@ -167,15 +164,15 @@ export function toBookingRequest(form: BookingFormState): BookingWriteRequest {
 }
 
 export function calculateNights(checkInAt: string, checkOutAt: string) {
-  const start = new Date(checkInAt);
-  const end = new Date(checkOutAt);
+  const start = new Date(`${checkInAt}Z`);
+  const end = new Date(`${checkOutAt}Z`);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return "1";
   return String(Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000)));
 }
 
 export function calculateCheckOutAt(checkInAt: string, currentCheckOutAt: string, billedNights: string) {
-  const start = new Date(checkInAt);
-  const currentEnd = new Date(currentCheckOutAt);
+  const start = new Date(`${checkInAt}Z`);
+  const currentEnd = new Date(`${currentCheckOutAt}Z`);
   const nights = Number(billedNights);
 
   if (Number.isNaN(start.getTime()) || !Number.isInteger(nights) || nights < 1) {
@@ -183,15 +180,15 @@ export function calculateCheckOutAt(checkInAt: string, currentCheckOutAt: string
   }
 
   const end = new Date(start);
-  end.setDate(end.getDate() + nights);
+  end.setUTCDate(end.getUTCDate() + nights);
 
   if (Number.isNaN(currentEnd.getTime())) {
-    end.setHours(12, 0, 0, 0);
+    end.setUTCHours(12, 0, 0, 0);
   } else {
-    end.setHours(currentEnd.getHours(), currentEnd.getMinutes(), 0, 0);
+    end.setUTCHours(currentEnd.getUTCHours(), currentEnd.getUTCMinutes(), 0, 0);
   }
 
-  return toDateTimeLocal(end);
+  return end.toISOString().slice(0, 16);
 }
 
 function money(value: string) {
