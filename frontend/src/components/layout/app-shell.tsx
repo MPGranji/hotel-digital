@@ -123,7 +123,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           <span className="truncate text-sm font-semibold text-[var(--foreground)]">{currentPage?.label ?? "Hotel Digital"}</span>
           <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs text-[var(--muted)]" role="status"><span aria-hidden="true" className={`size-2 rounded-full ${liveStatus === "connected" ? "bg-emerald-500" : liveStatus === "offline" ? "bg-red-500" : "bg-amber-500"}`} />{liveStatus === "connected" ? "Đang đồng bộ" : liveStatus === "offline" ? "Mất kết nối realtime" : "Đang kết nối…"}</span>
         </header>
-        <main className={`mx-auto min-w-0 px-4 pb-12 pt-7 sm:px-6 lg:px-8 ${pathname === "/dashboard" ? "max-w-[1800px]" : "max-w-[1560px]"} ${pathname === "/room-status" ? "xl:h-[calc(100dvh-4rem)] xl:overflow-hidden xl:py-4" : ""}`} id="main-content" tabIndex={-1}>
+        <main className={`mx-auto min-w-0 ${pathname === "/dashboard" ? "max-w-none px-2 pb-2 pt-2 sm:px-3 lg:px-4" : "max-w-[1560px] px-4 pb-12 pt-7 sm:px-6 lg:px-8"} ${pathname === "/room-status" ? "xl:h-[calc(100dvh-4rem)] xl:overflow-hidden xl:py-4" : ""}`} id="main-content" tabIndex={-1}>
           {children}
         </main>
       </div>
