@@ -87,7 +87,7 @@ export function LiveUpdatesProvider({ children }: Readonly<{ children: ReactNode
     function reconcileWhenVisible() {
       if (!document.hidden) invalidate();
     }
-    const reconcileTimer = window.setInterval(reconcileWhenVisible, 120_000);
+    const reconcileTimer = window.setInterval(reconcileWhenVisible, 60_000);
     window.addEventListener("focus", reconcileWhenVisible);
     document.addEventListener("visibilitychange", reconcileWhenVisible);
 

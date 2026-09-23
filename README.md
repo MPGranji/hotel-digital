@@ -31,7 +31,7 @@ Mở `http://localhost:3000`.
 
 Web dùng màn hình đăng nhập nội bộ. Tài khoản local/test là `admin` / `admin`; API kiểm tra thông tin đăng nhập rồi cấp token có hạn 8 giờ. Khách hàng không cần tài khoản để nhân viên tạo hồ sơ hoặc đặt phòng cho họ. Production bắt buộc đặt `HOTEL_ADMIN_PASSWORD` khác `admin` và `HOTEL_AUTH_SIGNING_SECRET` (chuỗi bí mật tối thiểu 32 byte) trong `backend/.env` hoặc cấu hình tương đương trên host.
 
-`/dashboard` lấy số liệu tổng hợp trực tiếp từ các view Azure SQL và cập nhật qua SignalR. Phần Power BI bên dưới dùng link Publish to web công khai nên không yêu cầu tài khoản Microsoft. Báo cáo này dùng model Import và chỉ thay đổi khi semantic model được làm mới; nó không có cập nhật thời gian thực. Link công khai hiện có trang chứa tên và số điện thoại khách, cần loại bỏ các trường này trước khi dùng với dữ liệu thật.
+`/dashboard` lấy số liệu kinh doanh và hiện trạng phòng trực tiếp từ API/Azure SQL, rồi cập nhật qua SignalR khi nghiệp vụ thay đổi. Trang web không nhúng Power BI; link Power BI Publish to web được giữ riêng để nộp bài và vẫn dùng model Import, làm mới theo lịch.
 
 ## Chạy API
 
@@ -66,7 +66,7 @@ Môi trường Azure hiện dùng App Service Linux F1 và Azure SQL free offer,
 
 Sau một thời gian không truy cập, Azure SQL serverless có thể cần khoảng một phút để tự hoạt động lại. API cho phép tối thiểu 60 giây để mở kết nối, còn web chờ tối đa 90 giây cho lệnh đọc; thao tác ghi không được web tự gửi lại. Nếu đã dùng hết hạn mức SQL miễn phí trong tháng, database tự tạm dừng và các màn hình dữ liệu sẽ không hoạt động cho đến khi hạn mức được làm mới.
 
-Dashboard kinh doanh ở `/dashboard` tự cập nhật từ các view Azure SQL qua API và SignalR; màn hình ca trực `/operations` cũng tự đồng bộ. Phần Power BI bổ sung phụ thuộc chế độ kết nối và thiết lập của semantic model: để báo cáo phản ánh Azure SQL thường xuyên, cần dùng DirectQuery, cấu hình automatic page refresh và kiểm tra giới hạn của capacity thực tế. Import mode chỉ thay đổi sau khi semantic model refresh; web không tự tải lại iframe vì thao tác đó không làm mới model và có thể đặt lại bộ lọc của người xem.
+Dashboard kinh doanh và hiện trạng phòng ở `/dashboard` tự cập nhật từ Azure SQL qua API và SignalR; màn hình ca trực `/operations` cũng tự đồng bộ. Báo cáo Power BI riêng dùng model Import và chỉ thay đổi sau khi semantic model refresh, nên không đại diện cho dữ liệu trực tiếp trên web.
 
 Connection string chỉ được truyền vào container lúc chạy, không được ghi vào image hoặc commit vào Git. Kết nối đã lưu trong DataGrip không tự động được ứng dụng hoặc container sử dụng.
 
@@ -239,7 +239,7 @@ dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backen
 - Sổ thu tiền chỉ ghi nhận khoản thu nội bộ (tiền mặt, thẻ, chuyển khoản); không kết nối cổng thanh toán hoặc ngân hàng. Trạng thái chưa thu/thu một phần/đã thu đủ được tự tính từ các khoản đã ghi.
 - Đăng nhập nhân viên bằng tài khoản web và ghi audit cho các thao tác dữ liệu.
 
-Màn hình vận hành `Khách & phòng` đã được tích hợp vào web. Báo cáo Power BI hiện được nhúng công khai và không tự cập nhật theo SignalR; để đạt cập nhật gần thời gian thực cần chuyển model sang DirectQuery, cấu hình automatic page refresh và kiểm tra giới hạn của Power BI capacity.
+Màn hình vận hành `Khách & phòng` đã được tích hợp vào web. Dashboard kinh doanh và theo dõi phòng trong web dùng dữ liệu trực tiếp từ API, không phụ thuộc vào lần refresh của Power BI.
 
 ## Đăng nhập quản trị nội bộ
 
