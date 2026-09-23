@@ -8,7 +8,6 @@ import { DataMessage, PageHeader, Panel } from "@/components/ui/page";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { RoomEditor } from "./room-editor";
-import { RoomCalendar } from "./room-calendar";
 import { RoomMaintenance } from "./room-maintenance";
 import { RoomTypeManager } from "./room-type-manager";
 import { getRooms, updateRoom } from "./rooms-api";
@@ -41,7 +40,7 @@ export function RoomDirectory() {
   const [editing, setEditing] = useState<RoomListItem | "new">();
   const [updatingId, setUpdatingId] = useState<number>();
   const [managingTypes, setManagingTypes] = useState(false);
-  const [view, setView] = useState<"list" | "calendar" | "maintenance">("list");
+  const [view, setView] = useState<"list" | "maintenance">("list");
 
   useEffect(() => {
     const timer = window.setTimeout(() => setSearch(query.trim()), 300);
@@ -87,13 +86,12 @@ export function RoomDirectory() {
 
   return (
     <>
-      <PageHeader actions={<><Button onClick={() => setManagingTypes(true)} variant="secondary">Hạng phòng</Button><Button onClick={() => setEditing("new")}>Thêm phòng</Button></>} description="Xem danh sách, lịch phòng và các lịch bảo trì tại đây." title="Phòng" />
+      <PageHeader actions={<><Button onClick={() => setManagingTypes(true)} variant="secondary">Hạng phòng</Button><Button onClick={() => setEditing("new")}>Thêm phòng</Button></>} description="Quản lý danh sách phòng, hạng phòng và lịch bảo trì." title="Phòng" />
       <nav aria-label="Chế độ quản lý phòng" className="mb-5 flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
         <ViewButton active={view === "list"} label="Danh sách phòng" onClick={() => setView("list")} />
-        <ViewButton active={view === "calendar"} label="Hiện trạng phòng" onClick={() => setView("calendar")} />
         <ViewButton active={view === "maintenance"} label="Lịch bảo trì" onClick={() => setView("maintenance")} />
       </nav>
-      {view === "calendar" ? <RoomCalendar /> : view === "maintenance" ? <RoomMaintenance rooms={rooms} /> : (
+      {view === "maintenance" ? <RoomMaintenance rooms={rooms} /> : (
       <Panel>
         <div className="mb-5 flex flex-col gap-3 border-b border-[var(--border)] pb-5 md:flex-row md:items-center">
           <Input aria-label="Tìm phòng" className="md:max-w-sm" onChange={(event) => { setQuery(event.target.value); setLoading(true); }} placeholder="Tìm số phòng, hạng phòng hoặc tầng" value={query} />

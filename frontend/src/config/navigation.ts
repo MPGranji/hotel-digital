@@ -1,6 +1,7 @@
 import {
   BedDouble,
   BookOpenText,
+  CalendarDays,
   ChartNoAxesCombined,
   ClipboardPlus,
   ContactRound,
@@ -36,6 +37,7 @@ export const navigationGroups: { label: string; items: NavigationItem[] }[] = [
   {
     label: "Theo dõi",
     items: [
+      { href: "/room-status", label: "Hiện trạng phòng", icon: CalendarDays },
       { href: "/invoices", label: "Hóa đơn", icon: ReceiptText },
       { href: "/dashboard", label: "Báo cáo quản trị", icon: ChartNoAxesCombined },
     ],
