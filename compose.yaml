@@ -10,10 +10,8 @@ services:
       - "127.0.0.1:${HOTEL_API_PORT:-5080}:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      DevelopmentAuthentication__Enabled: "false"
-      Authentication__TenantId: "${HOTEL_AUTH_TENANT_ID:-}"
-      Authentication__Audience: "${HOTEL_AUTH_AUDIENCE:-}"
-      Authentication__RequiredRole: "${HOTEL_AUTH_REQUIRED_ROLE:-}"
+      Authentication__AdminPassword: "${HOTEL_ADMIN_PASSWORD:?Set HOTEL_ADMIN_PASSWORD in backend/.env}"
+      Authentication__SigningSecret: "${HOTEL_AUTH_SIGNING_SECRET:?Set HOTEL_AUTH_SIGNING_SECRET in backend/.env}"
       Azure__SignalR__ConnectionString: "${HOTEL_SIGNALR_CONNECTION_STRING:-}"
       ConnectionStrings__HotelDatabase: "${HOTEL_DATABASE_CONNECTION_STRING:?Set HOTEL_DATABASE_CONNECTION_STRING in backend/.env}"
       Cors__AllowedOrigins__0: "${HOTEL_CORS_ORIGIN:-http://localhost:3000}"
@@ -26,10 +24,6 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_BASE_URL: "${NEXT_PUBLIC_API_BASE_URL:-http://localhost:5080}"
-        NEXT_PUBLIC_ENABLE_DEV_LOGIN: "false"
-        NEXT_PUBLIC_ENTRA_TENANT_ID: "${NEXT_PUBLIC_ENTRA_TENANT_ID:-}"
-        NEXT_PUBLIC_ENTRA_CLIENT_ID: "${NEXT_PUBLIC_ENTRA_CLIENT_ID:-}"
-        NEXT_PUBLIC_ENTRA_API_SCOPE: "${NEXT_PUBLIC_ENTRA_API_SCOPE:-}"
         NEXT_PUBLIC_POWER_BI_EMBED_URL: "${NEXT_PUBLIC_POWER_BI_EMBED_URL:-}"
     depends_on:
       - api

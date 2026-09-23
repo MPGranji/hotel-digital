@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using HotelDigital.Api.Infrastructure.Realtime;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Hosting;
@@ -18,14 +20,26 @@ public sealed class SmokeTests
         {
             builder.UseEnvironment("Production");
             builder.UseSetting("ConnectionStrings:HotelDatabase", "Server=localhost;Database=HotelDigitalAuthTest;Integrated Security=true;TrustServerCertificate=true");
-            builder.UseSetting("Authentication:TenantId", "");
-            builder.UseSetting("Authentication:Audience", "");
-            builder.UseSetting("Authentication:RequiredRole", "");
-            builder.UseSetting("DevelopmentAuthentication:Enabled", "true");
+            builder.UseSetting("Authentication:SigningSecret", "");
         });
 
         var error = Assert.Throws<InvalidOperationException>(() => factory.CreateClient());
-        Assert.Contains("Production authentication requires", error.Message);
+        Assert.Contains("Authentication:SigningSecret", error.Message);
+    }
+
+    [Fact]
+    public void Production_api_rejects_default_admin_password()
+    {
+        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Production");
+            builder.UseSetting("ConnectionStrings:HotelDatabase", "Server=localhost;Database=HotelDigitalAuthTest;Integrated Security=true;TrustServerCertificate=true");
+            builder.UseSetting("Authentication:SigningSecret", TestSecret);
+            builder.UseSetting("Authentication:AdminPassword", "admin");
+        });
+
+        var error = Assert.Throws<InvalidOperationException>(() => factory.CreateClient());
+        Assert.Contains("Authentication:AdminPassword", error.Message);
     }
 
     [Fact]
@@ -35,9 +49,8 @@ public sealed class SmokeTests
         {
             builder.UseEnvironment("Production");
             builder.UseSetting("ConnectionStrings:HotelDatabase", "Server=localhost;Database=HotelDigitalAuthTest;Integrated Security=true;TrustServerCertificate=true");
-            builder.UseSetting("Authentication:TenantId", "11111111-1111-1111-1111-111111111111");
-            builder.UseSetting("Authentication:Audience", "api://hotel-digital-test");
-            builder.UseSetting("Authentication:RequiredRole", "Hotel.Staff");
+            builder.UseSetting("Authentication:SigningSecret", TestSecret);
+            builder.UseSetting("Authentication:AdminPassword", "production-test-password");
         });
         using var client = factory.CreateClient();
 
@@ -55,9 +68,8 @@ public sealed class SmokeTests
         {
             builder.UseEnvironment("Production");
             builder.UseSetting("ConnectionStrings:HotelDatabase", "Server=localhost;Database=HotelDigitalAuthTest;Integrated Security=true;TrustServerCertificate=true");
-            builder.UseSetting("Authentication:TenantId", "11111111-1111-1111-1111-111111111111");
-            builder.UseSetting("Authentication:Audience", "api://hotel-digital-test");
-            builder.UseSetting("Authentication:RequiredRole", "Hotel.Staff");
+            builder.UseSetting("Authentication:SigningSecret", TestSecret);
+            builder.UseSetting("Authentication:AdminPassword", "production-test-password");
         });
         using var client = factory.CreateClient();
 
@@ -67,16 +79,23 @@ public sealed class SmokeTests
     }
 
     [Fact]
-    public async Task Realtime_hub_negotiates_with_local_development_authentication()
+    public async Task Admin_login_authenticates_api_and_realtime_hub()
     {
         await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Development");
             builder.UseSetting("ConnectionStrings:HotelDatabase", "Server=localhost;Database=HotelDigitalAuthTest;Integrated Security=true;TrustServerCertificate=true");
-            builder.UseSetting("DevelopmentAuthentication:Enabled", "true");
+            builder.UseSetting("Authentication:SigningSecret", TestSecret);
         });
         using var client = factory.CreateClient();
 
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await client.PostAsJsonAsync("/api/auth/login", new { username = "admin", password = "wrong" })).StatusCode);
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { username = "admin", password = "admin" });
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var session = await login.Content.ReadFromJsonAsync<LoginResponse>();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session!.AccessToken);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api")).StatusCode);
         var response = await client.PostAsync("/hubs/updates/negotiate?negotiateVersion=1", null);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -89,14 +108,19 @@ public sealed class SmokeTests
         {
             builder.UseEnvironment("Development");
             builder.UseSetting("ConnectionStrings:HotelDatabase", "Server=localhost;Database=HotelDigitalAuthTest;Integrated Security=true;TrustServerCertificate=true");
-            builder.UseSetting("DevelopmentAuthentication:Enabled", "true");
+            builder.UseSetting("Authentication:SigningSecret", TestSecret);
         });
+
+        using var client = factory.CreateClient();
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { username = "admin", password = "admin" });
+        var token = (await login.Content.ReadFromJsonAsync<LoginResponse>())!.AccessToken;
 
         HubConnection Connect() => new HubConnectionBuilder()
             .WithUrl("http://localhost/hubs/updates", options =>
             {
                 options.Transports = HttpTransportType.LongPolling;
                 options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
+                options.AccessTokenProvider = () => Task.FromResult(token)!;
             })
             .Build();
 
@@ -112,4 +136,7 @@ public sealed class SmokeTests
 
         await Task.WhenAll(firstReceived.Task, secondReceived.Task).WaitAsync(TimeSpan.FromSeconds(5));
     }
+
+    private const string TestSecret = "test-only-signing-secret-longer-than-32-bytes";
+    private sealed record LoginResponse(string AccessToken, string DisplayName);
 }

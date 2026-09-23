@@ -1,9 +1,0 @@
-services:
-  api:
-    environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      DevelopmentAuthentication__Enabled: "true"
-  frontend:
-    build:
-      args:
-        NEXT_PUBLIC_ENABLE_DEV_LOGIN: "true"
