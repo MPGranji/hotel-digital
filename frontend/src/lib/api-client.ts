@@ -3,6 +3,9 @@ import type { ProblemDetails } from "@/types/api";
 
 type AccessTokenProvider = () => Promise<string>;
 
+// Azure SQL serverless may need about a minute to resume after being idle.
+export const READ_TIMEOUT_MS = 90_000;
+
 let accessTokenProvider: AccessTokenProvider | undefined;
 
 export function setAccessTokenProvider(provider?: AccessTokenProvider) {
@@ -48,7 +51,7 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   const response = await fetch(`${env.apiBaseUrl}${path}`, {
     ...init,
     cache: "no-store",
-    signal: init?.signal ?? (isRead ? AbortSignal.timeout(15_000) : undefined),
+    signal: init?.signal ?? (isRead ? AbortSignal.timeout(READ_TIMEOUT_MS) : undefined),
     headers: {
       Accept: "application/json",
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),

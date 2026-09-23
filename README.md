@@ -64,6 +64,8 @@ Chạy API một instance có thể dùng SignalR trực tiếp. Khi chạy nhi�
 
 Môi trường Azure hiện dùng App Service Linux F1 và Azure SQL free offer, chỉ phục vụ thử nghiệm với số ít phiên. F1 giới hạn 5 WebSocket; SQL được đặt tự tạm dừng khi dùng hết hạn mức miễn phí trong tháng. Vercel Hobby dành cho dự án cá nhân, phi thương mại. Trước khi dùng thật cho nhân viên, cần chốt gói hạ tầng phù hợp và thu hồi mã Power BI Publish to web đang công khai.
 
+Sau một thời gian không truy cập, Azure SQL serverless có thể cần khoảng một phút để tự hoạt động lại. API cho phép tối thiểu 60 giây để mở kết nối, còn web chờ tối đa 90 giây cho lệnh đọc; thao tác ghi không được web tự gửi lại. Nếu đã dùng hết hạn mức SQL miễn phí trong tháng, database tự tạm dừng và các màn hình dữ liệu sẽ không hoạt động cho đến khi hạn mức được làm mới.
+
 Dashboard kinh doanh ở `/dashboard` tự cập nhật từ các view Azure SQL qua API và SignalR; màn hình ca trực `/operations` cũng tự đồng bộ. Phần Power BI bổ sung phụ thuộc chế độ kết nối và thiết lập của semantic model: để báo cáo phản ánh Azure SQL thường xuyên, cần dùng DirectQuery, cấu hình automatic page refresh và kiểm tra giới hạn của capacity thực tế. Import mode chỉ thay đổi sau khi semantic model refresh; web không tự tải lại iframe vì thao tác đó không làm mới model và có thể đặt lại bộ lọc của người xem.
 
 Connection string chỉ được truyền vào container lúc chạy, không được ghi vào image hoặc commit vào Git. Kết nối đã lưu trong DataGrip không tự động được ứng dụng hoặc container sử dụng.

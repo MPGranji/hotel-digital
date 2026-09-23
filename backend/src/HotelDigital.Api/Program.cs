@@ -21,6 +21,10 @@ builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, relo
 
 var databaseConnectionString = builder.Configuration.GetConnectionString("HotelDatabase")
     ?? throw new InvalidOperationException("ConnectionStrings:HotelDatabase is not configured.");
+var databaseConnection = new SqlConnectionStringBuilder(databaseConnectionString);
+// Serverless Azure SQL can take about a minute to resume after being idle.
+databaseConnection.ConnectTimeout = Math.Max(databaseConnection.ConnectTimeout, 60);
+databaseConnectionString = databaseConnection.ConnectionString;
 
 if (databaseConnectionString.Contains(
         "Authentication=Active Directory Device Code Flow",

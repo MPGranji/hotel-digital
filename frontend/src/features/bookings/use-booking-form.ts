@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getApiErrorMessage, getApiProblem } from "@/lib/api-client";
+import { getApiErrorMessage, getApiProblem, READ_TIMEOUT_MS } from "@/lib/api-client";
 import { toDateTimeLocal } from "@/lib/format";
 import { useLiveRevision } from "@/features/realtime/live-updates-provider";
 import { findCustomerDuplicates, getCustomers } from "@/features/customers/customers-api";
@@ -168,7 +168,7 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
     if (!canCheckAvailability) return;
     let active = true;
     const controller = new AbortController();
-    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]);
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(READ_TIMEOUT_MS)]);
     const timer = window.setTimeout(() => {
       void getAvailableRoomIds(form.checkInAt, form.checkOutAt, bookingId, signal)
         .then((ids) => {
