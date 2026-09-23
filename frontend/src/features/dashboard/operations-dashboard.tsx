@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { getBookingOperations } from "@/features/bookings/bookings-api";
 import type { BookingListItem, BookingOperationsSnapshot } from "@/features/bookings/types";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { useLiveRevision } from "@/features/realtime/live-updates-provider";
 import { formatCurrency } from "@/lib/format";
 import { BookingOperationDrawer } from "./booking-operation-drawer";
 
@@ -42,9 +43,11 @@ function belongsToQueue(booking: BookingListItem, key: QueueKey, snapshot: Booki
 }
 
 export function OperationsDashboard() {
+  const liveRevision = useLiveRevision();
   const [snapshot, setSnapshot] = useState<BookingOperationsSnapshot>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
   const [reloadKey, setReloadKey] = useState(0);
   const [queue, setQueue] = useState<QueueKey>("attention");
   const [query, setQuery] = useState("");
@@ -57,7 +60,7 @@ export function OperationsDashboard() {
       .catch((reason) => { if (active) setError(getApiErrorMessage(reason, "Không thể tải ca trực.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [reloadKey]);
+  }, [reloadKey, liveRevision]);
 
   const counts = useMemo(() => Object.fromEntries(queues.map((item) => [
     item.key, snapshot?.items.filter((booking) => belongsToQueue(booking, item.key, snapshot)).length ?? 0,
@@ -101,23 +104,41 @@ export function OperationsDashboard() {
       </div>
 
       <Panel className="!p-0">
-        <div aria-label="Hàng đợi ca trực" className="flex gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--sidebar)] px-3 pt-2" role="tablist">
-          {queues.map((item, index) => <button aria-controls="operations-queue" aria-selected={queue === item.key} className={`min-h-11 shrink-0 rounded-t-lg border-b-[3px] px-4 text-sm transition-colors ${queue === item.key ? "border-[var(--primary)] bg-white font-semibold text-[var(--primary-strong)] shadow-[0_-1px_0_var(--border),1px_0_0_var(--border),-1px_0_0_var(--border)]" : "border-transparent font-medium text-[var(--muted)] hover:bg-white/70 hover:text-[var(--foreground)]"}`} id={`queue-${item.key}`} key={item.key} onClick={() => setQueue(item.key)} onKeyDown={(event) => moveTab(event, index)} role="tab" tabIndex={queue === item.key ? 0 : -1} type="button">{item.label}<span className={`ml-2 rounded-md px-1.5 py-0.5 text-xs tabular-nums ${queue === item.key ? "bg-[var(--nav-active)] text-[var(--primary-strong)]" : "bg-[var(--surface-muted)]"}`}>{counts[item.key]}</span></button>)}
+        <div aria-label="Hàng đợi ca trực" className="flex gap-1 overflow-x-auto border-b border-[var(--border-strong)] bg-[var(--surface-muted)] px-3 pt-2" role="tablist">
+          {queues.map((item, index) => {
+            const active = queue === item.key;
+            return <button
+              aria-controls="operations-queue"
+              aria-selected={active}
+              className={`min-h-12 shrink-0 rounded-t-lg border-b-[3px] px-4 text-[0.95rem] font-semibold transition-colors duration-200 focus-visible:outline-offset-[-3px] ${active ? "border-[var(--primary-strong)] bg-[var(--primary)] text-white" : "border-transparent text-[var(--foreground)] hover:bg-[var(--nav-active)] hover:text-[var(--primary-strong)]"}`}
+              id={`queue-${item.key}`}
+              key={item.key}
+              onClick={() => setQueue(item.key)}
+              onKeyDown={(event) => moveTab(event, index)}
+              role="tab"
+              tabIndex={active ? 0 : -1}
+              type="button"
+            >
+              {item.label}
+              <span className={`ml-2 rounded-md px-1.5 py-0.5 text-xs font-bold tabular-nums ${active ? "bg-white/20 text-white" : "border border-[var(--border)] bg-white text-[var(--primary-strong)]"}`}>{counts[item.key]}</span>
+            </button>;
+          })}
         </div>
         <div aria-labelledby={`queue-${queue}`} className="p-4 sm:p-5" id="operations-queue" role="tabpanel">
+          {notice ? <p className="mb-4 rounded-lg border border-[#bdd1cb] bg-[#edf5f2] px-4 py-3 text-sm text-[#24544d]" role="status">{notice}</p> : null}
           <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div><h2 className="text-base font-semibold text-[var(--foreground)]">{activeQueue.label}</h2><p className="mt-0.5 text-xs text-[var(--muted)]">{queue === "upcoming" ? "Lượt đặt trong 7 ngày tới" : queue === "attention" ? "Booking đã qua giờ nhận hoặc trả phòng dự kiến" : "Theo trạng thái booking, không phải trạng thái dọn phòng"}</p></div>
             <Input aria-label="Tìm trong ca trực" className="sm:max-w-80" onChange={(event) => setQuery(event.target.value)} placeholder="Tên khách, SĐT, phòng hoặc mã" value={query} />
           </div>
           {error ? <p className="mb-4 rounded-lg border border-[#dfc0b9] bg-[#f9efec] px-4 py-3 text-sm text-[#8c493e]" role="alert">{error}{snapshot ? " Dữ liệu bên dưới có thể đã cũ." : ""}</p> : null}
           {!snapshot && loading ? <QueueSkeleton /> : !snapshot ? <DataMessage action={<Button onClick={refresh}>Thử lại</Button>} title="Chưa tải được ca trực" /> : visible.length === 0 ? <DataMessage description={query ? "Thử từ khóa khác hoặc xóa nội dung tìm kiếm." : activeQueue.empty} title={query ? "Không tìm thấy booking phù hợp" : "Chưa có việc trong mục này"} /> : <div className="overflow-hidden rounded-xl border border-[var(--border)]">
-            <div className="hidden grid-cols-[5.5rem_6.5rem_minmax(11rem,1fr)_8rem_9rem_5.5rem] gap-3 bg-[var(--sidebar)] px-4 py-3 text-xs font-semibold text-[var(--muted)] xl:grid"><span>Giờ hẹn</span><span>Phòng</span><span>Khách · Mã</span><span>Trạng thái</span><span>Thanh toán</span><span className="text-right">Thao tác</span></div>
+            <div className="hidden grid-cols-[5.5rem_6.5rem_minmax(11rem,1fr)_8rem_9rem_7rem] gap-3 bg-[var(--sidebar)] px-4 py-3 text-xs font-semibold text-[var(--muted)] xl:grid"><span>Giờ hẹn</span><span>Phòng</span><span>Khách · Mã</span><span>Trạng thái</span><span>Thanh toán</span><span className="text-right">Thao tác</span></div>
             <div className="divide-y divide-[var(--border)]">{visible.map((booking) => <BookingRow booking={booking} hotelDate={snapshot.hotelDate} hotelNow={snapshot.hotelNow} key={booking.id} onOpen={() => setSelected(booking)} />)}</div>
           </div>}
         </div>
       </Panel>
     </div>
-    {selected && snapshot ? <BookingOperationDrawer booking={selected} hotelDate={snapshot.hotelDate} hotelNow={snapshot.hotelNow} onChanged={refresh} onClose={() => setSelected(undefined)} /> : null}
+    {selected && snapshot ? <BookingOperationDrawer booking={selected} hotelDate={snapshot.hotelDate} hotelNow={snapshot.hotelNow} onChanged={(message) => { setNotice(message); refresh(); }} onClose={() => setSelected(undefined)} /> : null}
   </>;
 }
 
@@ -125,14 +146,15 @@ function BookingRow({ booking, hotelDate, hotelNow, onOpen }: Readonly<{ booking
   const overdue = isOverdue(booking, hotelNow);
   const due = dueAt(booking);
   const amount = amountToCollect(booking);
-  const needsAction = (booking.status === "BOOKED" && day(booking.checkInAt) <= hotelDate) || (booking.status === "CHECKED_IN" && day(booking.checkOutAt) <= hotelDate);
-  return <article className={`grid gap-3 bg-white px-4 py-4 transition-colors hover:bg-[var(--sidebar)] xl:grid-cols-[5.5rem_6.5rem_minmax(11rem,1fr)_8rem_9rem_5.5rem] xl:items-center xl:gap-3 ${overdue ? "border-l-[3px] border-l-[#b85c4a]" : ""}`}>
+  const action = booking.status === "CHECKED_IN" ? "Trả phòng" : day(booking.checkInAt) <= hotelDate ? "Nhận phòng" : "Xem booking";
+  const needsAction = action !== "Xem booking";
+  return <article className={`grid gap-3 bg-white px-4 py-4 transition-colors hover:bg-[var(--sidebar)] xl:grid-cols-[5.5rem_6.5rem_minmax(11rem,1fr)_8rem_9rem_7rem] xl:items-center xl:gap-3 ${overdue ? "border-l-[3px] border-l-[#b85c4a]" : ""}`}>
     <div><p className="text-sm font-semibold tabular-nums text-[var(--foreground)]">{due.slice(11, 16)}</p><p className="text-xs text-[var(--muted)]">{day(due) === hotelDate ? "Hôm nay" : new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit" }).format(new Date(due))}</p></div>
     <div><p className="text-sm font-semibold text-[var(--foreground)]">Phòng {booking.roomNumber}</p><p className="text-xs text-[var(--muted)]">{booking.roomTypeName}</p></div>
     <div className="min-w-0"><p className="truncate text-sm font-semibold text-[var(--foreground)]">{booking.customerName}</p><p className="truncate text-xs text-[var(--muted)]">{booking.bookingCode}{booking.customerPhone ? ` · ${booking.customerPhone}` : ""}</p></div>
     <div className="flex flex-wrap items-center gap-1.5"><StatusBadge status={booking.status} />{overdue ? <span className="text-xs font-semibold text-[#9b5145]">{booking.status === "BOOKED" ? "Quá giờ nhận" : "Quá giờ trả"}</span> : null}</div>
     <div className="text-sm">{amount > 0 ? <p className="font-semibold text-[#8a5a2f]">Còn thu {formatCurrency(amount)}</p> : <p className="font-medium text-[var(--foreground)]">{booking.debtAmount > 0 ? "Đã ghi công nợ" : "Đã thu đủ"}</p>}{booking.debtAmount > 0 ? <p className="text-xs text-[var(--muted)]">Công nợ {formatCurrency(booking.debtAmount)}</p> : null}</div>
-    <div className="xl:text-right"><Button aria-label={`Kiểm tra ${booking.bookingCode} của ${booking.customerName}`} className="w-full whitespace-nowrap xl:w-auto" onClick={onOpen} size="sm" variant={needsAction ? "primary" : "secondary"}>Kiểm tra</Button></div>
+    <div className="xl:text-right"><Button aria-label={`${action} ${booking.bookingCode} của ${booking.customerName}`} className="w-full whitespace-nowrap xl:w-auto" onClick={onOpen} size="sm" variant={needsAction ? "primary" : "secondary"}>{action}</Button></div>
   </article>;
 }
 

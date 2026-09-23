@@ -3,6 +3,7 @@ using HotelDigital.Api.Data.Entities;
 using HotelDigital.Api.Infrastructure.Auditing;
 using HotelDigital.Api.Infrastructure.Errors;
 using HotelDigital.Api.Infrastructure.Persistence;
+using HotelDigital.Api.Infrastructure.Time;
 using HotelDigital.Api.Features.Invoices;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -21,14 +22,23 @@ public sealed class BookingCommandService(
     {
         request = await WithDefaultChannelAsync(request, cancellationToken);
         BookingValidator.Validate(request, requireVersion: false);
+        var hotelNow = HotelClock.Now();
+        if (request.BookingMode == "WALK_IN"
+            && (request.CheckInAt > hotelNow || request.CheckOutAt <= hotelNow))
+            throw new BusinessRuleException("walk_in_outside_stay", "Khách nhận phòng tại quầy cần có lịch ở bao gồm thời điểm hiện tại.");
 
         return await transactionExecutor.ExecuteAsync(async token =>
         {
             await EnsureReferencesAsync(request, token);
             var roomIds = new[] { request.RoomId }.Concat(request.AdditionalRoomIds ?? []).Distinct().ToArray();
-            var activeRoomIds = await db.Rooms.AsNoTracking().Where(x => roomIds.Contains(x.RoomId) && x.IsActive).Select(x => x.RoomId).ToListAsync(token);
-            if (activeRoomIds.Count != roomIds.Length)
+            var selectedRooms = await db.Rooms.AsNoTracking()
+                .Where(x => roomIds.Contains(x.RoomId) && x.IsActive && x.CountsTowardOccupancy && x.RoomType.IsActive)
+                .Select(x => new { x.RoomId, x.RoomTypeId })
+                .ToListAsync(token);
+            if (selectedRooms.Count != roomIds.Length)
                 throw new BusinessRuleException("room_unavailable", "Một hoặc nhiều phòng không tồn tại hoặc đã ngừng hoạt động.");
+            if (selectedRooms.Select(x => x.RoomTypeId).Distinct().Count() > 1)
+                throw new BusinessRuleException("multi_room_type_mismatch", "Đặt nhiều phòng trong một lượt chỉ hỗ trợ các phòng cùng hạng để áp dụng đúng giá cho từng phòng.");
             await EnsureGuestCountFitsAsync(request.GuestCount, roomIds, token);
             foreach (var roomId in roomIds)
                 await EnsureRoomAvailableAsync(roomId, request.CheckInAt, request.CheckOutAt, null, token);
@@ -46,7 +56,7 @@ public sealed class BookingCommandService(
                 };
                 db.Customers.Add(newCustomer);
             }
-            var groupCode = roomIds.Length > 1 ? $"GRP-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid():N}"[..25].ToUpperInvariant() : null;
+            var groupCode = roomIds.Length > 1 ? $"GRP-{HotelClock.Now():yyyyMMdd}-{Guid.NewGuid():N}"[..25].ToUpperInvariant() : null;
             var bookings = roomIds.Select(roomId =>
             {
                 var item = new Booking();
@@ -174,6 +184,9 @@ public sealed class BookingCommandService(
                 ?? throw new ResourceNotFoundException("booking_not_found", "Không tìm thấy đặt phòng.");
             db.Entry(booking).Property(x => x.Version).OriginalValue = version;
             BookingMutation.EnsureTransition(booking.Status, targetStatus);
+            BookingMutation.EnsureTransitionTime(booking, targetStatus, HotelClock.Now());
+            if (targetStatus is "CANCELLED" or "NO_SHOW" && booking.Invoice?.Status == "ISSUED")
+                throw new BusinessRuleException("issued_invoice_cannot_be_cancelled", "Hóa đơn đã phát hành; cần xử lý hóa đơn theo quy trình kế toán trước khi hủy booking.");
             if (targetStatus == "CHECKED_OUT")
             {
                 var paidAmount = booking.Payments.Sum(x => x.Amount);
@@ -279,7 +292,7 @@ public sealed class BookingCommandService(
     private async Task EnsureReferencesAsync(BookingWriteRequest request, CancellationToken cancellationToken)
     {
         var roomIsActive = await db.Rooms.AsNoTracking()
-            .AnyAsync(x => x.RoomId == request.RoomId && x.IsActive, cancellationToken);
+            .AnyAsync(x => x.RoomId == request.RoomId && x.IsActive && x.CountsTowardOccupancy && x.RoomType.IsActive, cancellationToken);
         if (!roomIsActive)
             throw new BusinessRuleException("room_unavailable", "Phòng không tồn tại hoặc đã ngừng hoạt động.");
 
@@ -301,7 +314,7 @@ public sealed class BookingCommandService(
 
     private static void AddInitialPayments(Booking booking, BookingWriteRequest request)
     {
-        var paidAt = DateTime.Now;
+        var paidAt = HotelClock.Now();
         AddPayment(booking, request.CashAmount, "CASH", paidAt);
         AddPayment(booking, request.CardAmount, "CARD", paidAt);
         AddPayment(booking, request.TransferAmount, "TRANSFER", paidAt);

@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { deleteBooking, getBookingOptions, getBookings } from "@/features/bookings/bookings-api";
 import type { BookingListItem, BookingOptions } from "@/features/bookings/types";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { useLiveRevision } from "@/features/realtime/live-updates-provider";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import type { PagedResult } from "@/types/api";
 
@@ -26,6 +27,7 @@ export interface LedgerFilters {
 const emptyOptions: BookingOptions = { rooms: [], channels: [] };
 
 export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: LedgerFilters }>) {
+  const liveRevision = useLiveRevision();
   const router = useRouter();
   const [draft, setDraft] = useState(initialFilters);
   const [filters, setFilters] = useState(initialFilters);
@@ -46,17 +48,19 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
   const requestKey = requestParams.toString();
 
   useEffect(() => {
-    void getBookingOptions().then(setOptions);
-  }, []);
+    let active = true;
+    void getBookingOptions().then((loaded) => { if (active) setOptions(loaded); }).catch(() => { /* Keep existing filters until the next reconciliation. */ });
+    return () => { active = false; };
+  }, [liveRevision]);
 
   useEffect(() => {
     let active = true;
     void getBookings(new URLSearchParams(requestKey))
-      .then((data) => { if (active) setResult(data); })
-      .catch((reason) => setError(getApiErrorMessage(reason, "Không thể tải sổ đặt phòng.")))
-      .finally(() => setLoading(false));
+      .then((data) => { if (active) { setResult(data); setError(undefined); } })
+      .catch((reason) => { if (active) setError(getApiErrorMessage(reason, "Không thể tải sổ đặt phòng.")); })
+      .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [reloadKey, requestKey]);
+  }, [reloadKey, requestKey, liveRevision]);
 
   function applyFilters() {
     setPage(1);
@@ -127,7 +131,7 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
             <>
               <div className="overflow-x-auto rounded-lg border border-slate-200">
                 <table className="w-full min-w-[1180px] text-left text-sm">
-                  <thead className="bg-[var(--sidebar)] text-xs text-[var(--muted)]"><tr><th className="px-3 py-3">Mã / Khách</th><th className="px-3 py-3">Nguồn đặt</th><th className="px-3 py-3">Phòng</th><th className="px-3 py-3">Ngày đến</th><th className="px-3 py-3">Ngày đi</th><th className="px-3 py-3 text-right">Tiền phòng</th><th className="px-3 py-3 text-right">Tổng thu</th><th className="px-3 py-3">Thanh toán / Hóa đơn</th><th className="px-3 py-3">Lưu trú</th><th className="px-3 py-3 text-right">Thao tác</th></tr></thead>
+                  <thead className="bg-[var(--sidebar)] text-xs text-[var(--muted)]"><tr><th className="px-3 py-3">Mã / Khách</th><th className="px-3 py-3">Nguồn đặt</th><th className="px-3 py-3">Phòng</th><th className="px-3 py-3">Ngày đến</th><th className="px-3 py-3">Ngày đi</th><th className="px-3 py-3 text-right">Tiền phòng</th><th className="px-3 py-3 text-right">Giá trị booking</th><th className="px-3 py-3">Thanh toán / Hóa đơn</th><th className="px-3 py-3">Lưu trú</th><th className="px-3 py-3 text-right">Thao tác</th></tr></thead>
                   <tbody className="divide-y divide-slate-100">{result.items.map((booking) => <LedgerRow booking={booking} deleting={deletingId === booking.id} key={booking.id} onDelete={removeBooking} />)}</tbody>
                 </table>
               </div>
@@ -141,11 +145,14 @@ export function LedgerScreen({ initialFilters }: Readonly<{ initialFilters: Ledg
 }
 
 function LedgerRow({ booking, deleting, onDelete }: Readonly<{ booking: BookingListItem; deleting: boolean; onDelete: (booking: BookingListItem) => void }>) {
-  const paymentLabel = booking.grossRevenue <= 0
+  const cancelled = booking.status === "CANCELLED" || booking.status === "NO_SHOW";
+  const totalToSettle = booking.previousDebt + booking.grossRevenue;
+  const settledWithDebt = booking.debtAmount > 0 && booking.paidAmount + booking.debtAmount >= totalToSettle;
+  const paymentLabel = cancelled ? booking.paidAmount > 0 ? "Cọc cần hoàn" : "Không còn cọc" : settledWithDebt ? booking.paidAmount > 0 ? "Thu một phần · ghi nợ" : "Đã ghi công nợ" : totalToSettle <= 0
     ? "Chưa phát sinh"
-    : booking.paidAmount >= booking.grossRevenue ? "Đã thanh toán"
+    : booking.paidAmount >= totalToSettle ? "Đã thanh toán"
       : booking.paidAmount > 0 ? "Đã thanh toán một phần" : "Chưa thanh toán";
-  const paymentClass = booking.paidAmount >= booking.grossRevenue && booking.grossRevenue > 0
+  const paymentClass = cancelled ? booking.paidAmount > 0 ? "text-amber-700" : "text-slate-600" : settledWithDebt ? "text-[#7b5f3a]" : booking.paidAmount >= totalToSettle && totalToSettle > 0
     ? "text-emerald-700"
     : booking.paidAmount > 0 ? "text-amber-700" : "text-slate-600";
   const sourceLabel = booking.bookingMode === "WALK_IN"
@@ -158,14 +165,14 @@ function LedgerRow({ booking, deleting, onDelete }: Readonly<{ booking: BookingL
       <td className="px-3 py-3"><p className="font-medium">{booking.roomNumber}</p><p className="text-xs text-slate-500">{booking.roomTypeName} · {booking.billedNights} đêm</p></td>
       <td className="px-3 py-3">{formatDateTime(booking.checkInAt)}</td>
       <td className="px-3 py-3">{formatDateTime(booking.checkOutAt)}</td>
-      <td className="px-3 py-3 text-right">{formatCurrency(booking.roomRevenue)}</td>
-      <td className="px-3 py-3 text-right font-medium text-[var(--primary)]">{formatCurrency(booking.grossRevenue)}</td>
-      <td className="px-3 py-3"><p className={`font-semibold ${paymentClass}`}>{paymentLabel}</p><p className="text-xs text-slate-500">Đã thu {formatCurrency(booking.paidAmount)}</p>{booking.invoiceId ? <Link className="text-xs font-medium text-blue-700 hover:underline" href={`/invoices?invoiceId=${booking.invoiceId}`}>{booking.invoiceNumber} · {booking.invoiceStatus === "ISSUED" ? "Đã phát hành" : booking.invoiceStatus === "VOID" ? "Đã hủy" : "Nháp"}</Link> : <p className="text-xs text-red-600">Chưa có hóa đơn</p>}</td>
+      <td className="px-3 py-3 text-right">{cancelled ? "—" : formatCurrency(booking.roomRevenue)}</td>
+      <td className="px-3 py-3 text-right font-semibold text-[var(--primary)]">{cancelled ? <><span>0 đ</span><p className="text-xs font-normal text-slate-500">Không tính doanh thu</p></> : formatCurrency(booking.grossRevenue)}</td>
+      <td className="px-3 py-3"><p className={`font-semibold ${paymentClass}`}>{paymentLabel}</p><p className="text-xs text-slate-500">{cancelled ? "Cọc còn giữ" : "Đã thu"} {formatCurrency(booking.paidAmount)}</p>{!cancelled && booking.debtAmount > 0 ? <p className="text-xs text-[#7b5f3a]">Công nợ {formatCurrency(booking.debtAmount)}</p> : null}{booking.invoiceId ? <Link className="text-xs font-medium text-blue-700 hover:underline" href={`/invoices?invoiceId=${booking.invoiceId}`}>{booking.invoiceNumber} · {booking.invoiceStatus === "ISSUED" ? "Đã phát hành" : booking.invoiceStatus === "VOID" ? "Đã hủy" : "Nháp"}</Link> : <p className="text-xs text-red-600">Chưa có hóa đơn</p>}</td>
       <td className="px-3 py-3"><StatusBadge status={booking.status} /></td>
       <td className="px-3 py-3 text-right">
         <div className="flex justify-end gap-2">
           <Link className="inline-flex min-h-9 items-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100" href={`/bookings?bookingId=${booking.id}&mode=view`}>Xem</Link>
-          <Link className="inline-flex min-h-9 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100" href={`/bookings?bookingId=${booking.id}`}>Sửa</Link>
+          <Link aria-label={`Xử lý ${booking.bookingCode}: sửa, thu tiền hoặc đổi trạng thái`} className="inline-flex min-h-9 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100" href={`/bookings?bookingId=${booking.id}`}>Xử lý</Link>
           <Button className="min-h-9 px-3 py-1" disabled={deleting} onClick={() => onDelete(booking)} variant="danger">{deleting ? "Đang xóa…" : "Xóa"}</Button>
         </div>
       </td>

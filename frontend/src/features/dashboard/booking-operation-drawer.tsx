@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { changeBookingStatus, getBooking } from "@/features/bookings/bookings-api";
 import type { BookingDetail, BookingListItem } from "@/features/bookings/types";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { useLiveRevision } from "@/features/realtime/live-updates-provider";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 
 type Action = "check-in" | "check-out" | "no-show" | "cancel";
@@ -23,9 +24,10 @@ export function BookingOperationDrawer({ booking, hotelDate, hotelNow, onChanged
   booking: BookingListItem;
   hotelDate: string;
   hotelNow: string;
-  onChanged: () => void;
+  onChanged: (message: string) => void;
   onClose: () => void;
 }>) {
+  const liveRevision = useLiveRevision();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [detail, setDetail] = useState<BookingDetail>();
   const [loading, setLoading] = useState(true);
@@ -51,7 +53,7 @@ export function BookingOperationDrawer({ booking, hotelDate, hotelNow, onChanged
       .catch((reason) => { if (active) setError(getApiErrorMessage(reason, "Không thể tải chi tiết đặt phòng.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [booking.id, reloadKey]);
+  }, [booking.id, reloadKey, liveRevision]);
 
   const amount = detail ? Math.max(0, detail.previousDebt + detail.grossRevenue - detail.paidAmount - detail.debtAmount) : 0;
   const canCheckIn = detail?.status === "BOOKED" && detail.checkInAt.slice(0, 10) <= hotelDate && detail.checkOutAt > hotelNow;
@@ -63,7 +65,7 @@ export function BookingOperationDrawer({ booking, hotelDate, hotelNow, onChanged
     setError(undefined);
     try {
       await changeBookingStatus(detail.id, pendingAction, detail.version);
-      onChanged();
+      onChanged(`${actionLabels[pendingAction]} ${detail.bookingCode} thành công.`);
       onClose();
     } catch (reason) {
       setError(getApiErrorMessage(reason, "Không thể cập nhật booking. Vui lòng tải lại và thử lại."));
@@ -75,7 +77,7 @@ export function BookingOperationDrawer({ booking, hotelDate, hotelNow, onChanged
 
   return <dialog aria-label={`Xử lý ${detail?.bookingCode ?? booking.bookingCode}`} className="booking-operation-dialog flex flex-col" onCancel={(event) => { if (saving) event.preventDefault(); }} onClose={onClose} ref={dialogRef}>
     <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-5 py-5 sm:px-6">
-      <div><p className="text-xs font-semibold tracking-wide text-[var(--muted)]">{detail?.bookingCode ?? booking.bookingCode}</p><h2 className="mt-1 text-xl font-semibold tracking-tight text-[var(--foreground)]">{detail?.customerName ?? booking.customerName}</h2><p className="mt-1 text-sm text-[var(--muted)]">Phòng {detail?.roomNumber ?? booking.roomNumber} · {detail?.roomTypeName ?? booking.roomTypeName}</p></div>
+      <div><p className="text-xs font-semibold tracking-wide text-[var(--muted)]">{detail?.bookingCode ?? booking.bookingCode}</p><h2 className="mt-1 text-xl font-bold tracking-tight text-[var(--foreground)]">{detail?.customerName ?? booking.customerName}</h2><p className="mt-1 text-sm text-[var(--muted)]">Phòng {detail?.roomNumber ?? booking.roomNumber} · {detail?.roomTypeName ?? booking.roomTypeName}</p></div>
       <button aria-label="Đóng chi tiết" className="flex size-9 shrink-0 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--surface-muted)]" disabled={saving} onClick={onClose} type="button"><X aria-hidden="true" size={19} /></button>
     </div>
 
@@ -84,7 +86,7 @@ export function BookingOperationDrawer({ booking, hotelDate, hotelNow, onChanged
       {loading ? <div aria-label="Đang tải chi tiết" className="space-y-3" role="status"><div className="h-20 animate-pulse rounded-lg bg-[var(--surface-muted)]" /><div className="h-40 animate-pulse rounded-lg bg-[var(--surface-muted)]" /></div> : !detail ? <Button onClick={() => { setLoading(true); setReloadKey((value) => value + 1); }} variant="secondary">Tải lại chi tiết</Button> : <>
         <div className="flex items-center justify-between gap-3"><span className="text-sm text-[var(--muted)]">Trạng thái lưu trú</span><StatusBadge status={detail.status} /></div>
         <div className="rounded-xl border border-[var(--border)] bg-[var(--sidebar)] p-4">
-          <h3 className="text-sm font-semibold text-[var(--foreground)]">Thông tin lưu trú</h3>
+          <h3 className="text-base font-bold text-[var(--foreground)]">Thông tin lưu trú</h3>
           <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
             <Info label="Ngày giờ đến" value={formatDateTime(detail.checkInAt)} />
             <Info label="Ngày giờ đi" value={formatDateTime(detail.checkOutAt)} />
@@ -95,7 +97,7 @@ export function BookingOperationDrawer({ booking, hotelDate, hotelNow, onChanged
           </dl>
         </div>
         <div className="rounded-xl border border-[var(--border)] p-4">
-          <h3 className="text-sm font-semibold text-[var(--foreground)]">Thanh toán</h3>
+          <h3 className="text-base font-bold text-[var(--foreground)]">Thanh toán</h3>
           <dl className="mt-3 space-y-2 text-sm">
             <Money label="Tổng tiền phát sinh" value={detail.grossRevenue} />
             {detail.previousDebt > 0 ? <Money label="Nợ trước" value={detail.previousDebt} /> : null}
@@ -105,18 +107,17 @@ export function BookingOperationDrawer({ booking, hotelDate, hotelNow, onChanged
           </dl>
           <p className="mt-3 text-xs text-[var(--muted)]">Hóa đơn: {detail.invoiceStatus === "ISSUED" ? "Đã phát hành" : detail.invoiceStatus === "VOID" ? "Đã hủy" : detail.invoiceStatus === "DRAFT" ? "Bản nháp" : "Chưa có"}</p>
         </div>
-        {detail.status === "CHECKED_IN" && amount > 0 ? <p className="rounded-lg border border-[#d8c6a7] bg-[#faf4e9] px-4 py-3 text-sm text-[#755b2e]">Chưa thể trả phòng: còn {formatCurrency(amount)}. Thu tiền hoặc ghi phần còn lại vào công nợ trước.</p> : null}
-        {detail.status === "BOOKED" && !canCheckIn ? <p className="rounded-lg bg-[var(--surface-muted)] px-4 py-3 text-sm text-[var(--muted)]">{detail.checkOutAt <= hotelNow ? "Lịch lưu trú đã qua. Hãy sửa ngày ở hoặc đánh dấu khách không đến." : "Booking thuộc ngày tới. Nếu khách đến sớm, hãy sửa ngày giờ đến trước khi nhận phòng."}</p> : null}
         {detail.note ? <div><h3 className="text-sm font-semibold">Ghi chú</h3><p className="mt-1 whitespace-pre-wrap text-sm text-[var(--muted)]">{detail.note}</p></div> : null}
-        {pendingAction ? <div aria-label={actionLabels[pendingAction]} className="rounded-xl border border-[var(--border-strong)] bg-[var(--surface-muted)] p-4" role="group"><p className="text-sm font-semibold">{actionLabels[pendingAction]}?</p><p className="mt-1 text-sm text-[var(--muted)]">{pendingAction === "check-out" ? `Hóa đơn nháp sẽ được phát hành. Phòng vẫn giữ lịch đến ${formatDateTime(detail.checkOutAt)}; muốn mở phòng sớm thì sửa giờ đi và tiền phòng trước.` : pendingAction === "cancel" || pendingAction === "no-show" ? "Lịch sử đặt phòng vẫn được giữ lại." : `Xác nhận khách đã nhận phòng ${detail.roomNumber}.`}</p><div className="mt-4 flex gap-2"><Button data-confirm-action disabled={saving} onClick={() => void applyAction()} variant={pendingAction === "cancel" || pendingAction === "no-show" ? "danger" : "primary"}>{saving ? "Đang xử lý…" : "Xác nhận"}</Button><Button disabled={saving} onClick={() => setPendingAction(undefined)} variant="secondary">Quay lại</Button></div></div> : null}
       </>}
     </div>
 
     {detail ? <div className="space-y-3 border-t border-[var(--border)] bg-white px-5 py-4 sm:px-6">
-      {!pendingAction && canCheckIn ? <Button className="w-full" disabled={saving} onClick={() => setPendingAction("check-in")}>Nhận phòng</Button> : null}
-      {!pendingAction && detail.status === "CHECKED_IN" ? <Button className="w-full" disabled={!canCheckOut || saving} onClick={() => setPendingAction("check-out")}>Trả phòng</Button> : null}
-      {!saving ? <div className="flex flex-wrap items-center justify-between gap-2 text-sm"><Link className="font-semibold text-[var(--primary)] hover:underline" href={`/bookings?bookingId=${detail.id}&mode=view`}>Xem booking đầy đủ</Link><Link className="text-[var(--muted)] hover:text-[var(--foreground)] hover:underline" href={`/bookings?bookingId=${detail.id}`}>Sửa / thu tiền</Link></div> : null}
-      {!pendingAction && !saving && detail.status === "BOOKED" ? <div className="flex gap-4 border-t border-[var(--border)] pt-3 text-xs">{detail.checkInAt < hotelNow ? <button className="text-[var(--muted)] hover:text-[#8c493e]" onClick={() => setPendingAction("no-show")} type="button">Khách không đến</button> : null}<button className="text-[var(--muted)] hover:text-[#8c493e]" onClick={() => setPendingAction("cancel")} type="button">Hủy đặt phòng</button></div> : null}
+      {pendingAction ? <div aria-label={actionLabels[pendingAction]} className="rounded-xl border border-[var(--border-strong)] bg-[var(--surface-muted)] p-4" role="group"><p className="text-sm font-semibold">{actionLabels[pendingAction]} cho {detail.bookingCode}?</p><p className="mt-1 text-sm text-[var(--muted)]">{pendingAction === "check-out" ? `Hóa đơn nháp sẽ được phát hành. Phòng vẫn giữ lịch đến ${formatDateTime(detail.checkOutAt)}; muốn mở phòng sớm thì sửa giờ đi và tiền phòng trước.` : pendingAction === "cancel" || pendingAction === "no-show" ? "Lịch sử đặt phòng vẫn được giữ lại." : `Xác nhận khách đã nhận phòng ${detail.roomNumber}.`}</p><div className="mt-4 flex gap-2"><Button data-confirm-action disabled={saving} onClick={() => void applyAction()} variant={pendingAction === "cancel" || pendingAction === "no-show" ? "danger" : "primary"}>{saving ? "Đang xử lý…" : "Xác nhận"}</Button><Button disabled={saving} onClick={() => setPendingAction(undefined)} variant="secondary">Quay lại</Button></div></div> : <>
+        {detail.status === "BOOKED" ? <><Button className="w-full" disabled={!canCheckIn || saving} onClick={() => setPendingAction("check-in")}>Nhận phòng</Button>{!canCheckIn ? <p className="text-xs text-[var(--muted)]">{detail.checkOutAt <= hotelNow ? "Lịch lưu trú đã qua. Sửa ngày ở hoặc đánh dấu khách không đến." : "Booking thuộc ngày tới. Sửa giờ đến nếu khách nhận phòng sớm."}</p> : null}</> : null}
+        {detail.status === "CHECKED_IN" ? <><Button className="w-full" disabled={!canCheckOut || saving} onClick={() => setPendingAction("check-out")}>Trả phòng · kết thúc lượt</Button>{!canCheckOut ? <p className="text-xs text-[#8a5a2f]">Còn {formatCurrency(amount)}. Thu tiền hoặc ghi công nợ trước khi trả phòng.</p> : null}</> : null}
+        {!saving ? <div className="flex flex-wrap items-center justify-between gap-3 text-sm"><Link className="font-semibold text-[var(--primary)] hover:underline" href={`/bookings?bookingId=${detail.id}&mode=view`}>Xem booking</Link>{detail.status === "BOOKED" || detail.status === "CHECKED_IN" ? <div className="flex flex-wrap gap-3"><Link className="font-semibold text-[var(--primary)] hover:underline" href={`/bookings?bookingId=${detail.id}#booking-finance`}>Sửa chi phí</Link><Link className="font-semibold text-[var(--primary)] hover:underline" href={`/bookings?bookingId=${detail.id}#booking-payments`}>Thu tiền</Link></div> : detail.status === "CANCELLED" || detail.status === "NO_SHOW" ? <Link className="font-semibold text-[var(--primary)] hover:underline" href={`/bookings?bookingId=${detail.id}#booking-payments`}>Xem / hoàn cọc</Link> : null}</div> : null}
+        {!saving && detail.status === "BOOKED" ? <div className="flex gap-4 border-t border-[var(--border)] pt-3 text-xs">{detail.checkInAt < hotelNow ? <button className="text-[var(--muted)] hover:text-[#8c493e]" onClick={() => setPendingAction("no-show")} type="button">Khách không đến</button> : null}<button className="text-[var(--muted)] hover:text-[#8c493e]" onClick={() => setPendingAction("cancel")} type="button">Hủy đặt phòng</button></div> : null}
+      </>}
     </div> : null}
   </dialog>;
 }

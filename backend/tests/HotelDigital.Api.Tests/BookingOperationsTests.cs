@@ -15,7 +15,7 @@ public sealed class BookingOperationsTests
             .UseInMemoryDatabase($"booking-operations-{Guid.NewGuid():N}")
             .Options;
         await using var db = new HotelDbContext(options);
-        db.RoomTypes.Add(new RoomType { RoomTypeId = 1, Code = "STD", Name = "Standard", Capacity = 2 });
+        db.RoomTypes.Add(new RoomType { RoomTypeId = 1, Code = "STD", Name = "Standard", Capacity = 2, IsActive = true });
         db.Rooms.Add(new Room { RoomId = 1, RoomNumber = "101", RoomTypeId = 1, IsActive = true });
         db.Customers.Add(new Customer { CustomerId = 1, FullName = "Khách kiểm thử", IsActive = true });
         db.Channels.Add(new Channel { ChannelId = 1, Code = "DIRECT", Name = "Trực tiếp", Category = "OFFLINE", IsActive = true });

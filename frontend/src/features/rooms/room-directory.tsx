@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
 import { DataMessage, PageHeader, Panel } from "@/components/ui/page";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { useLiveRevision } from "@/features/realtime/live-updates-provider";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { RoomEditor } from "./room-editor";
 import { RoomMaintenance } from "./room-maintenance";
@@ -32,6 +33,7 @@ const statusStyles = {
 };
 
 export function RoomDirectory() {
+  const liveRevision = useLiveRevision();
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -59,7 +61,7 @@ export function RoomDirectory() {
       .then((data) => { if (active) setResult({ key: requestKey, rooms: data }); })
       .catch((reason) => { if (active) setResult({ key: requestKey, error: getApiErrorMessage(reason, "Không thể tải danh sách phòng.") }); });
     return () => { active = false; };
-  }, [requestKey, search, status]);
+  }, [requestKey, search, status, liveRevision]);
 
   function refresh() {
     setActionError(undefined);

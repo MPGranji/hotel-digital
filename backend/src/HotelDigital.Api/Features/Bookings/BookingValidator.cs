@@ -11,12 +11,19 @@ public static class BookingValidator
         if (request.RoomId <= 0) errors["roomId"] = ["Vui lòng chọn phòng."];
         if (request.AdditionalRoomIds?.Any(x => x <= 0) == true)
             errors["additionalRoomIds"] = ["Danh sách phòng bổ sung không hợp lệ."];
+        if (request.AdditionalRoomIds is { Count: > 0 } additionalRooms
+            && (additionalRooms.Contains(request.RoomId) || additionalRooms.Distinct().Count() != additionalRooms.Count))
+            errors["additionalRoomIds"] = ["Mỗi phòng chỉ được chọn một lần trong nhóm."];
         if (request.AdditionalRoomIds?.Distinct().Count() > 9)
             errors["additionalRoomIds"] = ["Mỗi nhóm được tạo tối đa 10 phòng trong một lượt."];
         if (requireVersion && request.AdditionalRoomIds?.Count > 0)
             errors["additionalRoomIds"] = ["Không thể thêm phòng vào nhóm khi đang sửa một booking. Hãy tạo booking mới cùng nhóm."];
         if (request.CheckOutAt <= request.CheckInAt)
             errors["checkOutAt"] = ["Ngày giờ đi phải sau ngày giờ đến."];
+        if (request.CheckInAt.Kind != DateTimeKind.Unspecified)
+            errors["checkInAt"] = ["Ngày giờ phải theo giờ khách sạn, không kèm múi giờ."];
+        if (request.CheckOutAt.Kind != DateTimeKind.Unspecified)
+            errors["checkOutAt"] = ["Ngày giờ phải theo giờ khách sạn, không kèm múi giờ."];
         if (request.BilledNights < 1)
             errors["billedNights"] = ["Booking phải có ít nhất một đêm tính tiền."];
         if (request.GuestCount is <= 0)
@@ -36,8 +43,12 @@ public static class BookingValidator
             ["transferAmount"] = request.TransferAmount,
             ["debtAmount"] = request.DebtAmount
         };
-        foreach (var amount in amounts.Where(x => x.Value < 0))
-            errors[amount.Key] = ["Số tiền không được âm."];
+        foreach (var amount in amounts)
+        {
+            if (amount.Value < 0) errors[amount.Key] = ["Số tiền không được âm."];
+            else if (decimal.Round(amount.Value, 2) != amount.Value)
+                errors[amount.Key] = ["Số tiền chỉ được có tối đa hai chữ số thập phân."];
+        }
 
         if (request.RoomRevenue + request.ServiceRevenue + request.SurchargeAmount - request.DiscountAmount < 0)
             errors["discountAmount"] = ["Giảm giá không được làm tổng doanh thu âm."];

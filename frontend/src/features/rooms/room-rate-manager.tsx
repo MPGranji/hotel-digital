@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
 import { MoneyInput } from "@/components/ui/money-input";
 import { getApiErrorMessage, getApiProblem } from "@/lib/api-client";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { useLiveRevision } from "@/features/realtime/live-updates-provider";
+import { formatDate, formatUtcDateTime, hotelToday } from "@/lib/format";
 import { createRoomRate, getRoomRateHistory, getRoomRates, updateRoomRate } from "./rooms-api";
 import type { RoomRateHistoryItem, RoomRateItem, RoomRateWriteRequest, RoomTypeItem } from "./types";
 
@@ -21,16 +22,11 @@ const dayFields = [
 
 const compactMoneyFormatter = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 });
 
-function localDate() {
-  const now = new Date();
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-}
-
 function emptyForm(roomType: RoomTypeItem): RoomRateWriteRequest {
   const basePrice = roomType.listedPricePerNight ?? 0;
   return {
     roomTypeId: roomType.id,
-    effectiveFrom: localDate(),
+    effectiveFrom: hotelToday(),
     effectiveTo: undefined,
     mondayPrice: basePrice,
     tuesdayPrice: basePrice,
@@ -46,6 +42,7 @@ function emptyForm(roomType: RoomTypeItem): RoomRateWriteRequest {
 }
 
 export function RoomRateManager({ roomType, onClose }: Readonly<{ roomType: RoomTypeItem; onClose: () => void }>) {
+  const liveRevision = useLiveRevision();
   const [items, setItems] = useState<RoomRateItem[]>([]);
   const [editing, setEditing] = useState<RoomRateItem>();
   const [form, setForm] = useState<RoomRateWriteRequest>(() => emptyForm(roomType));
@@ -85,11 +82,11 @@ export function RoomRateManager({ roomType, onClose }: Readonly<{ roomType: Room
   useEffect(() => {
     let active = true;
     void getRoomRates(roomType.id)
-      .then((result) => { if (active) setItems(result); })
+      .then((result) => { if (active) { setItems(result); setError(undefined); } })
       .catch((reason) => { if (active) setError(getApiErrorMessage(reason, "Không thể tải bảng giá.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [roomType.id]);
+  }, [roomType.id, liveRevision]);
 
   function edit(item?: RoomRateItem) {
     setEditing(item);
@@ -152,7 +149,7 @@ export function RoomRateManager({ roomType, onClose }: Readonly<{ roomType: Room
         <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-4 py-3">Hiệu lực</th><th className="px-4 py-3">Giá tại quầy · T2 đến CN</th><th className="px-4 py-3">Trạng thái</th><th className="px-4 py-3 text-right">Thao tác</th></tr></thead>
           <tbody className="divide-y divide-slate-100">{loading ? <tr><td className="px-4 py-8 text-center text-slate-500" colSpan={4}>Đang tải bảng giá…</td></tr> : items.length === 0 ? <tr><td className="px-4 py-8 text-center text-slate-500" colSpan={4}>Chưa có mức giá nâng cao.</td></tr> : items.map((item) => <tr className={item.isActive ? "" : "bg-slate-50 text-slate-500"} key={item.id}>
-            <td className="px-4 py-3"><p className="font-medium text-slate-900">{formatDate(item.effectiveFrom)}</p><p className="text-xs text-slate-500">đến {item.effectiveTo ? formatDate(item.effectiveTo) : "khi có giá mới"}</p><p className="mt-1 text-[11px] text-slate-400">Sửa {formatDateTime(item.lastModifiedAtUtc)}{item.lastModifiedByDisplayName ? ` · ${item.lastModifiedByDisplayName}` : ""}</p></td>
+            <td className="px-4 py-3"><p className="font-medium text-slate-900">{formatDate(item.effectiveFrom)}</p><p className="text-xs text-slate-500">đến {item.effectiveTo ? formatDate(item.effectiveTo) : "khi có giá mới"}</p><p className="mt-1 text-[11px] text-slate-400">Sửa {formatUtcDateTime(item.lastModifiedAtUtc)}{item.lastModifiedByDisplayName ? ` · ${item.lastModifiedByDisplayName}` : ""}</p></td>
             <td className="px-4 py-3"><div className="grid min-w-[560px] grid-cols-7 gap-1">{dayFields.map((day) => <div className="rounded-md bg-slate-50 px-2 py-1.5 text-center" key={day.key}><span className="block text-[10px] text-slate-500">{day.label}</span><span className="text-xs font-medium tabular-nums">{compactMoneyFormatter.format(item[day.key])}</span></div>)}</div></td>
             <td className="px-4 py-3"><span className={`rounded-md border px-2 py-1 text-xs font-medium ${item.isActive ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>{item.isActive ? "Đang áp dụng" : "Ngừng áp dụng"}</span></td>
             <td className="px-4 py-3 text-right"><div className="flex justify-end gap-1"><Button onClick={() => showHistory(item)} size="sm" variant="ghost">{historyFor?.id === item.id ? "Ẩn lịch sử" : "Lịch sử"}</Button><Button onClick={() => edit(item)} size="sm" variant="secondary">Sửa</Button></div></td>
@@ -162,7 +159,7 @@ export function RoomRateManager({ roomType, onClose }: Readonly<{ roomType: Room
 
       {historyFor ? <section className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
         <div className="flex items-start justify-between gap-4"><div><h3 className="font-semibold text-slate-900">Lịch sử thay đổi</h3><p className="mt-1 text-xs text-slate-500">Mức giá từ {formatDate(historyFor.effectiveFrom)}. Thời gian ghi nhận dùng múi giờ hệ thống khi hiển thị.</p></div><Button onClick={() => showHistory(historyFor)} variant="ghost">Đóng</Button></div>
-        {historyLoading ? <p className="py-6 text-center text-sm text-slate-500">Đang tải lịch sử…</p> : <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[920px] text-left text-sm"><thead className="text-xs text-slate-500"><tr><th className="pb-2">Ghi nhận</th><th className="pb-2">Hiệu lực</th><th className="pb-2">Giá T2 đến CN</th><th className="pb-2">Người sửa</th><th className="pb-2">Phiên bản</th></tr></thead><tbody className="divide-y divide-slate-200">{history.map((item) => <tr key={`${item.id}-${item.recordedFromUtc}`}><td className="py-3 pr-4">{formatDateTime(item.recordedFromUtc)}</td><td className="py-3 pr-4">{formatDate(item.effectiveFrom)} – {item.effectiveTo ? formatDate(item.effectiveTo) : "không giới hạn"}</td><td className="py-3 pr-4"><div className="grid min-w-[490px] grid-cols-7 gap-1">{dayFields.map((day) => <span className="rounded bg-white px-1.5 py-1 text-center text-xs tabular-nums" key={day.key}>{compactMoneyFormatter.format(item[day.key])}</span>)}</div></td><td className="py-3 pr-4">{item.lastModifiedByDisplayName ?? "Dữ liệu cũ"}</td><td className="py-3"><span className={`rounded-md border px-2 py-1 text-xs ${item.isCurrent ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-600"}`}>{item.isCurrent ? "Hiện tại" : "Đã thay thế"}</span></td></tr>)}</tbody></table></div>}
+        {historyLoading ? <p className="py-6 text-center text-sm text-slate-500">Đang tải lịch sử…</p> : <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[920px] text-left text-sm"><thead className="text-xs text-slate-500"><tr><th className="pb-2">Ghi nhận</th><th className="pb-2">Hiệu lực</th><th className="pb-2">Giá T2 đến CN</th><th className="pb-2">Người sửa</th><th className="pb-2">Phiên bản</th></tr></thead><tbody className="divide-y divide-slate-200">{history.map((item) => <tr key={`${item.id}-${item.recordedFromUtc}`}><td className="py-3 pr-4">{formatUtcDateTime(item.recordedFromUtc)}</td><td className="py-3 pr-4">{formatDate(item.effectiveFrom)} – {item.effectiveTo ? formatDate(item.effectiveTo) : "không giới hạn"}</td><td className="py-3 pr-4"><div className="grid min-w-[490px] grid-cols-7 gap-1">{dayFields.map((day) => <span className="rounded bg-white px-1.5 py-1 text-center text-xs tabular-nums" key={day.key}>{compactMoneyFormatter.format(item[day.key])}</span>)}</div></td><td className="py-3 pr-4">{item.lastModifiedByDisplayName ?? "Dữ liệu cũ"}</td><td className="py-3"><span className={`rounded-md border px-2 py-1 text-xs ${item.isCurrent ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-600"}`}>{item.isCurrent ? "Hiện tại" : "Đã thay thế"}</span></td></tr>)}</tbody></table></div>}
       </section> : null}
     </div>
   </div>;

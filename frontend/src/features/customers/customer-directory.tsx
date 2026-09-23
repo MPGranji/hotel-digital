@@ -6,6 +6,7 @@ import { Input, Select } from "@/components/ui/field";
 import { DataMessage, PageHeader, Panel } from "@/components/ui/page";
 import { Pagination } from "@/components/ui/pagination";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { useLiveRevision } from "@/features/realtime/live-updates-provider";
 import { formatDate } from "@/lib/format";
 import type { PagedResult } from "@/types/api";
 import { CustomerEditor } from "./customer-editor";
@@ -14,6 +15,7 @@ import { CustomerStays } from "./customer-stays";
 import type { CustomerListItem } from "./types";
 
 export function CustomerDirectory() {
+  const liveRevision = useLiveRevision();
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [active, setActive] = useState("true");
@@ -34,11 +36,11 @@ export function CustomerDirectory() {
   useEffect(() => {
     let mounted = true;
     void getCustomers(search, page, 20, active)
-      .then((data) => { if (mounted) setResult(data); })
-      .catch((reason) => setError(getApiErrorMessage(reason, "Không thể tải danh sách khách hàng.")))
-      .finally(() => setLoading(false));
+      .then((data) => { if (mounted) { setResult(data); setError(undefined); } })
+      .catch((reason) => { if (mounted) setError(getApiErrorMessage(reason, "Không thể tải danh sách khách hàng.")); })
+      .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
-  }, [active, page, reloadKey, search]);
+  }, [active, page, reloadKey, search, liveRevision]);
 
   function refresh() {
     setLoading(true);

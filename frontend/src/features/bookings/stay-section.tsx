@@ -16,7 +16,9 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
   const guestCapacity = selectedRooms.length > 0
     ? Math.min(...selectedRooms.map((room) => room.capacity))
     : undefined;
-  const availableRooms = options.rooms.filter((room) => availableRoomIds?.includes(room.id));
+  const firstSelectedRoom = options.rooms.find((room) => String(room.id) === selectedRoomIds[0]);
+  const availableRooms = options.rooms.filter((room) => availableRoomIds?.includes(room.id)
+    && (form.roomMode !== "multiple" || !firstSelectedRoom || room.roomTypeCode === firstSelectedRoom.roomTypeCode));
   const selectedChannel = options.channels.find((channel) => String(channel.id) === form.channelId);
   const showExternalBookingCode = selectedChannel
     && selectedChannel.category !== "OFFLINE";
@@ -75,6 +77,7 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
             <button aria-pressed={form.roomMode === "single"} className={`rounded-md px-4 py-2 text-sm font-medium ${form.roomMode === "single" ? "bg-white text-[var(--primary)] shadow-sm" : "text-[var(--muted)]"}`} onClick={() => updateRoomMode("single")} type="button">Một phòng</button>
             <button aria-pressed={form.roomMode === "multiple"} className={`rounded-md px-4 py-2 text-sm font-medium ${form.roomMode === "multiple" ? "bg-white text-[var(--primary)] shadow-sm" : "text-[var(--muted)]"}`} onClick={() => updateRoomMode("multiple")} type="button">Nhiều phòng</button>
           </div>
+          {form.roomMode === "multiple" ? <p className="mt-2 text-xs text-[var(--muted)]">Chọn các phòng cùng hạng. Giá và tiền cọc bên dưới áp dụng cho từng phòng; mỗi phòng có một booking và hóa đơn riêng.</p> : null}
         </div> : booking.groupCode ? <p className="md:col-span-2 xl:col-span-3 rounded-lg bg-[var(--nav-active)] px-4 py-3 text-sm text-[var(--primary-strong)]">Đặt phòng này thuộc nhóm <b>{booking.groupCode}</b>.</p> : null}
 
         <div className={`md:col-span-2 xl:col-span-3 ${form.roomMode === "single" || booking ? "max-w-2xl" : ""}`}>

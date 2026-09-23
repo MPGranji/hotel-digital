@@ -4,15 +4,15 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { getApiErrorMessage, getApiProblem } from "@/lib/api-client";
+import { addHotelDays, hotelToday } from "@/lib/format";
 import { createRoomBlock, getRoomBlock, updateRoomBlock } from "./rooms-api";
 import type { RoomBlockWriteRequest, RoomListItem } from "./types";
 
 function dateTime(date: string, hour: string) { return `${date}T${hour}`; }
 
 export function RoomBlockEditor({ blockId, initialRoomId, initialDate, rooms, onClose, onSaved }: Readonly<{ blockId?: number; initialRoomId?: number; initialDate?: string; rooms: RoomListItem[]; onClose: () => void; onSaved: () => void }>) {
-  const today = initialDate ?? new Date().toISOString().slice(0, 10);
-  const nextDay = new Date(`${today}T00:00:00`); nextDay.setDate(nextDay.getDate() + 1);
-  const [form, setForm] = useState<RoomBlockWriteRequest>({ roomId: initialRoomId ?? rooms.find((room) => room.isActive)?.id ?? 0, startAt: dateTime(today, "00:00"), endAt: dateTime(nextDay.toISOString().slice(0, 10), "00:00"), reason: "Bảo trì phòng", note: "", isActive: true, version: null });
+  const today = initialDate ?? hotelToday();
+  const [form, setForm] = useState<RoomBlockWriteRequest>({ roomId: initialRoomId ?? rooms.find((room) => room.isActive)?.id ?? 0, startAt: dateTime(today, "00:00"), endAt: dateTime(addHotelDays(today, 1), "00:00"), reason: "Bảo trì phòng", note: "", isActive: true, version: null });
   const [loading, setLoading] = useState(Boolean(blockId)); const [saving, setSaving] = useState(false); const [error, setError] = useState<string>(); const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
   useEffect(() => { if (!blockId) return; void getRoomBlock(blockId).then((item) => setForm({ roomId: item.roomId, startAt: item.startAt.slice(0, 16), endAt: item.endAt.slice(0, 16), reason: item.reason, note: item.note ?? "", isActive: item.isActive, version: item.version })).catch((reason) => setError(getApiErrorMessage(reason, "Không thể tải lịch bảo trì."))).finally(() => setLoading(false)); }, [blockId]);

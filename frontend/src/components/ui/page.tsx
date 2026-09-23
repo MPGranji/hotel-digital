@@ -8,7 +8,7 @@ export function PageHeader({
   return (
     <div className="mb-6 flex flex-col justify-between gap-4 border-b border-[var(--border)] pb-6 md:flex-row md:items-end">
       <div>
-        <h1 className="text-[1.75rem] font-semibold leading-tight tracking-[-0.025em] text-[var(--foreground)] sm:text-[2rem]">{title}</h1>
+        <h1 className="text-[1.75rem] font-bold leading-tight tracking-[-0.025em] text-[var(--foreground)] sm:text-[2rem]">{title}</h1>
         {description ? <p className="mt-2 max-w-[68ch] text-sm leading-6 text-[var(--muted)]">{description}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
@@ -22,7 +22,7 @@ export function Panel({ children, className = "" }: Readonly<{ children: ReactNo
 
 export function SectionTitle({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <h2 className="mb-5 border-b border-[var(--border)] border-l-[3px] border-l-[var(--accent)] bg-[var(--sidebar)] px-3 py-3 text-[1.05rem] font-semibold tracking-tight text-[var(--primary-strong)]">{children}</h2>
+    <h2 className="mb-5 border-b border-[var(--border)] border-l-[3px] border-l-[var(--accent)] bg-[var(--sidebar)] px-3 py-3 text-[1.05rem] font-bold tracking-tight text-[var(--primary-strong)]">{children}</h2>
   );
 }
 

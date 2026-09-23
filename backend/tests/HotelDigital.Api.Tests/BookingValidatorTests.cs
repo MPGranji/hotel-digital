@@ -26,6 +26,17 @@ public sealed class BookingValidatorTests
     }
 
     [Fact]
+    public void Booking_dates_must_use_hotel_wall_time()
+    {
+        var request = ValidRequest() with { CheckInAt = DateTime.SpecifyKind(ValidRequest().CheckInAt, DateTimeKind.Utc) };
+
+        var exception = Assert.Throws<RequestValidationException>(() =>
+            BookingValidator.Validate(request, requireVersion: false));
+
+        Assert.Contains("checkInAt", exception.Errors.Keys);
+    }
+
+    [Fact]
     public void Discount_requires_reason_and_non_negative_total()
     {
         var request = ValidRequest() with { DiscountAmount = 600_000, DiscountReason = null };
@@ -75,6 +86,17 @@ public sealed class BookingValidatorTests
     }
 
     [Fact]
+    public void Booking_amounts_must_fit_sql_money_precision()
+    {
+        var request = ValidRequest() with { RoomRevenue = 500_000.001m };
+
+        var exception = Assert.Throws<RequestValidationException>(() =>
+            BookingValidator.Validate(request, requireVersion: false));
+
+        Assert.Contains("roomRevenue", exception.Errors.Keys);
+    }
+
+    [Fact]
     public void Existing_payment_values_are_not_revalidated_as_an_edit()
     {
         var request = ValidRequest() with
@@ -95,6 +117,17 @@ public sealed class BookingValidatorTests
             BookingValidator.Validate(ValidRequest() with { GuestCount = 0 }, requireVersion: false));
 
         Assert.Contains("guestCount", exception.Errors.Keys);
+    }
+
+    [Fact]
+    public void Group_booking_rejects_duplicate_rooms()
+    {
+        foreach (var rooms in new[] { new[] { 1 }, new[] { 2, 2 } })
+        {
+            var exception = Assert.Throws<RequestValidationException>(() =>
+                BookingValidator.Validate(ValidRequest() with { AdditionalRoomIds = rooms }, requireVersion: false));
+            Assert.Contains("additionalRoomIds", exception.Errors.Keys);
+        }
     }
 
     private static BookingWriteRequest ValidRequest() => new(

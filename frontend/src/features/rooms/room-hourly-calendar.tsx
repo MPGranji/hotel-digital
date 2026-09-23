@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
 import { DataMessage } from "@/components/ui/page";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { useHotelToday } from "@/lib/use-hotel-today";
+import { useLiveRevision } from "@/features/realtime/live-updates-provider";
 import { getRoomHourlyCalendar, getRooms } from "./rooms-api";
 import { bookingAccent, calendarStatus } from "./room-calendar-colors";
 import type { RoomHourlyCalendarEvent, RoomHourlyCalendarResponse, RoomListItem } from "./types";
@@ -13,7 +15,7 @@ import type { RoomHourlyCalendarEvent, RoomHourlyCalendarResponse, RoomListItem 
 const hourHeight = 56;
 const emptyRooms: RoomListItem[] = [];
 
-function localDate(date = new Date()) {
+function localDate(date: Date) {
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 }
@@ -39,17 +41,21 @@ function timeLabel(value: string) {
 }
 
 export function RoomHourlyCalendar() {
+  const liveRevision = useLiveRevision();
   const [roomListResult, setRoomListResult] = useState<{ key: number; items?: RoomListItem[]; error?: string }>();
   const [roomType, setRoomType] = useState("");
   const [floor, setFloor] = useState("");
   const [roomId, setRoomId] = useState("");
-  const [weekDate, setWeekDate] = useState(localDate());
+  const today = useHotelToday();
+  const [selectedWeekDate, setWeekDate] = useState<string | null>(null);
+  const weekDate = selectedWeekDate ?? today;
   const [startHour, setStartHour] = useState(6);
   const [endHour, setEndHour] = useState(24);
   const [calendarResult, setCalendarResult] = useState<{ key: string; data?: RoomHourlyCalendarResponse; error?: string }>();
   const [reloadKey, setReloadKey] = useState(0);
   const [roomsReloadKey, setRoomsReloadKey] = useState(0);
-  const weekStart = mondayOf(weekDate);
+  const weekStart = weekDate ? mondayOf(weekDate) : "";
+
   const currentRoomList = roomListResult?.key === roomsReloadKey ? roomListResult : undefined;
   const rooms = currentRoomList?.items ?? emptyRooms;
   const roomsLoading = !currentRoomList;
@@ -61,7 +67,7 @@ export function RoomHourlyCalendar() {
       setRoomListResult({ key: roomsReloadKey, items: items.filter((room) => room.countsTowardOccupancy) });
     }).catch((reason) => { if (active) setRoomListResult({ key: roomsReloadKey, error: getApiErrorMessage(reason, "Không thể tải danh sách phòng.") }); });
     return () => { active = false; };
-  }, [roomsReloadKey]);
+  }, [roomsReloadKey, liveRevision]);
 
   const roomTypes = useMemo(() => [...new Set(rooms.map((room) => room.roomTypeName))].sort(), [rooms]);
   const floors = useMemo(() => [...new Set(rooms.map((room) => room.floorLabel).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, "vi", { numeric: true })), [rooms]);
@@ -74,16 +80,16 @@ export function RoomHourlyCalendar() {
   const currentCalendar = calendarResult?.key === calendarKey ? calendarResult : undefined;
   const data = currentCalendar?.data;
   const error = currentRoomList?.error ?? currentCalendar?.error;
-  const loading = roomsLoading || (Boolean(selectedRoomId) && !currentCalendar);
+  const loading = roomsLoading || !weekStart || (Boolean(selectedRoomId) && !currentCalendar);
 
   useEffect(() => {
-    if (!selectedRoomId) return;
+    if (!selectedRoomId || !weekStart) return;
     let active = true;
     void getRoomHourlyCalendar(Number(selectedRoomId), weekStart)
       .then((response) => { if (active) setCalendarResult({ key: calendarKey, data: response }); })
       .catch((reason) => { if (active) setCalendarResult({ key: calendarKey, error: getApiErrorMessage(reason, "Không thể tải lịch phòng theo giờ.") }); });
     return () => { active = false; };
-  }, [calendarKey, selectedRoomId, weekStart]);
+  }, [calendarKey, selectedRoomId, weekStart, liveRevision]);
 
   const hours = Array.from({ length: endHour - startHour + 1 }, (_, index) => startHour + index);
   const calendarHeight = (endHour - startHour) * hourHeight;
@@ -106,7 +112,7 @@ export function RoomHourlyCalendar() {
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button onClick={() => moveWeek(-7)} variant="secondary">← Tuần trước</Button>
-        <Button onClick={() => { const today = localDate(); if (mondayOf(today) === weekStart) refresh(); else setWeekDate(today); }} variant="secondary">Hôm nay</Button>
+        <Button onClick={() => { if (mondayOf(today) === weekStart) refresh(); else setWeekDate(null); }} variant="secondary">Hôm nay</Button>
         <Button onClick={() => moveWeek(7)} variant="secondary">Tuần sau →</Button>
         <div className="ml-auto flex flex-wrap gap-3 text-xs text-slate-600"><Legend color={calendarStatus.BOOKED.dot} label="Đã đặt" /><Legend color={calendarStatus.CHECKED_IN.dot} label="Đang ở" /><Legend color={calendarStatus.CHECKED_OUT.dot} label="Đã trả (giữ đến giờ đi)" /><Legend color={calendarStatus.MAINTENANCE.dot} label="Bảo trì" /><span>Vạch màu: cùng lượt đặt</span></div>
       </div>
@@ -116,7 +122,7 @@ export function RoomHourlyCalendar() {
       <div className="min-w-[980px]">
         <div className="sticky top-0 z-30 grid grid-cols-[72px_repeat(7,minmax(128px,1fr))] border-b border-slate-200 bg-slate-50">
           <div className="border-r border-slate-200 px-2 py-3 text-center text-xs font-medium text-slate-500">Giờ</div>
-          {data.dates.map((date) => <div className={`border-r border-slate-200 px-2 py-3 text-center text-sm font-medium capitalize ${date === localDate() ? "bg-[var(--nav-active)] text-[var(--primary-strong)]" : "text-slate-700"}`} key={date}>{dayHeading(date)}</div>)}
+          {data.dates.map((date) => <div className={`border-r border-slate-200 px-2 py-3 text-center text-sm font-medium capitalize ${date === today ? "bg-[var(--nav-active)] text-[var(--primary-strong)]" : "text-slate-700"}`} key={date}>{dayHeading(date)}</div>)}
         </div>
         {!data.isActive ? <p className="border-b border-slate-200 bg-slate-100 px-4 py-2 text-sm text-slate-600">Phòng {data.roomNumber} đang ngừng hoạt động.</p> : null}
         <div className="grid grid-cols-[72px_repeat(7,minmax(128px,1fr))]" style={{ height: calendarHeight }}>

@@ -29,6 +29,10 @@ npm run dev
 
 Mở `http://localhost:3000`.
 
+Để dùng màn hình đăng nhập thử nghiệm ở localhost, sao chép `frontend/.env.example` thành `frontend/.env.local`, giữ `NEXT_PUBLIC_ENABLE_DEV_LOGIN=true` và bật `DevelopmentAuthentication__Enabled=true` cho API local. Docker Compose dùng file `compose.demo.yaml` để bật hai cờ này và chỉ mở cổng trên loopback. Bản triển khai nội bộ phải cấu hình Entra ID (`NEXT_PUBLIC_ENTRA_TENANT_ID`, `NEXT_PUBLIC_ENTRA_CLIENT_ID`, `NEXT_PUBLIC_ENTRA_API_SCOPE`); API yêu cầu `Authentication__TenantId`, `Authentication__Audience` và `Authentication__RequiredRole`. Cấp app role tương ứng cho nhân viên được duyệt.
+
+`/dashboard` lấy số liệu tổng hợp trực tiếp từ các view Azure SQL và cập nhật qua SignalR. Nếu có license và quyền xem Power BI, phần báo cáo bổ sung chỉ nhận `NEXT_PUBLIC_POWER_BI_EMBED_URL` dạng secure `https://app.powerbi.com/reportEmbed?...`. Tạo URL bằng **Embed report → Website or portal** và cấp quyền xem trong Power BI Service. Không dùng URL `app.powerbi.com/view` cho báo cáo nội bộ; mã Publish to web cũ cần được chủ sở hữu thu hồi trước production.
+
 ## Chạy API
 
 Cần .NET 10 SDK. Sao chép `backend/src/HotelDigital.Api/appsettings.Local.example.json` thành `appsettings.Local.json`, điền chuỗi kết nối dành cho local rồi chạy:
@@ -47,10 +51,20 @@ Docker Compose đóng gói và chạy cả frontend lẫn API. Frontend chờ co
 Sao chép `backend/.env.example` thành `backend/.env`, sau đó điền connection string của Azure SQL dành cho môi trường local/test:
 
 ```powershell
-docker compose --env-file backend/.env up -d --build
+docker compose --env-file backend/.env -f compose.yaml -f compose.demo.yaml up -d --build
 ```
 
-Frontend chạy tại `http://localhost:3000`; API chạy tại `http://localhost:5080`. Endpoint `/health` kiểm tra tiến trình API; `/health/database` kiểm tra kết nối thật đến Azure SQL.
+Frontend chạy tại `http://localhost:3000`; API chạy tại `http://localhost:5080`. Endpoint `/health` kiểm tra tiến trình API; `/health/database` yêu cầu nhân viên đăng nhập và kiểm tra kết nối thật đến Azure SQL. File `compose.yaml` mặc định dùng xác thực production và từ chối khởi động API nếu thiếu cấu hình Entra ID; không thêm `compose.demo.yaml` khi triển khai thật.
+
+## Cập nhật dữ liệu realtime
+
+Sau khi một thao tác ghi vào Azure SQL hoàn tất, API gửi tín hiệu SignalR tới các phiên nhân viên. Các tab đang mở tự tải lại dữ liệu cho lịch phòng, khách, booking, hóa đơn, sổ thu và màn hình vận hành. Biểu mẫu booking đang sửa sẽ báo có phiên bản mới để nhân viên tự chọn tải lại; nội dung chưa lưu không bị thay thế. Khi mất kết nối, web tự nối lại và đối chiếu dữ liệu khi tab được mở lại hoặc sau mỗi 2 phút. Nếu gửi tín hiệu lỗi, thao tác ghi vẫn thành công; lần đối chiếu kế tiếp sẽ đồng bộ dữ liệu.
+
+Chạy API một instance có thể dùng SignalR trực tiếp. Khi chạy nhiều instance hoặc cần dịch vụ quản lý kết nối, tạo Azure SignalR Service và cấu hình `Azure__SignalR__ConnectionString` (trong Compose: `HOTEL_SIGNALR_CONNECTION_STRING`) bằng secret của môi trường. Không đưa connection string vào image hay Git. Cấu hình origin frontend trong `Cors:AllowedOrigins` và bảo đảm proxy/App Service cho phép WebSocket. Hub `/hubs/updates` yêu cầu token và app role của nhân viên như API.
+
+Môi trường Azure hiện dùng App Service Linux F1 và Azure SQL free offer, chỉ phục vụ thử nghiệm với số ít phiên. F1 giới hạn 5 WebSocket; SQL được đặt tự tạm dừng khi dùng hết hạn mức miễn phí trong tháng. Vercel Hobby dành cho dự án cá nhân, phi thương mại. Trước khi dùng thật cho nhân viên, cần chốt gói hạ tầng phù hợp và thu hồi mã Power BI Publish to web đang công khai.
+
+Dashboard kinh doanh ở `/dashboard` tự cập nhật từ các view Azure SQL qua API và SignalR; màn hình ca trực `/operations` cũng tự đồng bộ. Phần Power BI bổ sung phụ thuộc chế độ kết nối và thiết lập của semantic model: để báo cáo phản ánh Azure SQL thường xuyên, cần dùng DirectQuery, cấu hình automatic page refresh và kiểm tra giới hạn của capacity thực tế. Import mode chỉ thay đổi sau khi semantic model refresh; web không tự tải lại iframe vì thao tác đó không làm mới model và có thể đặt lại bộ lọc của người xem.
 
 Connection string chỉ được truyền vào container lúc chạy, không được ghi vào image hoặc commit vào Git. Kết nối đã lưu trong DataGrip không tự động được ứng dụng hoặc container sử dụng.
 
@@ -194,6 +208,12 @@ Tách booking đặt trước/nhận phòng tại quầy, bổ sung chỉ mục 
 dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/24_booking_mode_invoice_performance.sql --schema-only --commit
 ```
 
+Trước khi bật thao tác hoàn cọc, áp dụng migration cho dòng hoàn tiền âm trong sổ thu. Script chỉ đổi constraint của `hotel.Payment` và chặn cập nhật/xóa trực tiếp qua principal `hotel_app`:
+
+```powershell
+dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script backend/migrations/27_deposit_refunds.sql --schema-only --commit
+```
+
 Đối chiếu dấu vân tay dữ liệu (chỉ số lượng và tổng tiền, không in dữ liệu khách) trước và sau migration:
 
 ```powershell
@@ -204,9 +224,9 @@ dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backen
 
 ### Cấu trúc dashboard đã chốt
 
-- Báo cáo Power BI có đúng **2 sheet**: `Tổng quan kinh doanh` và `Phân tích chi tiết`.
+- File Power BI hiện có **2 trang**: `Tổng quan kinh doanh` và `Theo dõi phòng`. Báo cáo native trên `/dashboard` tự cập nhật; `/operations` phục vụ theo dõi từng booking và phòng.
 - Trang web nội bộ `/operations` (`Khách & phòng`) được giữ riêng để hiển thị trạng thái từng phòng, khách hiện tại và booking kế tiếp.
-- `Khách & phòng` không được tính là sheet Power BI và dữ liệu nhận diện khách không được đưa vào báo cáo Publish to web.
+- `Khách & phòng` không được tính là trang Power BI. Dữ liệu nhận diện khách chỉ được xem trong web đã đăng nhập; file Power BI hiện tại vẫn chứa dữ liệu này và mã Publish to web của báo cáo cần được chủ sở hữu thu hồi.
 
 - Đặt phòng/check-in/check-out.
 - Sổ đặt phòng.
@@ -215,13 +235,15 @@ dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backen
 - Một lượt có thể đặt nhiều phòng cùng mã nhóm.
 - Quản lý hóa đơn nháp/đã phát hành/đã hủy, liên kết với booking.
 - Sổ thu tiền chỉ ghi nhận khoản thu nội bộ (tiền mặt, thẻ, chuyển khoản); không kết nối cổng thanh toán hoặc ngân hàng. Trạng thái chưa thu/thu một phần/đã thu đủ được tự tính từ các khoản đã ghi.
-- Đăng nhập quản trị nội bộ và audit ở mức MVP.
+- Đăng nhập nhân viên bằng Microsoft Entra ID và ghi audit cho các thao tác dữ liệu.
 
-Dashboard Power BI hai trang và màn hình vận hành `Khách & phòng` đã được tích hợp vào web. Nhập/xuất Excel và Power BI Embedded có xác thực được thực hiện ở giai đoạn tiếp theo.
+Màn hình vận hành `Khách & phòng` đã được tích hợp vào web. Dashboard Power BI cần URL nhúng riêng tư và quyền truy cập báo cáo được cấu hình trong môi trường triển khai. Nhập/xuất Excel và nhúng Power BI có xác thực trong ứng dụng cần được kiểm tra trước khi đưa vào production.
 
 ## Đăng nhập quản trị nội bộ
 
-Web dùng màn hình đăng nhập đơn giản với tài khoản quản trị dùng chung. API không còn phụ thuộc Microsoft Entra ID và tin cậy danh tính quản trị nội bộ cho mọi request. Cơ chế này phù hợp bản demo nội bộ, không có phân quyền chi tiết và không nên dùng khi mở API trực tiếp ra Internet cho dữ liệu nhạy cảm.
+Màn hình `admin/admin` chỉ chạy trong bản demo trên `localhost` khi `NEXT_PUBLIC_ENABLE_DEV_LOGIN=true` và API chạy môi trường `Development` với `DevelopmentAuthentication:Enabled=true`. Không dùng cấu hình này để triển khai production.
+
+Production cần cấu hình `Authentication:TenantId`, `Authentication:Audience`, `Authentication:RequiredRole` cho API và `NEXT_PUBLIC_ENTRA_TENANT_ID`, `NEXT_PUBLIC_ENTRA_CLIENT_ID`, `NEXT_PUBLIC_ENTRA_API_SCOPE` cho web. Với Entra access token v2, `Authentication:Audience` là **Application (client) ID dạng GUID của API**, còn `NEXT_PUBLIC_ENTRA_API_SCOPE` là `api://<client-id>/access_as_user`. API kiểm tra token và app role của nhân viên; thiếu cấu hình thì API không khởi động. Tài khoản và app registration thực tế phải được cấp bởi đơn vị vận hành.
 
 ## Database cho web
 

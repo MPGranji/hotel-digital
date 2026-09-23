@@ -6,14 +6,11 @@ import { Input } from "@/components/ui/field";
 import { DataMessage } from "@/components/ui/page";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { formatDate } from "@/lib/format";
+import { useHotelToday } from "@/lib/use-hotel-today";
+import { useLiveRevision } from "@/features/realtime/live-updates-provider";
 import { RoomBlockEditor } from "./room-block-editor";
 import { getRoomCalendar } from "./rooms-api";
 import type { RoomCalendarResponse, RoomListItem } from "./types";
-
-function localDate(date = new Date()) {
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
-}
 
 interface MaintenanceRow {
   id: number;
@@ -26,7 +23,10 @@ interface MaintenanceRow {
 }
 
 export function RoomMaintenance({ rooms }: Readonly<{ rooms: RoomListItem[] }>) {
-  const [dateFrom, setDateFrom] = useState(localDate());
+  const liveRevision = useLiveRevision();
+  const today = useHotelToday();
+  const [selectedDateFrom, setDateFrom] = useState<string | null>(null);
+  const dateFrom = selectedDateFrom ?? today;
   const [result, setResult] = useState<{ key: string; data?: RoomCalendarResponse; error?: string }>();
   const [reloadKey, setReloadKey] = useState(0);
   const [editing, setEditing] = useState<{ blockId?: number }>();
@@ -37,12 +37,13 @@ export function RoomMaintenance({ rooms }: Readonly<{ rooms: RoomListItem[] }>) 
   const loading = !current;
 
   useEffect(() => {
+    if (!dateFrom) return;
     let active = true;
     void getRoomCalendar(dateFrom, 31)
       .then((response) => { if (active) setResult({ key: requestKey, data: response }); })
       .catch((reason) => { if (active) setResult({ key: requestKey, error: getApiErrorMessage(reason, "Không thể tải lịch bảo trì.") }); });
     return () => { active = false; };
-  }, [dateFrom, requestKey]);
+  }, [dateFrom, requestKey, liveRevision]);
 
   const schedules = useMemo(() => {
     const byId = new Map<number, MaintenanceRow>();
@@ -81,7 +82,7 @@ export function RoomMaintenance({ rooms }: Readonly<{ rooms: RoomListItem[] }>) 
           <p className="mt-1 text-sm text-[var(--muted)]">Chọn phòng và thời gian cần bảo trì. Lịch phòng sẽ hiển thị khoảng thời gian này.</p>
         </div>
         <label className="text-sm font-medium text-[var(--foreground)] md:ml-auto">Xem từ ngày<Input className="mt-1.5 w-44" onChange={(event) => setDateFrom(event.target.value)} type="date" value={dateFrom} /></label>
-        <Button onClick={() => { const today = localDate(); if (dateFrom === today) refresh(); else setDateFrom(today); }} variant="secondary">Hôm nay</Button>
+        <Button onClick={() => { if (dateFrom === today) refresh(); else setDateFrom(null); }} variant="secondary">Hôm nay</Button>
         <Button onClick={() => setEditing({})}>Thêm lịch bảo trì</Button>
       </div>
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
 import { getApiErrorMessage, getApiProblem } from "@/lib/api-client";
+import { useLiveRevision } from "@/features/realtime/live-updates-provider";
 import { formatCurrency } from "@/lib/format";
 import { RoomRateManager } from "./room-rate-manager";
 import { createRoomType, getRoomTypes, updateRoomType } from "./rooms-api";
@@ -12,6 +13,7 @@ import type { RoomTypeItem, RoomTypeWriteRequest } from "./types";
 const empty: RoomTypeWriteRequest = { code: "", name: "", capacity: 1, listedPricePerNight: undefined, isActive: true };
 
 export function RoomTypeManager({ onClose, onSaved }: Readonly<{ onClose: () => void; onSaved: () => void }>) {
+  const liveRevision = useLiveRevision();
   const [items, setItems] = useState<RoomTypeItem[]>([]);
   const [editing, setEditing] = useState<RoomTypeItem>();
   const [pricing, setPricing] = useState<RoomTypeItem>();
@@ -21,8 +23,14 @@ export function RoomTypeManager({ onClose, onSaved }: Readonly<{ onClose: () => 
   const [saving, setSaving] = useState(false);
   const [updatingId, setUpdatingId] = useState<number>();
 
-  function load() { void getRoomTypes().then(setItems).catch((reason) => setError(getApiErrorMessage(reason, "Không thể tải hạng phòng."))); }
-  useEffect(load, []);
+  function load() { void getRoomTypes().then((data) => { setItems(data); setError(undefined); }).catch((reason) => setError(getApiErrorMessage(reason, "Không thể tải hạng phòng."))); }
+  useEffect(() => {
+    let active = true;
+    void getRoomTypes()
+      .then((data) => { if (active) { setItems(data); setError(undefined); } })
+      .catch((reason) => { if (active) setError(getApiErrorMessage(reason, "Không thể tải hạng phòng.")); });
+    return () => { active = false; };
+  }, [liveRevision]);
   function edit(item?: RoomTypeItem) { setEditing(item); setFieldErrors({}); setError(undefined); setForm(item ? { code: item.code, name: item.name, capacity: item.capacity, listedPricePerNight: item.listedPricePerNight, isActive: item.isActive } : empty); }
   async function save() {
     setSaving(true); setError(undefined); setFieldErrors({});

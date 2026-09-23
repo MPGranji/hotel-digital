@@ -1,6 +1,7 @@
 using HotelDigital.Api.Data;
 using HotelDigital.Api.Data.Entities;
 using HotelDigital.Api.Infrastructure.Errors;
+using HotelDigital.Api.Infrastructure.Time;
 using Microsoft.EntityFrameworkCore;
 
 namespace HotelDigital.Api.Features.Invoices;
@@ -24,7 +25,7 @@ public sealed class InvoiceLifecycleService(HotelDbContext db)
             {
                 BookingId = booking.BookingId,
                 Booking = booking,
-                InvoiceNumber = $"INV-{DateTime.Now:yyyyMMdd}-{booking.BookingId:000000}",
+                InvoiceNumber = $"INV-{HotelClock.Now():yyyyMMdd}-{booking.BookingId:000000}",
                 Status = "DRAFT"
             };
             db.Invoices.Add(invoice);
@@ -46,7 +47,7 @@ public sealed class InvoiceLifecycleService(HotelDbContext db)
         if (issue)
         {
             invoice.Status = "ISSUED";
-            invoice.IssuedAt ??= DateTime.Now;
+            invoice.IssuedAt ??= HotelClock.Now();
         }
 
         return new InvoiceLifecycleResult(invoice, created, previousStatus);
@@ -62,6 +63,7 @@ public sealed class InvoiceLifecycleService(HotelDbContext db)
 
         var previousStatus = invoice.Status;
         invoice.Status = "VOID";
+        invoice.BalanceDue = 0;
         return new InvoiceLifecycleResult(invoice, false, previousStatus);
     }
 

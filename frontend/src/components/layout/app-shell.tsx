@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { navigationItems } from "@/config/navigation";
 import { UserMenu } from "@/features/auth/user-menu";
+import { useLiveStatus } from "@/features/realtime/live-updates-provider";
 import { AppNavigation } from "./app-navigation";
 
 const sidebarPreferenceKey = "hotel-digital:sidebar-collapsed";
 
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
+  const liveStatus = useLiveStatus();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -119,6 +121,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           <span className="text-xs font-medium text-[var(--muted)]">Không gian làm việc</span>
           <ChevronRight aria-hidden="true" className="text-[var(--border-strong)]" size={14} />
           <span className="truncate text-sm font-semibold text-[var(--foreground)]">{currentPage?.label ?? "Hotel Digital"}</span>
+          <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs text-[var(--muted)]" role="status"><span aria-hidden="true" className={`size-2 rounded-full ${liveStatus === "connected" ? "bg-emerald-500" : liveStatus === "offline" ? "bg-red-500" : "bg-amber-500"}`} />{liveStatus === "connected" ? "Đang đồng bộ" : liveStatus === "offline" ? "Mất kết nối realtime" : "Đang kết nối…"}</span>
         </header>
         <main className={`mx-auto min-w-0 px-4 pb-12 pt-7 sm:px-6 lg:px-8 ${pathname === "/dashboard" ? "max-w-[1800px]" : "max-w-[1560px]"} ${pathname === "/room-status" ? "xl:h-[calc(100dvh-4rem)] xl:overflow-hidden xl:py-4" : ""}`} id="main-content" tabIndex={-1}>
           {children}

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
 import { DataMessage, PageHeader, Panel } from "@/components/ui/page";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { useLiveRevision } from "@/features/realtime/live-updates-provider";
 import { ChannelEditor } from "./channel-editor";
 import { getChannels, updateChannel } from "./channels-api";
 import type { ChannelCategory, ChannelItem } from "./types";
@@ -20,6 +21,7 @@ function getCategoryLabel(category: string) {
 }
 
 export function ChannelDirectory() {
+  const liveRevision = useLiveRevision();
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -39,11 +41,11 @@ export function ChannelDirectory() {
   useEffect(() => {
     let mounted = true;
     void getChannels(search, category, active)
-      .then((data) => { if (mounted) setChannels(data); })
-      .catch((reason) => setError(getApiErrorMessage(reason, "Không thể tải danh sách kênh.")))
-      .finally(() => setLoading(false));
+      .then((data) => { if (mounted) { setChannels(data); setError(undefined); } })
+      .catch((reason) => { if (mounted) setError(getApiErrorMessage(reason, "Không thể tải danh sách kênh.")); })
+      .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
-  }, [active, category, reloadKey, search]);
+  }, [active, category, reloadKey, search, liveRevision]);
 
   function refresh() {
     setLoading(true);

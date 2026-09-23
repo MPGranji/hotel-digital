@@ -3,6 +3,7 @@ using HotelDigital.Api.Data.Entities;
 using HotelDigital.Api.Infrastructure.Auditing;
 using HotelDigital.Api.Infrastructure.Errors;
 using HotelDigital.Api.Infrastructure.Persistence;
+using HotelDigital.Api.Infrastructure.Time;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
@@ -34,9 +35,12 @@ public sealed class InvoiceService(HotelDbContext db, IAuditWriter auditWriter, 
         {
             var booking = await db.Bookings.SingleOrDefaultAsync(x => x.BookingId == request.BookingId, ct)
                 ?? throw new ResourceNotFoundException("booking_not_found", "Không tìm thấy booking để lập hóa đơn.");
+            var expectedStatus = booking.Status == "CHECKED_OUT" ? "ISSUED" : "DRAFT";
+            if (booking.Status is "CANCELLED" or "NO_SHOW" || request.Status.Trim().ToUpperInvariant() != expectedStatus)
+                throw new BusinessRuleException("invoice_status_managed_by_booking", "Trạng thái hóa đơn được quyết định theo booking; không thể tự phát hành hoặc hủy riêng.");
             if (await db.Invoices.AnyAsync(x => x.BookingId == request.BookingId, ct))
                 throw new ConflictException("booking_invoice_exists", "Booking này đã có hóa đơn.");
-            var number = Clean(request.InvoiceNumber) ?? $"INV-{DateTime.Now:yyyyMMdd}-{booking.BookingId:000000}";
+            var number = Clean(request.InvoiceNumber) ?? $"INV-{HotelClock.Now():yyyyMMdd}-{booking.BookingId:000000}";
             await EnsureNumberUniqueAsync(number, null, ct);
             var invoice = new Invoice { BookingId = booking.BookingId, InvoiceNumber = number };
             Apply(invoice, booking, request);
@@ -62,6 +66,8 @@ public sealed class InvoiceService(HotelDbContext db, IAuditWriter auditWriter, 
             if (request.BookingId != invoice.BookingId)
                 throw new BusinessRuleException("invoice_booking_locked", "Không thể đổi booking của hóa đơn đã tạo.");
             var nextStatus = request.Status.Trim().ToUpperInvariant();
+            if (nextStatus != invoice.Status)
+                throw new BusinessRuleException("invoice_status_managed_by_booking", "Trạng thái hóa đơn được quyết định theo booking; hãy xử lý trạng thái booking thay vì đổi hóa đơn riêng.");
             if (invoice.Status == "VOID" && nextStatus != "VOID")
                 throw new BusinessRuleException("invoice_is_void", "Hóa đơn đã hủy không thể khôi phục trạng thái.");
             if (invoice.Status == "ISSUED" && nextStatus == "DRAFT")
@@ -82,11 +88,11 @@ public sealed class InvoiceService(HotelDbContext db, IAuditWriter auditWriter, 
     {
         var status = request.Status.Trim().ToUpperInvariant();
         invoice.Status = status;
-        if (status == "ISSUED" && invoice.IssuedAt is null) invoice.IssuedAt = DateTime.Now;
+        if (status == "ISSUED" && invoice.IssuedAt is null) invoice.IssuedAt = HotelClock.Now();
         invoice.GrossAmount = booking.GrossRevenue;
         invoice.PaidAmount = booking.PaidAmount;
         invoice.DebtAmount = booking.DebtAmount;
-        invoice.BalanceDue = booking.BalanceDue;
+        invoice.BalanceDue = status == "VOID" ? 0 : booking.BalanceDue;
         invoice.Note = Clean(request.Note);
     }
 

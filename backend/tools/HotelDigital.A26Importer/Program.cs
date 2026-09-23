@@ -1,6 +1,7 @@
 using System.Text.Json;
 using HotelDigital.A26Importer;
 using HotelDigital.Api.Data;
+using HotelDigital.Api.Features.Dashboard;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
@@ -58,6 +59,14 @@ if (arguments.SchemaScriptPath is not null)
 if (arguments.VerifyOnly)
 {
     await PrintDatabaseFingerprintAsync(db, CancellationToken.None);
+    var dashboard = await new DashboardQueryService(db).GetAsync(null, CancellationToken.None);
+    Console.WriteLine(JsonSerializer.Serialize(new
+    {
+        DashboardSelectedMonth = dashboard.SelectedMonth,
+        DashboardMonthCount = dashboard.Months.Count,
+        DashboardChannelCount = dashboard.Channels.Count,
+        DashboardRoomTypeCount = dashboard.RoomTypes.Count
+    }, new JsonSerializerOptions { WriteIndented = true }));
     return;
 }
 if (arguments.SchemaOnly) return;
@@ -163,7 +172,21 @@ static async Task PrintDatabaseFingerprintAsync(HotelDbContext db, CancellationT
              JOIN sys.schemas schemaInfo ON schemaInfo.schema_id = viewInfo.schema_id
             WHERE schemaInfo.name = N'hotel'
               AND viewInfo.name IN (N'vFactBooking', N'vFactPayment', N'vFactRoomNight', N'vFactRoomDay')
-              AND columnInfo.name IN (N'CustomerID', N'CustomerName', N'FullName', N'Phone', N'Email', N'Address')) AS PublicFactPiiColumns;
+              AND columnInfo.name IN (N'CustomerID', N'CustomerName', N'FullName', N'Phone', N'Email', N'Address')) AS PublicFactPiiColumns,
+          DB_NAME() AS DatabaseName,
+          (SELECT COALESCE(MAX(definition), N'')
+             FROM sys.check_constraints
+            WHERE parent_object_id = OBJECT_ID(N'hotel.Payment')
+              AND name = N'CK_Payment_Amount') AS PaymentAmountConstraint,
+          (SELECT COUNT_BIG(*)
+             FROM sys.database_permissions permission
+             JOIN sys.database_principals principal ON principal.principal_id = permission.grantee_principal_id
+            WHERE principal.name = N'hotel_app'
+              AND permission.class = 1
+              AND permission.major_id = OBJECT_ID(N'hotel.Payment')
+              AND permission.permission_name IN (N'UPDATE', N'DELETE')
+              AND permission.state = N'D') AS PaymentUpdateDeleteDenials,
+          (SELECT COUNT_BIG(*) FROM hotel.Payment WHERE Amount < 0) AS NegativePaymentCount;
         """;
 
     await db.Database.OpenConnectionAsync(cancellationToken);
@@ -199,9 +222,37 @@ static async Task PrintDatabaseFingerprintAsync(HotelDbContext db, CancellationT
             BookingMaintenanceConflicts = reader.GetInt64(21),
             InactiveRoomBookingDays = reader.GetInt64(22),
             BookingPaymentMismatches = reader.GetInt64(23),
-            PublicFactPiiColumns = reader.GetInt64(24)
+            PublicFactPiiColumns = reader.GetInt64(24),
+            DatabaseName = reader.GetString(25),
+            PaymentAmountConstraint = reader.GetString(26),
+            PaymentUpdateDeleteDenials = reader.GetInt64(27),
+            NegativePaymentCount = reader.GetInt64(28)
         };
         Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+        await reader.CloseAsync();
+
+        await using var principalCommand = db.Database.GetDbConnection().CreateCommand();
+        principalCommand.CommandText = """
+            SELECT principal.name, principal.type_desc,
+                   COALESCE(STRING_AGG(role.name, N', '), N'') AS DatabaseRoles
+            FROM sys.database_principals principal
+            LEFT JOIN sys.database_role_members membership ON membership.member_principal_id = principal.principal_id
+            LEFT JOIN sys.database_principals role ON role.principal_id = membership.role_principal_id
+            WHERE principal.type IN ('E', 'X')
+            GROUP BY principal.name, principal.type_desc
+            ORDER BY principal.name;
+            """;
+        var externalPrincipals = new List<object>();
+        await using var principalReader = await principalCommand.ExecuteReaderAsync(cancellationToken);
+        while (await principalReader.ReadAsync(cancellationToken))
+            externalPrincipals.Add(new
+            {
+                Name = principalReader.GetString(0),
+                Type = principalReader.GetString(1),
+                DatabaseRoles = principalReader.GetString(2)
+            });
+        Console.WriteLine(JsonSerializer.Serialize(new { ExternalPrincipals = externalPrincipals },
+            new JsonSerializerOptions { WriteIndented = true }));
     }
     finally
     {

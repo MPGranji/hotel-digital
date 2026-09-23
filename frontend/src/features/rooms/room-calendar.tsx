@@ -6,15 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
 import { DataMessage } from "@/components/ui/page";
 import { getApiErrorMessage } from "@/lib/api-client";
+import { useHotelToday } from "@/lib/use-hotel-today";
+import { useLiveRevision } from "@/features/realtime/live-updates-provider";
 import { getRoomCalendar } from "./rooms-api";
 import { RoomHourlyCalendar } from "./room-hourly-calendar";
 import { bookingAccent, calendarStatus } from "./room-calendar-colors";
 import type { RoomCalendarCell, RoomCalendarResponse } from "./types";
-
-function localDate(date = new Date()) {
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
-}
 
 function dateLabel(value: string) {
   return new Intl.DateTimeFormat("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" }).format(new Date(`${value}T00:00:00`));
@@ -32,7 +29,10 @@ export function RoomCalendar() {
 }
 
 function DailyRoomCalendar() {
-  const [dateFrom, setDateFrom] = useState(localDate());
+  const liveRevision = useLiveRevision();
+  const today = useHotelToday();
+  const [selectedDateFrom, setDateFrom] = useState<string | null>(null);
+  const dateFrom = selectedDateFrom ?? today;
   const [days, setDays] = useState(14);
   const [roomType, setRoomType] = useState("");
   const [floor, setFloor] = useState("");
@@ -45,12 +45,13 @@ function DailyRoomCalendar() {
   const loading = !current;
 
   useEffect(() => {
+    if (!dateFrom) return;
     let active = true;
     void getRoomCalendar(dateFrom, days)
       .then((response) => { if (active) setResult({ key: requestKey, data: response }); })
       .catch((reason) => { if (active) setResult({ key: requestKey, error: getApiErrorMessage(reason, "Không thể tải lịch phòng.") }); });
     return () => { active = false; };
-  }, [dateFrom, days, requestKey]);
+  }, [dateFrom, days, requestKey, liveRevision]);
 
   function refresh() { setReloadKey((value) => value + 1); }
 
@@ -66,7 +67,7 @@ function DailyRoomCalendar() {
         <label className="text-xs font-medium text-[var(--muted)]">Khoảng xem<Select className="mt-1 w-36" onChange={(e) => setDays(Number(e.target.value))} value={days}><option value={7}>7 ngày</option><option value={14}>14 ngày</option><option value={21}>21 ngày</option><option value={31}>31 ngày</option></Select></label>
         <label className="text-xs font-medium text-[var(--muted)]">Hạng phòng<Select className="mt-1 w-44" onChange={(event) => setRoomType(event.target.value)} value={roomType}><option value="">Tất cả hạng</option>{roomTypes.map((item) => <option key={item}>{item}</option>)}</Select></label>
         <label className="text-xs font-medium text-[var(--muted)]">Tầng<Select className="mt-1 w-36" onChange={(event) => setFloor(event.target.value)} value={floor}><option value="">Tất cả tầng</option>{floors.map((item) => <option key={item} value={item}>Tầng {item}</option>)}</Select></label>
-        <Button onClick={() => { const today = localDate(); if (dateFrom === today) refresh(); else setDateFrom(today); }} variant="secondary">Hôm nay</Button>
+        <Button onClick={() => { if (dateFrom === today) refresh(); else setDateFrom(null); }} variant="secondary">Hôm nay</Button>
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--muted)]"><Legend color={calendarStatus.AVAILABLE.dot} label="Trống" /><Legend color={calendarStatus.BOOKED.dot} label="Đã đặt" /><Legend color={calendarStatus.CHECKED_IN.dot} label="Đang ở" /><Legend color={calendarStatus.CHECKED_OUT.dot} label="Đã trả (giữ đến giờ đi)" /><Legend color={calendarStatus.MAINTENANCE.dot} label="Bảo trì" /><Legend color={calendarStatus.INACTIVE.dot} label="Ngừng dùng" /><span>Vạch màu: cùng lượt đặt</span></div>
     </div>

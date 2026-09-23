@@ -89,9 +89,7 @@ public sealed class BookingQueryService(HotelDbContext db)
 
     public async Task<BookingOperationsSnapshot> GetOperationsAsync(CancellationToken cancellationToken)
     {
-        var hotelNow = TimeZoneInfo.ConvertTimeFromUtc(
-            DateTime.UtcNow,
-            TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time"));
+        var hotelNow = HotelDigital.Api.Infrastructure.Time.HotelClock.Now();
         var horizon = hotelNow.Date.AddDays(8);
         var items = await db.Bookings.AsNoTracking()
             .Where(x => x.Status == "CHECKED_IN" || (x.Status == "BOOKED" && x.CheckInAt < horizon))
@@ -119,7 +117,7 @@ public sealed class BookingQueryService(HotelDbContext db)
     public async Task<BookingOptions> GetOptionsAsync(CancellationToken cancellationToken)
     {
         var roomRows = await db.Rooms.AsNoTracking()
-            .Where(x => x.IsActive && x.CountsTowardOccupancy)
+            .Where(x => x.IsActive && x.CountsTowardOccupancy && x.RoomType.IsActive)
             .OrderBy(x => x.RoomNumber)
             .Select(x => new
             {
@@ -202,7 +200,7 @@ public sealed class BookingQueryService(HotelDbContext db)
             });
 
         return await db.Rooms.AsNoTracking()
-            .Where(room => room.IsActive && room.CountsTowardOccupancy)
+            .Where(room => room.IsActive && room.CountsTowardOccupancy && room.RoomType.IsActive)
             .Where(room => !room.Blocks.Any(block =>
                 block.IsActive
                 && block.StartAt < checkOutAt

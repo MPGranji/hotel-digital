@@ -9,6 +9,10 @@ export function setAccessTokenProvider(provider?: AccessTokenProvider) {
   accessTokenProvider = provider;
 }
 
+export async function getAccessToken() {
+  return accessTokenProvider?.();
+}
+
 export function getApiProblem(error: unknown): ProblemDetails | undefined {
   if (error instanceof ApiError && typeof error.detail === "object" && error.detail !== null) {
     return error.detail as ProblemDetails;
@@ -17,6 +21,12 @@ export function getApiProblem(error: unknown): ProblemDetails | undefined {
 }
 
 export function getApiErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof ApiError && error.status === 403) {
+    return "Tài khoản chưa được cấp quyền sử dụng khách sạn.";
+  }
+  if (error instanceof ApiError && error.status === 401) {
+    return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+  }
   if (error instanceof DOMException && error.name === "TimeoutError") {
     return "Kết nối đang chậm. Bạn thử lại sau ít phút nhé.";
   }
@@ -33,7 +43,7 @@ export class ApiError extends Error {
 }
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const accessToken = await accessTokenProvider?.();
+  const accessToken = await getAccessToken();
   const isRead = !init?.method || init.method.toUpperCase() === "GET";
   const response = await fetch(`${env.apiBaseUrl}${path}`, {
     ...init,

@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency, formatDateTime } from "@/lib/format";
+import { useLiveRevision } from "@/features/realtime/live-updates-provider";
 import { getCustomerStays } from "./customers-api";
 import type { CustomerStay } from "./types";
 
 export function CustomerStays({ customerId, customerName, onClose }: Readonly<{ customerId: number; customerName: string; onClose: () => void }>) {
+  const liveRevision = useLiveRevision();
   const [stays, setStays] = useState<CustomerStay[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -17,7 +19,7 @@ export function CustomerStays({ customerId, customerName, onClose }: Readonly<{ 
       .then((result) => { if (active) setStays(result); })
       .finally(() => setLoading(false));
     return () => { active = false; };
-  }, [customerId]);
+  }, [customerId, liveRevision]);
 
   return (
     <div aria-labelledby="customer-stays-title" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" role="dialog">
