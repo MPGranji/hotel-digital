@@ -7,9 +7,11 @@ import { Input, Select } from "@/components/ui/field";
 import { DataMessage } from "@/components/ui/page";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { getRoomHourlyCalendar, getRooms } from "./rooms-api";
+import { bookingAccent, calendarStatus } from "./room-calendar-colors";
 import type { RoomHourlyCalendarEvent, RoomHourlyCalendarResponse, RoomListItem } from "./types";
 
 const hourHeight = 56;
+const emptyRooms: RoomListItem[] = [];
 
 function localDate(date = new Date()) {
   const offset = date.getTimezoneOffset() * 60_000;
@@ -37,28 +39,29 @@ function timeLabel(value: string) {
 }
 
 export function RoomHourlyCalendar() {
-  const [rooms, setRooms] = useState<RoomListItem[]>([]);
+  const [roomListResult, setRoomListResult] = useState<{ key: number; items?: RoomListItem[]; error?: string }>();
   const [roomType, setRoomType] = useState("");
   const [floor, setFloor] = useState("");
   const [roomId, setRoomId] = useState("");
   const [weekDate, setWeekDate] = useState(localDate());
   const [startHour, setStartHour] = useState(6);
   const [endHour, setEndHour] = useState(24);
-  const [data, setData] = useState<RoomHourlyCalendarResponse>();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>();
+  const [calendarResult, setCalendarResult] = useState<{ key: string; data?: RoomHourlyCalendarResponse; error?: string }>();
   const [reloadKey, setReloadKey] = useState(0);
+  const [roomsReloadKey, setRoomsReloadKey] = useState(0);
   const weekStart = mondayOf(weekDate);
+  const currentRoomList = roomListResult?.key === roomsReloadKey ? roomListResult : undefined;
+  const rooms = currentRoomList?.items ?? emptyRooms;
+  const roomsLoading = !currentRoomList;
 
   useEffect(() => {
     let active = true;
     void getRooms().then((items) => {
       if (!active) return;
-      setRooms(items.filter((room) => room.countsTowardOccupancy));
-      setRoomId((current) => current || String(items.find((room) => room.isActive && room.countsTowardOccupancy)?.id ?? ""));
-    }).catch((reason) => { setError(getApiErrorMessage(reason, "Không thể tải danh sách phòng.")); setLoading(false); });
+      setRoomListResult({ key: roomsReloadKey, items: items.filter((room) => room.countsTowardOccupancy) });
+    }).catch((reason) => { if (active) setRoomListResult({ key: roomsReloadKey, error: getApiErrorMessage(reason, "Không thể tải danh sách phòng.") }); });
     return () => { active = false; };
-  }, []);
+  }, [roomsReloadKey]);
 
   const roomTypes = useMemo(() => [...new Set(rooms.map((room) => room.roomTypeName))].sort(), [rooms]);
   const floors = useMemo(() => [...new Set(rooms.map((room) => room.floorLabel).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, "vi", { numeric: true })), [rooms]);
@@ -67,42 +70,49 @@ export function RoomHourlyCalendar() {
   const selectedRoomId = filteredRooms.some((room) => String(room.id) === roomId)
     ? roomId
     : filteredRooms[0] ? String(filteredRooms[0].id) : "";
+  const calendarKey = `${selectedRoomId}|${weekStart}|${reloadKey}`;
+  const currentCalendar = calendarResult?.key === calendarKey ? calendarResult : undefined;
+  const data = currentCalendar?.data;
+  const error = currentRoomList?.error ?? currentCalendar?.error;
+  const loading = roomsLoading || (Boolean(selectedRoomId) && !currentCalendar);
 
   useEffect(() => {
     if (!selectedRoomId) return;
     let active = true;
     void getRoomHourlyCalendar(Number(selectedRoomId), weekStart)
-      .then((result) => { if (active) setData(result); })
-      .catch((reason) => { if (active) setError(getApiErrorMessage(reason, "Không thể tải lịch phòng theo giờ.")); })
-      .finally(() => { if (active) setLoading(false); });
+      .then((response) => { if (active) setCalendarResult({ key: calendarKey, data: response }); })
+      .catch((reason) => { if (active) setCalendarResult({ key: calendarKey, error: getApiErrorMessage(reason, "Không thể tải lịch phòng theo giờ.") }); });
     return () => { active = false; };
-  }, [reloadKey, selectedRoomId, weekStart]);
+  }, [calendarKey, selectedRoomId, weekStart]);
 
   const hours = Array.from({ length: endHour - startHour + 1 }, (_, index) => startHour + index);
   const calendarHeight = (endHour - startHour) * hourHeight;
 
-  function moveWeek(days: number) { setLoading(true); setError(undefined); setWeekDate(addDays(weekStart, days)); }
-  function refresh() { setLoading(true); setError(undefined); setReloadKey((value) => value + 1); }
+  function moveWeek(days: number) { setWeekDate(addDays(weekStart, days)); }
+  function refresh() {
+    if (rooms.length === 0) setRoomsReloadKey((value) => value + 1);
+    else setReloadKey((value) => value + 1);
+  }
 
-  return <>
-    <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
+  return <div className="flex min-h-0 flex-1 flex-col">
+    <div className="mb-3 shrink-0 rounded-xl border border-slate-200 bg-white p-3">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-        <label className="text-sm font-medium text-[var(--foreground)]">Hạng phòng<Select className="mt-1.5" onChange={(event) => { setRoomType(event.target.value); setRoomId(""); setLoading(true); }} value={roomType}><option value="">Tất cả hạng</option>{roomTypes.map((item) => <option key={item}>{item}</option>)}</Select></label>
-        <label className="text-sm font-medium text-[var(--foreground)]">Tầng<Select className="mt-1.5" onChange={(event) => { setFloor(event.target.value); setRoomId(""); setLoading(true); }} value={floor}><option value="">Tất cả tầng</option>{floors.map((item) => <option key={item} value={item}>Tầng {item}</option>)}</Select></label>
-        <label className="text-sm font-medium text-[var(--foreground)]">Phòng<Select className="mt-1.5" onChange={(event) => { setRoomId(event.target.value); setLoading(true); }} value={selectedRoomId}><option value="">Chọn phòng</option>{filteredRooms.map((room) => <option key={room.id} value={room.id}>{room.roomNumber} · {room.roomTypeName}</option>)}</Select></label>
-        <label className="text-sm font-medium text-[var(--foreground)]">Tuần có ngày<Input className="mt-1.5" onChange={(event) => { setLoading(true); setError(undefined); setWeekDate(event.target.value); }} type="date" value={weekDate} /></label>
+        <label className="text-sm font-medium text-[var(--foreground)]">Hạng phòng<Select className="mt-1.5" onChange={(event) => { setRoomType(event.target.value); setRoomId(""); }} value={roomType}><option value="">Tất cả hạng</option>{roomTypes.map((item) => <option key={item}>{item}</option>)}</Select></label>
+        <label className="text-sm font-medium text-[var(--foreground)]">Tầng<Select className="mt-1.5" onChange={(event) => { setFloor(event.target.value); setRoomId(""); }} value={floor}><option value="">Tất cả tầng</option>{floors.map((item) => <option key={item} value={item}>Tầng {item}</option>)}</Select></label>
+        <label className="text-sm font-medium text-[var(--foreground)]">Phòng<Select className="mt-1.5" onChange={(event) => setRoomId(event.target.value)} value={selectedRoomId}><option value="">Chọn phòng</option>{filteredRooms.map((room) => <option key={room.id} value={room.id}>{room.roomNumber} · {room.roomTypeName}</option>)}</Select></label>
+        <label className="text-sm font-medium text-[var(--foreground)]">Tuần có ngày<Input className="mt-1.5" onChange={(event) => setWeekDate(event.target.value)} type="date" value={weekDate} /></label>
         <label className="text-sm font-medium text-[var(--foreground)]">Từ giờ<Select className="mt-1.5" onChange={(event) => setStartHour(Math.min(Number(event.target.value), endHour - 1))} value={startHour}>{Array.from({ length: 24 }, (_, hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}</Select></label>
         <label className="text-sm font-medium text-[var(--foreground)]">Đến giờ<Select className="mt-1.5" onChange={(event) => setEndHour(Math.max(Number(event.target.value), startHour + 1))} value={endHour}>{Array.from({ length: 24 }, (_, index) => index + 1).map((hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}</Select></label>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button onClick={() => moveWeek(-7)} variant="secondary">← Tuần trước</Button>
-        <Button onClick={() => { setLoading(true); setError(undefined); setWeekDate(localDate()); }} variant="secondary">Hôm nay</Button>
+        <Button onClick={() => { const today = localDate(); if (mondayOf(today) === weekStart) refresh(); else setWeekDate(today); }} variant="secondary">Hôm nay</Button>
         <Button onClick={() => moveWeek(7)} variant="secondary">Tuần sau →</Button>
-        <div className="ml-auto flex flex-wrap gap-3 text-xs text-slate-600"><Legend color="bg-[#91b8ae]" label="Đã đặt" /><Legend color="bg-[#d6b472]" label="Đang ở" /><Legend color="bg-[#cb8f84]" label="Bảo trì" /></div>
+        <div className="ml-auto flex flex-wrap gap-3 text-xs text-slate-600"><Legend color={calendarStatus.BOOKED.dot} label="Đã đặt" /><Legend color={calendarStatus.CHECKED_IN.dot} label="Đang ở" /><Legend color={calendarStatus.CHECKED_OUT.dot} label="Đã trả (giữ đến giờ đi)" /><Legend color={calendarStatus.MAINTENANCE.dot} label="Bảo trì" /><span>Vạch màu: cùng lượt đặt</span></div>
       </div>
     </div>
 
-    {error ? <DataMessage action={<Button onClick={refresh}>Thử lại</Button>} description={error} title="Không thể tải lịch theo giờ" /> : rooms.length === 0 && loading ? <DataMessage title="Đang tải danh sách phòng…" /> : !selectedRoomId ? <DataMessage description="Thử thay đổi hạng phòng hoặc tầng." title="Không có phòng phù hợp" /> : loading ? <DataMessage title="Đang tải lịch phòng theo giờ…" /> : data ? <div className="max-h-[68vh] overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+    {error ? <DataMessage action={<Button onClick={refresh}>Thử lại</Button>} description={error} title="Không thể tải lịch theo giờ" /> : rooms.length === 0 && loading ? <DataMessage title="Đang tải danh sách phòng…" /> : !selectedRoomId ? <DataMessage description="Thử thay đổi hạng phòng hoặc tầng." title="Không có phòng phù hợp" /> : loading ? <DataMessage title="Đang tải lịch phòng theo giờ…" /> : data ? <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="min-w-[980px]">
         <div className="sticky top-0 z-30 grid grid-cols-[72px_repeat(7,minmax(128px,1fr))] border-b border-slate-200 bg-slate-50">
           <div className="border-r border-slate-200 px-2 py-3 text-center text-xs font-medium text-slate-500">Giờ</div>
@@ -117,7 +127,7 @@ export function RoomHourlyCalendar() {
         </div>
       </div>
     </div> : null}
-  </>;
+  </div>;
 }
 
 function DayColumn({ date, events, startHour, endHour }: Readonly<{ date: string; events: RoomHourlyCalendarEvent[]; startHour: number; endHour: number }>) {
@@ -141,12 +151,13 @@ function DayColumn({ date, events, startHour, endHour }: Readonly<{ date: string
 
 function CalendarEvent({ event, top, height }: Readonly<{ event: RoomHourlyCalendarEvent; top: number; height: number }>) {
   const checkedIn = event.status === "CHECKED_IN";
+  const checkedOut = event.status === "CHECKED_OUT";
   const maintenance = event.kind === "MAINTENANCE";
-  const classes = maintenance ? "border-[#dfc0b9] bg-[#f9efec] text-[#8c493e]" : checkedIn ? "border-[#d8c6a7] bg-[#faf4e9] text-[#755b2e]" : "border-[#bdd1cb] bg-[#edf5f2] text-[#24544d]";
-  const content = <><b className="block truncate text-xs">{maintenance ? "Bảo trì" : event.customerName}</b><span className="block truncate text-[10px] opacity-80">{timeLabel(event.startAt)}–{timeLabel(event.endAt)}{maintenance ? ` · ${event.maintenanceReason}` : ` · ${event.bookingCode}`}</span></>;
-  const style = { top, height };
-  if (event.bookingId) return <Link className={`absolute inset-x-1 z-10 overflow-hidden rounded-md border px-2 py-1 shadow-sm hover:brightness-95 ${classes}`} href={`/bookings?bookingId=${event.bookingId}`} style={style} title={`${event.customerName} · ${event.bookingCode}`}>{content}</Link>;
-  return <div className={`absolute inset-x-1 z-10 overflow-hidden rounded-md border px-2 py-1 shadow-sm ${classes}`} style={style} title={event.maintenanceReason}>{content}</div>;
+  const classes = maintenance ? calendarStatus.MAINTENANCE.cell : checkedIn ? calendarStatus.CHECKED_IN.cell : checkedOut ? calendarStatus.CHECKED_OUT.cell : calendarStatus.BOOKED.cell;
+  const label = maintenance ? "Bảo trì" : checkedIn ? "Đang ở" : checkedOut ? "Đã trả" : "Đã đặt";
+  const content = <><b className="block truncate text-xs">{label}{maintenance ? "" : ` · ${event.customerName}`}</b><span className="block truncate text-[10px] opacity-80">{timeLabel(event.startAt)}–{timeLabel(event.endAt)}{maintenance ? ` · ${event.maintenanceReason}` : ` · ${event.bookingCode}`}</span></>;
+  if (event.bookingId) return <Link aria-label={`${label}: ${event.customerName}, ${event.bookingCode}, ${timeLabel(event.startAt)} đến ${timeLabel(event.endAt)}`} className={`absolute inset-x-1 z-10 overflow-hidden rounded-md border border-[var(--border)] border-l-4 px-2 py-1 shadow-sm ${classes}`} href={`/bookings?bookingId=${event.bookingId}`} style={{ top, height, borderLeftColor: bookingAccent(event.bookingId) }} title={`${label} · ${event.customerName} · ${event.bookingCode}`}>{content}</Link>;
+  return <div className={`absolute inset-x-1 z-10 overflow-hidden rounded-md border border-[var(--border)] px-2 py-1 shadow-sm ${classes}`} style={{ top, height }} title={event.maintenanceReason}>{content}</div>;
 }
 
 function Legend({ color, label }: Readonly<{ color: string; label: string }>) {

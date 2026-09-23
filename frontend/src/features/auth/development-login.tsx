@@ -20,25 +20,25 @@ export function DevelopmentLogin({ onSignedIn }: Readonly<{ onSignedIn: () => vo
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-[var(--background)] px-4 py-10">
-      <section className="grid w-full max-w-4xl overflow-hidden rounded-3xl border border-[var(--border)] bg-white shadow-[0_24px_70px_-35px_rgba(36,52,77,0.25)] md:grid-cols-[0.9fr_1.1fr]">
-        <div className="hidden flex-col justify-between bg-[var(--primary)] p-10 text-white md:flex">
+    <main className="login-page flex min-h-dvh items-center justify-center px-4 py-8 sm:px-8">
+      <section className="grid w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/40 bg-white shadow-[0_30px_100px_-30px_rgba(9,27,36,0.5)] md:min-h-[560px] md:grid-cols-[0.9fr_1.1fr]">
+        <div className="hidden flex-col justify-between bg-[var(--sidebar-panel)] p-10 text-white md:flex lg:p-12">
           <div>
             <div className="flex size-12 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20"><Hotel aria-hidden="true" size={25} /></div>
-            <p className="mt-6 text-sm font-semibold tracking-[0.12em] text-[#e4ece8]">HOTEL DIGITAL</p>
-            <h1 className="mt-5 max-w-xs text-3xl font-semibold leading-tight tracking-tight">Sẵn sàng cho ca làm việc hôm nay.</h1>
+            <p className="mt-6 text-xs font-semibold tracking-[0.16em] text-[var(--sidebar-panel-muted)]">HOTEL DIGITAL</p>
+            <h1 className="mt-12 max-w-sm text-[clamp(2rem,3vw,2.75rem)] font-semibold leading-[1.15] tracking-tight">Một nơi để cả ca làm việc luôn rõ ràng.</h1>
           </div>
-          <p className="mt-12 max-w-xs text-sm leading-6 text-[#e4ece8]">Phòng, đặt phòng và khách lưu trú trong cùng một không gian dễ theo dõi.</p>
+          <p className="mt-12 max-w-xs border-t border-white/20 pt-5 text-sm leading-6 text-[var(--sidebar-panel-muted)]">Theo dõi phòng, đặt phòng và khách lưu trú — vừa đủ thông tin, đúng lúc bạn cần.</p>
         </div>
 
-        <div className="px-6 py-9 sm:px-12 sm:py-12">
+        <div className="flex flex-col justify-center bg-white px-6 py-9 sm:px-12 sm:py-12 lg:px-16">
           <div className="mb-8 md:hidden">
             <div className="flex size-11 items-center justify-center rounded-xl bg-[var(--nav-active)] text-[var(--primary)]"><Hotel aria-hidden="true" size={23} /></div>
             <p className="mt-4 text-xs font-semibold tracking-[0.12em] text-[var(--primary)]">HOTEL DIGITAL</p>
           </div>
-          <p className="text-sm font-semibold text-[var(--primary)]">Chào bạn</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)]">Đăng nhập</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Nhập tài khoản để tiếp tục quản lý khách sạn.</p>
+          <p className="text-sm font-semibold text-[var(--primary)]">Chào bạn,</p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)]">Mừng bạn trở lại</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Đăng nhập để bắt đầu ca làm việc.</p>
 
           <form className="mt-8 space-y-5" onSubmit={submit}>
             <label className="block text-sm font-medium text-[var(--foreground)]">

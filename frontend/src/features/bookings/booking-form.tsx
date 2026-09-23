@@ -21,6 +21,10 @@ export function BookingForm({ bookingId, initialRoomId, initialCheckInDate, init
     return <DataMessage title="Đang tải biểu mẫu đặt phòng…" />;
   }
 
+  if (model.initialLoadError) {
+    return <DataMessage action={<Button onClick={model.retryInitialLoad}>Thử lại</Button>} description={model.initialLoadError} title="Chưa mở được đặt phòng" />;
+  }
+
   return (
     <>
       <PageHeader
@@ -42,7 +46,7 @@ export function BookingForm({ bookingId, initialRoomId, initialCheckInDate, init
           <OperationSection disabled={Boolean(closed)} model={model} />
           {!closed ? (
             <div className="flex justify-end border-t border-slate-200 pt-5">
-              <Button className="w-full md:w-auto" disabled={model.saving} type="submit">
+              <Button className="w-full md:w-auto" disabled={model.saving || model.checkingAvailability || model.invalidStayTime || !model.availableRoomIds || Boolean(model.availabilityError)} type="submit">
                 {model.saving ? "Đang lưu…" : model.booking ? "Lưu thay đổi" : model.form.entryMode === "WALK_IN" ? "Nhận phòng ngay" : model.form.entryMode === "ONLINE" ? "Lưu đặt phòng online" : "Lưu đặt phòng"}
               </Button>
             </div>

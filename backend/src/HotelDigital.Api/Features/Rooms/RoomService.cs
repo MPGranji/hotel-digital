@@ -33,8 +33,8 @@ public sealed class RoomService(
             BookingCount = room.Bookings.Count,
             IsUnderMaintenance = room.Blocks.Any(block => block.IsActive && block.StartAt <= now && block.EndAt > now),
             Current = room.Bookings
-                .Where(booking => booking.Status == "CHECKED_IN" || (booking.Status == "BOOKED" && booking.CheckInAt <= now && booking.CheckOutAt > now))
-                .OrderBy(booking => booking.Status == "CHECKED_IN" ? 0 : 1)
+                .Where(booking => booking.Status == "CHECKED_IN" || ((booking.Status == "BOOKED" || booking.Status == "CHECKED_OUT") && booking.CheckInAt <= now && booking.CheckOutAt > now))
+                .OrderBy(booking => booking.Status == "CHECKED_IN" ? 0 : booking.Status == "BOOKED" ? 1 : 2)
                 .ThenBy(booking => booking.CheckInAt)
                 .Select(booking => new
                 {
@@ -113,13 +113,13 @@ public sealed class RoomService(
                 var now = GetHotelNow();
                 var hasOpenBooking = await db.Bookings.AsNoTracking().AnyAsync(x =>
                     x.RoomId == id
-                    && (x.Status == "BOOKED" || x.Status == "CHECKED_IN")
+                    && (x.Status == "BOOKED" || x.Status == "CHECKED_IN" || x.Status == "CHECKED_OUT")
                     && x.CheckOutAt > now,
                     token);
                 if (hasOpenBooking)
                     throw new BusinessRuleException(
                         "room_has_open_booking",
-                        "Không thể ngừng phòng đang có khách hoặc còn booking sắp tới.");
+                        "Không thể ngừng phòng khi khung giờ đã đặt còn hiệu lực hoặc còn booking sắp tới.");
             }
             var roomNumber = request.RoomNumber.Trim().ToUpperInvariant();
             await EnsureRoomNumberUniqueAsync(roomNumber, id, token);
@@ -232,6 +232,7 @@ public sealed class RoomService(
         (true, true, _) => "MAINTENANCE",
         (true, false, "CHECKED_IN") => "OCCUPIED",
         (true, false, "BOOKED") => "RESERVED",
+        (true, false, "CHECKED_OUT") => "HELD",
         _ => "AVAILABLE"
     };
 

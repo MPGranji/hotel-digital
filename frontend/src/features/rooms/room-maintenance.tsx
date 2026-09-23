@@ -27,20 +27,22 @@ interface MaintenanceRow {
 
 export function RoomMaintenance({ rooms }: Readonly<{ rooms: RoomListItem[] }>) {
   const [dateFrom, setDateFrom] = useState(localDate());
-  const [data, setData] = useState<RoomCalendarResponse>();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>();
+  const [result, setResult] = useState<{ key: string; data?: RoomCalendarResponse; error?: string }>();
   const [reloadKey, setReloadKey] = useState(0);
   const [editing, setEditing] = useState<{ blockId?: number }>();
+  const requestKey = `${dateFrom}|${reloadKey}`;
+  const current = result?.key === requestKey ? result : undefined;
+  const data = current?.data;
+  const error = current?.error;
+  const loading = !current;
 
   useEffect(() => {
     let active = true;
     void getRoomCalendar(dateFrom, 31)
-      .then((result) => { if (active) setData(result); })
-      .catch((reason) => { if (active) setError(getApiErrorMessage(reason, "Không thể tải lịch bảo trì.")); })
-      .finally(() => { if (active) setLoading(false); });
+      .then((response) => { if (active) setResult({ key: requestKey, data: response }); })
+      .catch((reason) => { if (active) setResult({ key: requestKey, error: getApiErrorMessage(reason, "Không thể tải lịch bảo trì.") }); });
     return () => { active = false; };
-  }, [dateFrom, reloadKey]);
+  }, [dateFrom, requestKey]);
 
   const schedules = useMemo(() => {
     const byId = new Map<number, MaintenanceRow>();
@@ -68,8 +70,6 @@ export function RoomMaintenance({ rooms }: Readonly<{ rooms: RoomListItem[] }>) 
   }, [data]);
 
   function refresh() {
-    setLoading(true);
-    setError(undefined);
     setReloadKey((value) => value + 1);
   }
 
@@ -80,8 +80,8 @@ export function RoomMaintenance({ rooms }: Readonly<{ rooms: RoomListItem[] }>) 
           <h2 className="text-lg font-semibold">Lịch bảo trì phòng</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">Chọn phòng và thời gian cần bảo trì. Lịch phòng sẽ hiển thị khoảng thời gian này.</p>
         </div>
-        <label className="text-sm font-medium text-[var(--foreground)] md:ml-auto">Xem từ ngày<Input className="mt-1.5 w-44" onChange={(event) => { setLoading(true); setError(undefined); setDateFrom(event.target.value); }} type="date" value={dateFrom} /></label>
-        <Button onClick={() => { setLoading(true); setError(undefined); setDateFrom(localDate()); }} variant="secondary">Hôm nay</Button>
+        <label className="text-sm font-medium text-[var(--foreground)] md:ml-auto">Xem từ ngày<Input className="mt-1.5 w-44" onChange={(event) => setDateFrom(event.target.value)} type="date" value={dateFrom} /></label>
+        <Button onClick={() => { const today = localDate(); if (dateFrom === today) refresh(); else setDateFrom(today); }} variant="secondary">Hôm nay</Button>
         <Button onClick={() => setEditing({})}>Thêm lịch bảo trì</Button>
       </div>
 

@@ -35,6 +35,9 @@ public static class BookingEndpoints
         group.MapGet("/options", (BookingQueryService service, CancellationToken cancellationToken) =>
             service.GetOptionsAsync(cancellationToken));
 
+        group.MapGet("/operations", (BookingQueryService service, CancellationToken cancellationToken) =>
+            service.GetOperationsAsync(cancellationToken));
+
         group.MapGet("/availability", (
             DateTime checkInAt,
             DateTime checkOutAt,

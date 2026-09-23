@@ -8,16 +8,15 @@ type FormModel = ReturnType<typeof useBookingForm>;
 
 export function StaySection({ model, disabled }: Readonly<{ model: FormModel; disabled: boolean }>) {
   const {
-    form, booking, options, availableRoomIds, checkingAvailability, fieldErrors,
-    updateField, updateRoomMode, toggleRoom, updateStayDate, updateStayNights, updateStayOption, updateEntryMode,
+    form, booking, options, availableRoomIds, availabilityError, invalidStayTime, checkingAvailability, fieldErrors,
+    updateField, updateRoomMode, toggleRoom, updateStayDate, updateStayNights, updateStayOption, updateEntryMode, retryAvailability,
   } = model;
   const selectedRoomIds = [form.roomId, ...form.additionalRoomIds].filter(Boolean);
   const selectedRooms = options.rooms.filter((room) => selectedRoomIds.includes(String(room.id)));
   const guestCapacity = selectedRooms.length > 0
     ? Math.min(...selectedRooms.map((room) => room.capacity))
     : undefined;
-  const availableRooms = options.rooms.filter((room) =>
-    availableRoomIds?.includes(room.id) || (booking && String(room.id) === form.roomId));
+  const availableRooms = options.rooms.filter((room) => availableRoomIds?.includes(room.id));
   const selectedChannel = options.channels.find((channel) => String(channel.id) === form.channelId);
   const showExternalBookingCode = selectedChannel
     && selectedChannel.category !== "OFFLINE";
@@ -55,7 +54,7 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
         <Field error={fieldErrors.checkInAt?.[0]} htmlFor="checkInAt" label="Ngày giờ đến" required>
           <Input disabled={disabled} id="checkInAt" onChange={(event) => updateStayDate("checkInAt", event.target.value)} type="datetime-local" value={form.checkInAt} />
         </Field>
-        <Field error={fieldErrors.checkOutAt?.[0]} htmlFor="checkOutAt" label="Ngày giờ đi" required>
+        <Field error={fieldErrors.checkOutAt?.[0] ?? (invalidStayTime ? "Ngày giờ đi phải sau ngày giờ đến." : undefined)} htmlFor="checkOutAt" label="Ngày giờ đi" required>
           <Input disabled={disabled} id="checkOutAt" onChange={(event) => updateStayDate("checkOutAt", event.target.value)} type="datetime-local" value={form.checkOutAt} />
         </Field>
         <Field error={fieldErrors.billedNights?.[0]} htmlFor="billedNights" label="Số đêm tính tiền" required>
@@ -79,7 +78,7 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
         </div> : booking.groupCode ? <p className="md:col-span-2 xl:col-span-3 rounded-lg bg-[var(--nav-active)] px-4 py-3 text-sm text-[var(--primary-strong)]">Đặt phòng này thuộc nhóm <b>{booking.groupCode}</b>.</p> : null}
 
         <div className={`md:col-span-2 xl:col-span-3 ${form.roomMode === "single" || booking ? "max-w-2xl" : ""}`}>
-          {checkingAvailability ? <div className="rounded-lg border border-[#bdd1cb] bg-[var(--nav-active)] px-4 py-4 text-sm text-[var(--primary-strong)]">Đang kiểm tra phòng trống theo thời gian đã chọn…</div> : form.roomMode === "single" || booking ? (
+          {availabilityError ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#dfc0b9] bg-[#f9efec] px-4 py-3 text-sm text-[#8c493e]" role="alert"><span>{availabilityError}</span><button className="font-semibold underline" onClick={retryAvailability} type="button">Thử lại</button></div> : invalidStayTime ? <p className="rounded-lg bg-[var(--surface-muted)] px-4 py-3 text-sm text-[var(--muted)]">Sửa giờ đi để xem phòng còn trống.</p> : !form.checkInAt || !form.checkOutAt ? <p className="rounded-lg bg-[var(--surface-muted)] px-4 py-3 text-sm text-[var(--muted)]">Chọn đủ ngày giờ đến và đi để xem phòng trống.</p> : checkingAvailability ? <p className="rounded-lg bg-[var(--surface-muted)] px-4 py-3 text-sm text-[var(--muted)]" role="status">Đang tìm phòng còn trống…</p> : form.roomMode === "single" || booking ? (
             <Field error={fieldErrors.roomId?.[0]} htmlFor="roomId" label="Phòng còn trống" required>
               <SearchableSelect
                 disabled={disabled || availableRoomIds === undefined}

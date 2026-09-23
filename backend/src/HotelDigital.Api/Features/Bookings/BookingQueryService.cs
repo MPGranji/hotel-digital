@@ -3,11 +3,41 @@ using HotelDigital.Api.Data;
 using HotelDigital.Api.Data.Entities;
 using HotelDigital.Api.Infrastructure.Errors;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace HotelDigital.Api.Features.Bookings;
 
 public sealed class BookingQueryService(HotelDbContext db)
 {
+    private static readonly Expression<Func<Booking, BookingListItem>> ListProjection = x => new BookingListItem(
+        x.BookingId,
+        x.BookingCode,
+        x.GroupCode,
+        x.Room.RoomNumber,
+        x.Room.RoomType.Name,
+        x.CustomerId,
+        x.Customer.FullName,
+        x.Customer.Phone,
+        x.ChannelId,
+        x.Channel.Name,
+        x.Channel.Category,
+        x.BookingMode,
+        x.Invoice == null ? null : (long?)x.Invoice.InvoiceId,
+        x.InvoiceNumber,
+        x.Invoice == null ? null : x.Invoice.Status,
+        x.CheckInAt,
+        x.CheckOutAt,
+        x.BilledNights,
+        x.GuestCount,
+        x.RoomRevenue,
+        x.ServiceRevenue,
+        x.GrossRevenue,
+        x.PaidAmount,
+        x.PreviousDebt,
+        x.DebtAmount,
+        x.Status,
+        Convert.ToBase64String(x.Version));
+
     public async Task<PagedResponse<BookingListItem>> GetPageAsync(
         DateTime? dateFrom,
         DateTime? dateTo,
@@ -51,36 +81,26 @@ public sealed class BookingQueryService(HotelDbContext db)
             .ThenByDescending(x => x.BookingId)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(x => new BookingListItem(
-                x.BookingId,
-                x.BookingCode,
-                x.GroupCode,
-                x.Room.RoomNumber,
-                x.Room.RoomType.Name,
-                x.CustomerId,
-                x.Customer.FullName,
-                x.Customer.Phone,
-                x.ChannelId,
-                x.Channel.Name,
-                x.Channel.Category,
-                x.BookingMode,
-                x.Invoice == null ? null : (long?)x.Invoice.InvoiceId,
-                x.InvoiceNumber,
-                x.Invoice == null ? null : x.Invoice.Status,
-                x.CheckInAt,
-                x.CheckOutAt,
-                x.BilledNights,
-                x.GuestCount,
-                x.RoomRevenue,
-                x.ServiceRevenue,
-                x.GrossRevenue,
-                x.PaidAmount,
-                x.DebtAmount,
-                x.Status,
-                Convert.ToBase64String(x.Version)))
+            .Select(ListProjection)
             .ToListAsync(cancellationToken);
 
         return new PagedResponse<BookingListItem>(rows, page, pageSize, totalItems);
+    }
+
+    public async Task<BookingOperationsSnapshot> GetOperationsAsync(CancellationToken cancellationToken)
+    {
+        var hotelNow = TimeZoneInfo.ConvertTimeFromUtc(
+            DateTime.UtcNow,
+            TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time"));
+        var horizon = hotelNow.Date.AddDays(8);
+        var items = await db.Bookings.AsNoTracking()
+            .Where(x => x.Status == "CHECKED_IN" || (x.Status == "BOOKED" && x.CheckInAt < horizon))
+            .OrderBy(x => x.CheckInAt)
+            .ThenBy(x => x.BookingId)
+            .Select(ListProjection)
+            .ToListAsync(cancellationToken);
+
+        return new BookingOperationsSnapshot(hotelNow, DateOnly.FromDateTime(hotelNow), items);
     }
 
     public async Task<BookingDetail> GetAsync(long id, CancellationToken cancellationToken)

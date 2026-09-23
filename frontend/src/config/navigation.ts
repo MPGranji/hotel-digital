@@ -21,7 +21,7 @@ export const navigationGroups: { label: string; items: NavigationItem[] }[] = [
   {
     label: "Hôm nay",
     items: [
-      { href: "/operations", label: "Vận hành phòng", icon: LayoutGrid },
+      { href: "/operations", label: "Ca trực hôm nay", icon: LayoutGrid },
       { href: "/bookings", label: "Đặt / nhận phòng", icon: ClipboardPlus },
       { href: "/ledger", label: "Sổ đặt phòng", icon: BookOpenText },
     ],

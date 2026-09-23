@@ -77,9 +77,16 @@ export interface BookingListItem {
   serviceRevenue: number;
   grossRevenue: number;
   paidAmount: number;
+  previousDebt: number;
   debtAmount: number;
   status: string;
   version: string;
+}
+
+export interface BookingOperationsSnapshot {
+  hotelNow: string;
+  hotelDate: string;
+  items: BookingListItem[];
 }
 
 export interface BookingOptions {

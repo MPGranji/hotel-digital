@@ -22,7 +22,7 @@ export function Panel({ children, className = "" }: Readonly<{ children: ReactNo
 
 export function SectionTitle({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <h2 className="mb-4 border-b border-[var(--border)] pb-3 text-base font-semibold tracking-tight text-[var(--foreground)]">{children}</h2>
+    <h2 className="mb-5 border-b border-[var(--border)] border-l-[3px] border-l-[var(--accent)] bg-[var(--sidebar)] px-3 py-3 text-[1.05rem] font-semibold tracking-tight text-[var(--primary-strong)]">{children}</h2>
   );
 }
 

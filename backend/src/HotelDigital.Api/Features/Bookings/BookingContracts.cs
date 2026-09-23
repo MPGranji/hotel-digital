@@ -63,9 +63,15 @@ public sealed record BookingListItem(
     decimal ServiceRevenue,
     decimal GrossRevenue,
     decimal PaidAmount,
+    decimal PreviousDebt,
     decimal DebtAmount,
     string Status,
     string Version);
+
+public sealed record BookingOperationsSnapshot(
+    DateTime HotelNow,
+    DateOnly HotelDate,
+    IReadOnlyList<BookingListItem> Items);
 
 public sealed record BookingDetail(
     long Id,

@@ -1,7 +1,9 @@
 using HotelDigital.Api.Data;
 using HotelDigital.Api.Data.Entities;
+using HotelDigital.Api.Features.Bookings;
 using HotelDigital.Api.Features.Rooms;
 using HotelDigital.Api.Infrastructure.Auditing;
+using HotelDigital.Api.Infrastructure.Errors;
 using HotelDigital.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -71,6 +73,36 @@ public sealed class RoomStatusTests
 
         Assert.Equal("MAINTENANCE", rooms.Single(x => x.RoomNumber == "101").Status);
         Assert.Equal("INACTIVE", rooms.Single(x => x.RoomNumber == "102").Status);
+    }
+
+    [Fact]
+    public async Task Checked_out_booking_keeps_room_held_until_planned_departure()
+    {
+        await using var db = CreateContext();
+        var now = GetHotelNow();
+        SeedRoom(db, roomId: 1, roomNumber: "101");
+        SeedReferences(db);
+        db.Bookings.Add(CreateBooking(1, "CHECKED_OUT", now.AddHours(-2), now.AddHours(2)));
+        await db.SaveChangesAsync();
+
+        var calendar = new RoomCalendarService(db, new NoopAuditWriter(), new InlineTransactionExecutor());
+        var daily = await calendar.GetAsync(DateOnly.FromDateTime(now), 1, CancellationToken.None);
+        var hourly = await calendar.GetHourlyAsync(1, DateOnly.FromDateTime(now), CancellationToken.None);
+        var room = Assert.Single(await CreateService(db).GetAsync(null, null, CancellationToken.None));
+        var bookingQueries = new BookingQueryService(db);
+        var beforeDeparture = await bookingQueries.GetAvailableRoomIdsAsync(now.AddHours(1), now.AddHours(3), null, CancellationToken.None);
+        var atDeparture = await bookingQueries.GetAvailableRoomIdsAsync(now.AddHours(2), now.AddHours(3), null, CancellationToken.None);
+
+        Assert.Equal("HELD", room.Status);
+        Assert.Equal(now.AddHours(2), room.CurrentCheckOutAt);
+        Assert.Equal("CHECKED_OUT", Assert.Single(Assert.Single(daily.Rooms).Cells).Status);
+        Assert.Equal("CHECKED_OUT", Assert.Single(hourly.Events).Status);
+        Assert.Empty(beforeDeparture);
+        Assert.Equal([1], atDeparture);
+
+        var error = await Assert.ThrowsAsync<BusinessRuleException>(() => CreateService(db).UpdateRoomAsync(
+            1, new RoomWriteRequest("101", 1, null, false, true, null), CancellationToken.None));
+        Assert.Equal("room_has_open_booking", error.Code);
     }
 
     private static RoomService CreateService(HotelDbContext db) =>

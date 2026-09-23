@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Textarea } from "@/components/ui/field";
 import { SectionTitle } from "@/components/ui/page";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { formatDateTime } from "@/lib/format";
 import type { useBookingForm } from "./use-booking-form";
 
 type FormModel = ReturnType<typeof useBookingForm>;
@@ -45,7 +46,7 @@ export function OperationSection({ model, disabled }: Readonly<{ model: FormMode
               </>
             ) : null}
             {booking.status === "CHECKED_IN" ? (
-              <Button disabled={saving} onClick={() => confirmAndChange("check-out", "Xác nhận khách đã trả phòng?")}>Trả phòng</Button>
+              <Button disabled={saving} onClick={() => confirmAndChange("check-out", `Xác nhận khách đã trả phòng? Phòng vẫn giữ lịch đến ${formatDateTime(booking.checkOutAt)}. Nếu muốn mở phòng sớm, hãy sửa giờ đi, kiểm tra lại tiền phòng và lưu trước khi trả phòng.`)}>Trả phòng</Button>
             ) : null}
           </div> : null}
         </div>

@@ -1,23 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f5f0;
+  --background: #f3f6f7;
   --surface: #ffffff;
-  --surface-muted: #f1eee7;
-  --sidebar: #fcfbf8;
-  --nav-active: #e6efec;
-  --nav-text: #506267;
-  --foreground: #24344d;
-  --muted: #64716f;
-  --border: #ddd6cc;
-  --border-strong: #b9b2a8;
-  --primary: #2f5d62;
-  --primary-strong: #244a4e;
-  --accent: #b08d57;
-  --positive: #5f8d7a;
-  --warning: #b08d57;
-  --danger: #b85c4a;
-  --focus: #2f5d62;
+  --surface-muted: #edf2f3;
+  --sidebar: #f8fafb;
+  --sidebar-panel: #1d333e;
+  --sidebar-panel-active: #345361;
+  --sidebar-panel-muted: #b9cbd0;
+  --nav-active: #e0edef;
+  --nav-text: #50636d;
+  --foreground: #203139;
+  --muted: #5b6e76;
+  --border: #d9e2e5;
+  --border-strong: #aebfc5;
+  --primary: #285767;
+  --primary-strong: #1c4553;
+  --accent: #698e98;
+  --positive: #4f806f;
+  --warning: #a87943;
+  --danger: #af5a54;
+  --focus: #285767;
 }
 
 * {
@@ -34,8 +37,37 @@ body {
 }
 
 ::selection {
-  background: #d9e8e2;
+  background: #d6e8eb;
   color: var(--foreground);
+}
+
+.login-page {
+  background-color: var(--sidebar-panel);
+  background-image: linear-gradient(115deg, rgb(14 35 44 / 58%), rgb(18 40 49 / 22%) 65%, rgb(14 35 44 / 42%)), url("/hotel-lobby.webp");
+  background-position: center;
+  background-size: cover;
+}
+
+.booking-operation-dialog {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(100%, 30rem);
+  max-width: none;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--surface);
+  box-shadow: -20px 0 60px rgb(18 40 49 / 24%);
+}
+
+.booking-operation-dialog:not([open]) {
+  display: none;
+}
+
+.booking-operation-dialog::backdrop {
+  background: rgb(14 35 44 / 54%);
 }
 
 .skip-link {
