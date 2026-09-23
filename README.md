@@ -31,7 +31,7 @@ Mở `http://localhost:3000`.
 
 Web dùng màn hình đăng nhập nội bộ. Tài khoản local/test là `admin` / `admin`; API kiểm tra thông tin đăng nhập rồi cấp token có hạn 8 giờ. Khách hàng không cần tài khoản để nhân viên tạo hồ sơ hoặc đặt phòng cho họ. Production bắt buộc đặt `HOTEL_ADMIN_PASSWORD` khác `admin` và `HOTEL_AUTH_SIGNING_SECRET` (chuỗi bí mật tối thiểu 32 byte) trong `backend/.env` hoặc cấu hình tương đương trên host.
 
-`/dashboard` lấy số liệu tổng hợp trực tiếp từ các view Azure SQL và cập nhật qua SignalR. Nếu có license và quyền xem Power BI, phần báo cáo bổ sung chỉ nhận `NEXT_PUBLIC_POWER_BI_EMBED_URL` dạng secure `https://app.powerbi.com/reportEmbed?...`. Tạo URL bằng **Embed report → Website or portal** và cấp quyền xem trong Power BI Service. Không dùng URL `app.powerbi.com/view` cho báo cáo nội bộ; mã Publish to web cũ cần được chủ sở hữu thu hồi trước production.
+`/dashboard` lấy số liệu tổng hợp trực tiếp từ các view Azure SQL và cập nhật qua SignalR. Phần Power BI bên dưới dùng link Publish to web công khai nên không yêu cầu tài khoản Microsoft. Báo cáo này dùng model Import và chỉ thay đổi khi semantic model được làm mới; nó không có cập nhật thời gian thực. Link công khai hiện có trang chứa tên và số điện thoại khách, cần loại bỏ các trường này trước khi dùng với dữ liệu thật.
 
 ## Chạy API
 
@@ -239,7 +239,7 @@ dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backen
 - Sổ thu tiền chỉ ghi nhận khoản thu nội bộ (tiền mặt, thẻ, chuyển khoản); không kết nối cổng thanh toán hoặc ngân hàng. Trạng thái chưa thu/thu một phần/đã thu đủ được tự tính từ các khoản đã ghi.
 - Đăng nhập nhân viên bằng tài khoản web và ghi audit cho các thao tác dữ liệu.
 
-Màn hình vận hành `Khách & phòng` đã được tích hợp vào web. Dashboard Power BI cần URL nhúng riêng tư và quyền truy cập báo cáo được cấu hình trong môi trường triển khai. Nhập/xuất Excel và nhúng Power BI có xác thực trong ứng dụng cần được kiểm tra trước khi đưa vào production.
+Màn hình vận hành `Khách & phòng` đã được tích hợp vào web. Báo cáo Power BI hiện được nhúng công khai và không tự cập nhật theo SignalR; để đạt cập nhật gần thời gian thực cần chuyển model sang DirectQuery, cấu hình automatic page refresh và kiểm tra giới hạn của Power BI capacity.
 
 ## Đăng nhập quản trị nội bộ
 
