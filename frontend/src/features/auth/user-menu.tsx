@@ -11,7 +11,7 @@ export function UserMenu({ collapsed = false }: Readonly<{ collapsed?: boolean }
       <div aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white"><UserRound size={18} /></div>
       <div className={`min-w-0 flex-1 ${collapsed ? "lg:sr-only" : ""}`}>
         <p className="truncate text-sm font-semibold text-white">{session.displayName}</p>
-        <p className="truncate text-xs text-[var(--sidebar-panel-muted)]">{session.isDevelopment ? "Tài khoản quản trị" : session.email}</p>
+        <p className="truncate text-xs text-[var(--sidebar-panel-muted)]">{session.email ?? "Tài khoản quản trị"}</p>
       </div>
       {session.signOut ? (
         <button

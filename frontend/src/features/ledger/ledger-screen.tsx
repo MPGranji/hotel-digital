@@ -172,7 +172,7 @@ function LedgerRow({ booking, deleting, onDelete }: Readonly<{ booking: BookingL
       <td className="px-3 py-3 text-right">
         <div className="flex justify-end gap-2">
           <Link className="inline-flex min-h-9 items-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100" href={`/bookings?bookingId=${booking.id}&mode=view`}>Xem</Link>
-          <Link aria-label={`Xử lý ${booking.bookingCode}: sửa, thu tiền hoặc đổi trạng thái`} className="inline-flex min-h-9 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100" href={`/bookings?bookingId=${booking.id}`}>Xử lý</Link>
+          <Link aria-label={`Xử lý ${booking.bookingCode}: sửa, thu tiền hoặc đổi trạng thái`} className="inline-flex min-h-9 shrink-0 items-center whitespace-nowrap rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100" href={`/bookings?bookingId=${booking.id}`}>Xử lý</Link>
           <Button className="min-h-9 px-3 py-1" disabled={deleting} onClick={() => onDelete(booking)} variant="danger">{deleting ? "Đang xóa…" : "Xóa"}</Button>
         </div>
       </td>

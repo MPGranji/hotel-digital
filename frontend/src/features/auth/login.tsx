@@ -2,21 +2,38 @@
 
 import { Eye, EyeOff, Hotel, LockKeyhole, UserRound } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { env } from "@/lib/env";
 
-export function DevelopmentLogin({ onSignedIn }: Readonly<{ onSignedIn: () => void }>) {
+export function Login({ onSignedIn }: Readonly<{ onSignedIn: (session: { accessToken: string; displayName: string }) => void }>) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string>();
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (username.trim() !== "admin" || password !== "admin") {
-      setError("Tên đăng nhập hoặc mật khẩu chưa đúng. Bạn thử lại nhé.");
-      return;
+    try {
+      const response = await fetch(`${env.apiBaseUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
+      if (response.status === 429) {
+        setError("Bạn đã thử đăng nhập quá nhiều lần. Vui lòng đợi một phút.");
+        return;
+      }
+      if (!response.ok) {
+        setError(response.status === 401
+          ? "Tên đăng nhập hoặc mật khẩu chưa đúng. Bạn thử lại nhé."
+          : "Chưa thể đăng nhập. Vui lòng thử lại sau.");
+        return;
+      }
+      const session = await response.json() as { accessToken: string; displayName: string };
+      setError(undefined);
+      onSignedIn(session);
+    } catch {
+      setError("Không kết nối được máy chủ. Vui lòng thử lại sau.");
     }
-    setError(undefined);
-    onSignedIn();
   }
 
   return (

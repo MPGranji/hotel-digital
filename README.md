@@ -29,7 +29,7 @@ npm run dev
 
 Mở `http://localhost:3000`.
 
-Để dùng màn hình đăng nhập thử nghiệm ở localhost, sao chép `frontend/.env.example` thành `frontend/.env.local`, giữ `NEXT_PUBLIC_ENABLE_DEV_LOGIN=true` và bật `DevelopmentAuthentication__Enabled=true` cho API local. Docker Compose dùng file `compose.demo.yaml` để bật hai cờ này và chỉ mở cổng trên loopback. Bản triển khai nội bộ phải cấu hình Entra ID (`NEXT_PUBLIC_ENTRA_TENANT_ID`, `NEXT_PUBLIC_ENTRA_CLIENT_ID`, `NEXT_PUBLIC_ENTRA_API_SCOPE`); API yêu cầu `Authentication__TenantId`, `Authentication__Audience` và `Authentication__RequiredRole`. Cấp app role tương ứng cho nhân viên được duyệt.
+Web dùng màn hình đăng nhập nội bộ. Tài khoản local/test là `admin` / `admin`; API kiểm tra thông tin đăng nhập rồi cấp token có hạn 8 giờ. Khách hàng không cần tài khoản để nhân viên tạo hồ sơ hoặc đặt phòng cho họ. Production bắt buộc đặt `HOTEL_ADMIN_PASSWORD` khác `admin` và `HOTEL_AUTH_SIGNING_SECRET` (chuỗi bí mật tối thiểu 32 byte) trong `backend/.env` hoặc cấu hình tương đương trên host.
 
 `/dashboard` lấy số liệu tổng hợp trực tiếp từ các view Azure SQL và cập nhật qua SignalR. Nếu có license và quyền xem Power BI, phần báo cáo bổ sung chỉ nhận `NEXT_PUBLIC_POWER_BI_EMBED_URL` dạng secure `https://app.powerbi.com/reportEmbed?...`. Tạo URL bằng **Embed report → Website or portal** và cấp quyền xem trong Power BI Service. Không dùng URL `app.powerbi.com/view` cho báo cáo nội bộ; mã Publish to web cũ cần được chủ sở hữu thu hồi trước production.
 
@@ -48,19 +48,19 @@ Không commit mật khẩu, access token hoặc connection string thật.
 
 Docker Compose đóng gói và chạy cả frontend lẫn API. Frontend chờ container API được khởi động và cả hai container tự khởi động lại khi Docker restart.
 
-Sao chép `backend/.env.example` thành `backend/.env`, sau đó điền connection string của Azure SQL dành cho môi trường local/test:
+Sao chép `backend/.env.example` thành `backend/.env`, sau đó điền connection string của Azure SQL, mật khẩu admin mới và bí mật ký token:
 
 ```powershell
-docker compose --env-file backend/.env -f compose.yaml -f compose.demo.yaml up -d --build
+docker compose --env-file backend/.env -f compose.yaml up -d --build
 ```
 
-Frontend chạy tại `http://localhost:3000`; API chạy tại `http://localhost:5080`. Endpoint `/health` kiểm tra tiến trình API; `/health/database` yêu cầu nhân viên đăng nhập và kiểm tra kết nối thật đến Azure SQL. File `compose.yaml` mặc định dùng xác thực production và từ chối khởi động API nếu thiếu cấu hình Entra ID; không thêm `compose.demo.yaml` khi triển khai thật.
+Frontend chạy tại `http://localhost:3000`; API chạy tại `http://localhost:5080`. Endpoint `/health` kiểm tra tiến trình API; `/health/database` yêu cầu nhân viên đăng nhập và kiểm tra kết nối thật đến Azure SQL. API từ chối khởi động nếu thiếu `HOTEL_AUTH_SIGNING_SECRET`.
 
 ## Cập nhật dữ liệu realtime
 
 Sau khi một thao tác ghi vào Azure SQL hoàn tất, API gửi tín hiệu SignalR tới các phiên nhân viên. Các tab đang mở tự tải lại dữ liệu cho lịch phòng, khách, booking, hóa đơn, sổ thu và màn hình vận hành. Biểu mẫu booking đang sửa sẽ báo có phiên bản mới để nhân viên tự chọn tải lại; nội dung chưa lưu không bị thay thế. Khi mất kết nối, web tự nối lại và đối chiếu dữ liệu khi tab được mở lại hoặc sau mỗi 2 phút. Nếu gửi tín hiệu lỗi, thao tác ghi vẫn thành công; lần đối chiếu kế tiếp sẽ đồng bộ dữ liệu.
 
-Chạy API một instance có thể dùng SignalR trực tiếp. Khi chạy nhiều instance hoặc cần dịch vụ quản lý kết nối, tạo Azure SignalR Service và cấu hình `Azure__SignalR__ConnectionString` (trong Compose: `HOTEL_SIGNALR_CONNECTION_STRING`) bằng secret của môi trường. Không đưa connection string vào image hay Git. Cấu hình origin frontend trong `Cors:AllowedOrigins` và bảo đảm proxy/App Service cho phép WebSocket. Hub `/hubs/updates` yêu cầu token và app role của nhân viên như API.
+Chạy API một instance có thể dùng SignalR trực tiếp. Khi chạy nhiều instance hoặc cần dịch vụ quản lý kết nối, tạo Azure SignalR Service và cấu hình `Azure__SignalR__ConnectionString` (trong Compose: `HOTEL_SIGNALR_CONNECTION_STRING`) bằng secret của môi trường. Không đưa connection string vào image hay Git. Cấu hình origin frontend trong `Cors:AllowedOrigins` và bảo đảm proxy/App Service cho phép WebSocket. Hub `/hubs/updates` yêu cầu token đăng nhập như API.
 
 Môi trường Azure hiện dùng App Service Linux F1 và Azure SQL free offer, chỉ phục vụ thử nghiệm với số ít phiên. F1 giới hạn 5 WebSocket; SQL được đặt tự tạm dừng khi dùng hết hạn mức miễn phí trong tháng. Vercel Hobby dành cho dự án cá nhân, phi thương mại. Trước khi dùng thật cho nhân viên, cần chốt gói hạ tầng phù hợp và thu hồi mã Power BI Publish to web đang công khai.
 
@@ -237,15 +237,15 @@ dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backen
 - Một lượt có thể đặt nhiều phòng cùng mã nhóm.
 - Quản lý hóa đơn nháp/đã phát hành/đã hủy, liên kết với booking.
 - Sổ thu tiền chỉ ghi nhận khoản thu nội bộ (tiền mặt, thẻ, chuyển khoản); không kết nối cổng thanh toán hoặc ngân hàng. Trạng thái chưa thu/thu một phần/đã thu đủ được tự tính từ các khoản đã ghi.
-- Đăng nhập nhân viên bằng Microsoft Entra ID và ghi audit cho các thao tác dữ liệu.
+- Đăng nhập nhân viên bằng tài khoản web và ghi audit cho các thao tác dữ liệu.
 
 Màn hình vận hành `Khách & phòng` đã được tích hợp vào web. Dashboard Power BI cần URL nhúng riêng tư và quyền truy cập báo cáo được cấu hình trong môi trường triển khai. Nhập/xuất Excel và nhúng Power BI có xác thực trong ứng dụng cần được kiểm tra trước khi đưa vào production.
 
 ## Đăng nhập quản trị nội bộ
 
-Màn hình `admin/admin` chỉ chạy trong bản demo trên `localhost` khi `NEXT_PUBLIC_ENABLE_DEV_LOGIN=true` và API chạy môi trường `Development` với `DevelopmentAuthentication:Enabled=true`. Không dùng cấu hình này để triển khai production.
+Màn hình đăng nhập dùng được trong cả môi trường local và triển khai. API giới hạn 5 lần thử đăng nhập mỗi phút theo địa chỉ IP.
 
-Production cần cấu hình `Authentication:TenantId`, `Authentication:Audience`, `Authentication:RequiredRole` cho API và `NEXT_PUBLIC_ENTRA_TENANT_ID`, `NEXT_PUBLIC_ENTRA_CLIENT_ID`, `NEXT_PUBLIC_ENTRA_API_SCOPE` cho web. Với Entra access token v2, `Authentication:Audience` là **Application (client) ID dạng GUID của API**, còn `NEXT_PUBLIC_ENTRA_API_SCOPE` là `api://<client-id>/access_as_user`. API kiểm tra token và app role của nhân viên; thiếu cấu hình thì API không khởi động. Tài khoản và app registration thực tế phải được cấp bởi đơn vị vận hành.
+Production cần `Authentication:SigningSecret` tối thiểu 32 byte và `Authentication:AdminPassword` khác `admin` cho API. Thiếu hai giá trị này, API sẽ không khởi động.
 
 ## Database cho web
 
