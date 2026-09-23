@@ -8,6 +8,6 @@ export function PowerBiReport({ embedUrl }: Readonly<{ embedUrl: string }>) {
     loading="lazy"
     referrerPolicy="strict-origin-when-cross-origin"
     src={embedUrl}
-    title="Báo cáo Power BI có xác thực"
+    title="Báo cáo Power BI công khai"
   />;
 }
