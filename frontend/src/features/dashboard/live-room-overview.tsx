@@ -8,7 +8,7 @@ import { getRooms } from "@/features/rooms/rooms-api";
 import type { RoomListItem } from "@/features/rooms/types";
 import { getApiErrorMessage } from "@/lib/api-client";
 
-type RoomStatus = RoomListItem["status"];
+type RoomStatus = Exclude<RoomListItem["status"], "INACTIVE">;
 
 const statuses: Array<{ key: RoomStatus; label: string; color: string }> = [
   { key: "AVAILABLE", label: "Trống", color: "bg-[#82939b]" },
@@ -16,7 +16,6 @@ const statuses: Array<{ key: RoomStatus; label: string; color: string }> = [
   { key: "OCCUPIED", label: "Đang ở", color: "bg-[#5f8d7a]" },
   { key: "HELD", label: "Tạm giữ", color: "bg-[#7d90a5]" },
   { key: "MAINTENANCE", label: "Bảo trì", color: "bg-[#b85c4a]" },
-  { key: "INACTIVE", label: "Ngừng dùng", color: "bg-[#a5aaa5]" },
 ];
 
 export function LiveRoomOverview() {
@@ -41,9 +40,9 @@ export function LiveRoomOverview() {
     return () => { active = false; };
   }, [revision]);
 
-  const counts = Object.fromEntries(statuses.map(({ key }) => [key, rooms?.filter((room) => room.status === key).length ?? 0])) as Record<RoomStatus, number>;
-  const activeRooms = rooms?.filter((room) => room.isActive && room.countsTowardOccupancy).length ?? 0;
-  const displayedRooms = rooms?.filter((room) => room.isActive).sort((a, b) => a.roomNumber.localeCompare(b.roomNumber, "vi", { numeric: true })) ?? [];
+  const businessRooms = rooms?.filter((room) => room.isActive && room.countsTowardOccupancy) ?? [];
+  const counts = Object.fromEntries(statuses.map(({ key }) => [key, businessRooms.filter((room) => room.status === key).length])) as Record<RoomStatus, number>;
+  const displayedRooms = [...businessRooms].sort((a, b) => a.roomNumber.localeCompare(b.roomNumber, "vi", { numeric: true }));
 
   return <section aria-labelledby="live-rooms-title" className="space-y-4">
     <div className="flex flex-wrap items-end justify-between gap-3">
@@ -60,14 +59,14 @@ export function LiveRoomOverview() {
     {error ? <p className="rounded-lg border border-[#dfc0b9] bg-[#f9efec] px-4 py-3 text-sm text-[#8c493e]" role="alert">{error}{rooms ? " Số liệu bên dưới có thể đã cũ." : ""}</p> : null}
     {!rooms ? <div aria-label="Đang tải hiện trạng phòng" className="h-52 animate-pulse rounded-xl bg-[var(--surface-muted)]" role="status" /> : <>
       <div className="grid gap-3 sm:grid-cols-3">
-        <RoomMetric label="Phòng kinh doanh" value={activeRooms} />
+        <RoomMetric label="Phòng kinh doanh" value={businessRooms.length} />
         <RoomMetric label="Đang ở" value={counts.OCCUPIED} />
         <RoomMetric label="Còn trống" value={counts.AVAILABLE} />
       </div>
       <Panel>
         <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Tình trạng phòng</h3><Link className="text-sm font-semibold text-[var(--primary)] hover:underline" href="/room-status">Xem lịch phòng →</Link></div>
         <div aria-label="Tỷ lệ phòng theo trạng thái" className="mt-4 flex h-4 overflow-hidden rounded-full bg-[var(--surface-muted)]" role="img">
-          {statuses.map((status) => counts[status.key] > 0 ? <div className={status.color} key={status.key} style={{ width: `${counts[status.key] / rooms.length * 100}%` }} title={`${status.label}: ${counts[status.key]}`} /> : null)}
+          {statuses.map((status) => counts[status.key] > 0 ? <div className={status.color} key={status.key} style={{ width: `${counts[status.key] / businessRooms.length * 100}%` }} title={`${status.label}: ${counts[status.key]}`} /> : null)}
         </div>
         <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
           {statuses.map((status) => <span className="inline-flex items-center gap-2" key={status.key}><span className={`size-2.5 rounded-full ${status.color}`} />{status.label} <strong className="tabular-nums">{counts[status.key]}</strong></span>)}
