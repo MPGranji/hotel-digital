@@ -111,9 +111,29 @@ public sealed class BookingCommandService(
         long id,
         BookingWriteRequest request,
         CancellationToken cancellationToken)
+        => await UpdateCoreAsync(id, request, null, cancellationToken);
+
+    public async Task UpdateWithRefundAsync(
+        long id,
+        BookingWriteRequest request,
+        IReadOnlyList<BookingRefundInput> refunds,
+        CancellationToken cancellationToken)
+        => await UpdateCoreAsync(id, request, refunds, cancellationToken);
+
+    private async Task UpdateCoreAsync(
+        long id,
+        BookingWriteRequest request,
+        IReadOnlyList<BookingRefundInput>? refunds,
+        CancellationToken cancellationToken)
     {
         request = await WithDefaultChannelAsync(request, cancellationToken);
         BookingValidator.Validate(request, requireVersion: true);
+        if (refunds is not null)
+        {
+            if (refunds.Count == 0 || refunds.Count > 3)
+                throw new RequestValidationException(new Dictionary<string, string[]> { ["refunds"] = ["Chọn từ một đến ba phương thức hoàn."] });
+            foreach (var refund in refunds) ValidateRefund(refund);
+        }
         var version = BookingValidator.DecodeVersion(request.Version!);
 
         await transactionExecutor.ExecuteAsync(async token =>
@@ -125,6 +145,8 @@ public sealed class BookingCommandService(
                 throw new BusinessRuleException(
                     "booking_is_closed",
                     "Đặt phòng đã kết thúc hoặc đã hủy nên không thể sửa nội dung.");
+            if (refunds is not null && booking.Invoice?.Status == "ISSUED")
+                throw new BusinessRuleException("issued_invoice_cannot_be_adjusted", "Hóa đơn đã phát hành; cần xử lý hóa đơn trước khi hoàn chênh lệch.");
 
             db.Entry(booking).Property(x => x.Version).OriginalValue = version;
             await EnsureReferencesAsync(request, token);
@@ -133,18 +155,65 @@ public sealed class BookingCommandService(
             var collectedAmount = booking.Payments.Sum(x => x.Amount);
             var revisedTotal = request.PreviousDebt + request.RoomRevenue + request.ServiceRevenue
                 + request.SurchargeAmount - request.DiscountAmount;
-            if (collectedAmount + request.DebtAmount > revisedTotal)
+            var excess = collectedAmount + request.DebtAmount - revisedTotal;
+            if (refunds is null && excess > 0)
                 throw new BusinessRuleException(
                     "booking_total_below_settlement",
-                    "Không thể giảm tổng tiền xuống thấp hơn số đã thu và số chuyển công nợ.");
+                    "Tổng mới thấp hơn tiền đã thu và công nợ. Hãy giảm công nợ hoặc ghi nhận hoàn phần chênh lệch.");
+            if (refunds is not null)
+            {
+                if (request.DebtAmount > 0)
+                    throw new RequestValidationException(new Dictionary<string, string[]>
+                    {
+                        ["debtAmount"] = ["Giảm công nợ về 0 trước khi ghi nhận hoàn tiền cho khách."]
+                    });
+                if (excess <= 0 || refunds.Sum(x => x.Amount) != excess)
+                    throw new RequestValidationException(new Dictionary<string, string[]>
+                    {
+                        ["refunds"] = ["Tổng tiền hoàn phải đúng bằng phần đã thu và công nợ vượt tổng mới."]
+                    });
+                foreach (var group in refunds.GroupBy(x => x.Method.Trim().ToUpperInvariant()))
+                    if (booking.Payments.Where(x => x.Method == group.Key).Sum(x => x.Amount) < group.Sum(x => x.Amount))
+                        throw new RequestValidationException(new Dictionary<string, string[]>
+                        {
+                            ["refunds"] = ["Tiền hoàn theo một phương thức vượt tiền đã thu bằng phương thức đó."]
+                        });
+            }
             var changedFields = BookingMutation.GetChangedFields(booking, request);
             AssignCustomer(booking, request);
             BookingMutation.Apply(booking, request, includeInitialPayments: false);
+            var refundPayments = new List<Payment>();
+            if (refunds is not null)
+            {
+                foreach (var refund in refunds)
+                {
+                    var payment = new Payment
+                    {
+                        BookingId = booking.BookingId,
+                        Amount = -refund.Amount,
+                        Method = refund.Method.Trim().ToUpperInvariant(),
+                        PaidAt = HotelClock.Now(),
+                        ReferenceCode = Clean(refund.ReferenceCode),
+                        Note = $"Hoàn chênh lệch: {refund.Reason.Trim()}"
+                    };
+                    booking.Payments.Add(payment);
+                    refundPayments.Add(payment);
+                }
+                booking.CashAmount = booking.Payments.Where(x => x.Method == "CASH").Sum(x => x.Amount);
+                booking.CardAmount = booking.Payments.Where(x => x.Method == "CARD").Sum(x => x.Amount);
+                booking.TransferAmount = booking.Payments.Where(x => x.Method == "TRANSFER").Sum(x => x.Amount);
+            }
             auditWriter.Add("UPDATE", "Booking", booking.BookingId.ToString(), new { fields = changedFields });
 
             try
             {
                 await SaveWithBusinessErrorsAsync(token);
+                foreach (var refundPayment in refundPayments)
+                    auditWriter.Add("REFUND", "Payment", refundPayment.PaymentId.ToString(), new
+                    {
+                        refundPayment.BookingId, refundPayment.Amount, refundPayment.Method,
+                        refundPayment.PaidAt, refundPayment.ReferenceCode, refundPayment.Note
+                    });
                 var invoiceResult = await invoiceLifecycle.EnsureAsync(booking, issue: false, token);
                 AuditInvoiceLifecycle(invoiceResult);
                 await db.SaveChangesAsync(token);
@@ -427,6 +496,20 @@ public sealed class BookingCommandService(
             }
         }
         return counts.ToDictionary(x => x.Key, x => x.Value == 0 ? (short?)null : (short)x.Value);
+    }
+
+    private static void ValidateRefund(BookingRefundInput refund)
+    {
+        var errors = new Dictionary<string, string[]>();
+        if (refund.Amount <= 0 || decimal.Round(refund.Amount, 2) != refund.Amount)
+            errors["refund.amount"] = ["Tiền hoàn phải lớn hơn 0 và có tối đa hai chữ số thập phân."];
+        if (refund.Method?.Trim().ToUpperInvariant() is not ("CASH" or "CARD" or "TRANSFER"))
+            errors["refund.method"] = ["Phương thức hoàn không hợp lệ."];
+        if (string.IsNullOrWhiteSpace(refund.Reason) || refund.Reason.Trim().Length > 260)
+            errors["refund.reason"] = ["Nhập lý do hoàn (tối đa 260 ký tự)."];
+        if (refund.ReferenceCode?.Trim().Length > 100)
+            errors["refund.referenceCode"] = ["Mã giao dịch tối đa 100 ký tự."];
+        if (errors.Count > 0) throw new RequestValidationException(errors);
     }
 
     private async Task EnsureNewCustomerIdentityAvailableAsync(string? identityDocument, CancellationToken token)

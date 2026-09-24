@@ -29,6 +29,14 @@ const paymentFields: Array<{ key: "cashAmount" | "cardAmount" | "transferAmount"
 
 export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel; disabled: boolean }>) {
   const { form, booking, options, fieldErrors, summary, updateField } = model;
+  const [chargeKind, setChargeKind] = useState<"serviceRevenue" | "surchargeAmount">("serviceRevenue");
+  const [chargeDescription, setChargeDescription] = useState("");
+  const [chargeAmount, setChargeAmount] = useState("");
+  const [chargeError, setChargeError] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [refundReferences, setRefundReferences] = useState({ CASH: "", CARD: "", TRANSFER: "" });
+  const [refundAmounts, setRefundAmounts] = useState({ CASH: "", CARD: "", TRANSFER: "" });
+  const [confirmRefund, setConfirmRefund] = useState(false);
   const selectedChannel = options.channels.find((channel) => String(channel.id) === form.channelId);
   const usesCounterRate = selectedChannel?.category === "OFFLINE";
   const paymentMethod = form.paymentMethod;
@@ -36,6 +44,43 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
     || Boolean(form.discountReason || form.promotionCode)
     || (!booking && paymentMethod === "split");
   const [detailsOpen, setDetailsOpen] = useState(booking?.status === "CHECKED_IN" || hasAdditionalDetails);
+  const refundNeeded = Math.max(0, -summary.balance);
+  const refundTotal = Object.values(refundAmounts).reduce((sum, value) => sum + (Number(value) || 0), 0);
+  const paidByMethod = { CASH: booking?.cashAmount ?? 0, CARD: booking?.cardAmount ?? 0, TRANSFER: booking?.transferAmount ?? 0 };
+  const refundValid = refundNeeded > 0 && summary.debt === 0 && refundTotal === refundNeeded && refundReason.trim().length > 0
+    && (Object.keys(paidByMethod) as Array<keyof typeof paidByMethod>).every((method) => (Number(refundAmounts[method]) || 0) <= paidByMethod[method]);
+
+  function addCharge() {
+    if (!model.recordAdditionalCharge(chargeKind, chargeAmount, chargeDescription)) {
+      setChargeError("Nhập mô tả và số tiền lớn hơn 0; ghi chú đặt phòng không được vượt 1.000 ký tự.");
+      return;
+    }
+    setChargeDescription("");
+    setChargeAmount("");
+    setChargeError("");
+    setDetailsOpen(true);
+  }
+
+  function suggestRefundSplit() {
+    let remaining = refundNeeded;
+    const next = { CASH: "", CARD: "", TRANSFER: "" };
+    for (const method of ["CASH", "CARD", "TRANSFER"] as const) {
+      const amount = Math.min(remaining, paidByMethod[method]);
+      if (amount > 0) next[method] = String(amount);
+      remaining -= amount;
+    }
+    setRefundAmounts(next);
+    setConfirmRefund(false);
+  }
+
+  async function submitRefund() {
+    if (!refundValid || disabled || model.saving) return;
+    const refunds = (["CASH", "CARD", "TRANSFER"] as const)
+      .filter((method) => Number(refundAmounts[method]) > 0)
+      .map((method) => ({ amount: Number(refundAmounts[method]), method, reason: refundReason.trim(), referenceCode: refundReferences[method].trim() }));
+    await model.submit(refunds);
+    setConfirmRefund(false);
+  }
 
   function changePaymentMethod(method: PaymentMethod) {
     if (method === "split") {
@@ -76,6 +121,20 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
         </Field> : null}
       </div>
 
+      {booking && model.suggestedRoomRevenue !== undefined && model.suggestedRoomRevenue !== Number(form.roomRevenue) && usesCounterRate && !disabled ? <div className="mt-3 flex flex-wrap items-center gap-3 text-sm"><span className="text-[var(--muted)]">Giá theo bảng giá cho lịch đang chọn: {formatCurrency(model.suggestedRoomRevenue)}.</span><Button onClick={model.applySuggestedRoomRevenue} size="sm" variant="secondary">Dùng giá gợi ý</Button></div> : null}
+
+      {booking && !disabled ? <div className="mt-5 rounded-xl border border-[var(--border)] bg-white p-4">
+        <h3 className="font-semibold text-[var(--foreground)]">Thêm khoản phát sinh</h3>
+        <p className="mt-1 text-xs text-[var(--muted)]">Số tiền được cộng vào tổng dịch vụ hoặc phụ thu. Mô tả được lưu trong ghi chú đặt phòng.</p>
+        <div className="mt-3 grid gap-3 md:grid-cols-[minmax(140px,0.8fr)_minmax(180px,1.5fr)_minmax(140px,0.8fr)_auto] md:items-end">
+          <Field htmlFor="chargeKind" label="Loại khoản"><Select id="chargeKind" onChange={(event) => setChargeKind(event.target.value as typeof chargeKind)} value={chargeKind}><option value="serviceRevenue">Dịch vụ</option><option value="surchargeAmount">Phụ thu</option></Select></Field>
+          <Field htmlFor="chargeDescription" label="Nội dung"><Input id="chargeDescription" maxLength={120} onChange={(event) => setChargeDescription(event.target.value)} placeholder="Ví dụ: giặt ủi" value={chargeDescription} /></Field>
+          <Field htmlFor="chargeAmount" label="Số tiền"><MoneyInput id="chargeAmount" onChange={setChargeAmount} value={chargeAmount} /></Field>
+          <Button onClick={addCharge}>Cộng khoản này</Button>
+        </div>
+        {chargeError ? <p className="mt-2 text-sm text-[var(--danger)]" role="alert">{chargeError}</p> : null}
+      </div> : null}
+
       <Button
         aria-expanded={detailsOpen}
         className="mt-4 min-h-9 px-3"
@@ -95,7 +154,7 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {additionalMoneyFields.map((item) => (
-              <Field error={fieldErrors[item.key]?.[0]} htmlFor={item.key} key={item.key} label={item.label}>
+              <Field error={fieldErrors[item.key]?.[0]} hint={booking && (item.key === "serviceRevenue" || item.key === "surchargeAmount") ? "Đây là tổng lũy kế; dùng Thêm khoản phát sinh ở trên để cộng nhanh." : undefined} htmlFor={item.key} key={item.key} label={item.label}>
                 <MoneyInput disabled={disabled} id={item.key} onChange={(value) => updateField(item.key, value)} value={form[item.key]} />
               </Field>
             ))}
@@ -120,8 +179,37 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
         </div>
       ) : null}
 
-      {booking ? <p className="mt-4 rounded-lg border border-[#bdd1cb] bg-[var(--nav-active)] px-4 py-3 text-sm text-[var(--primary-strong)]">Khoản đã thu được lấy từ sổ thu tiền bên dưới và giữ nguyên khi bạn sửa thông tin đặt phòng.</p> : null}
-      {booking?.status === "CHECKED_IN" && !disabled ? <div className="mt-4 flex justify-end"><Button disabled={model.saving || model.checkingAvailability || model.invalidStayTime || !model.availableRoomIds || Boolean(model.availabilityError)} onClick={() => void model.submit()} type="button">{model.saving ? "Đang lưu…" : "Lưu chi phí"}</Button></div> : null}
+      {booking ? <div className="mt-5 rounded-xl border border-[#bdd1cb] bg-[var(--nav-active)] p-4">
+        <h3 className="font-semibold text-[var(--primary-strong)]">Quyết toán tạm tính</h3>
+        <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 xl:grid-cols-3">
+          <PaymentValue label="Tổng đã lưu" value={summary.savedTotal ?? 0} valueClass="text-[var(--foreground)]" />
+          <PaymentValue label="Chênh lệch đang sửa" value={summary.total - (summary.savedTotal ?? 0)} valueClass={summary.total >= (summary.savedTotal ?? 0) ? "text-[var(--primary)]" : "text-amber-800"} />
+          <PaymentValue label="Tổng mới" value={summary.total} valueClass="text-[var(--primary)]" />
+          <PaymentValue label="Đã thu thực tế" value={summary.recordedPaid} valueClass="text-emerald-800" />
+          <PaymentValue label="Chuyển công nợ" value={summary.debt} valueClass="text-[#755b2e]" />
+          <PaymentValue label={summary.balance < 0 ? "Cần xử lý dư" : "Còn cần thu"} value={Math.abs(summary.balance)} valueClass={summary.balance < 0 ? "text-red-700" : "text-amber-800"} />
+        </div>
+        {model.hasUnsavedChanges ? <p className="mt-3 text-xs font-medium text-[var(--primary-strong)]">Đây là số tạm tính. Lưu thay đổi trước khi ghi nhận khoản thu mới.</p> : null}
+      </div> : null}
+
+      {booking && !disabled && summary.balance > 0 ? <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-[var(--border)] bg-white p-3 text-sm"><span>Khách chưa trả ngay?</span><Button onClick={model.fillRemainingDebt} size="sm" variant="secondary">Điền {formatCurrency(summary.balance)} vào công nợ</Button>{model.hasUnsavedChanges ? <span className="text-[var(--muted)]">Kiểm tra rồi lưu thay đổi trước khi thu tiền.</span> : <a className="font-semibold text-[var(--primary)] underline underline-offset-2" href="#booking-payments">Đến phần thu tiền</a>}</div> : null}
+
+      {booking && !disabled && summary.balance < 0 ? <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm">
+        <h3 className="font-semibold text-amber-900">Tổng mới thấp hơn tiền đã thu và công nợ {formatCurrency(refundNeeded)}</h3>
+        {summary.debt > 0 ? <div className="mt-3 flex flex-wrap items-center gap-2"><span>Giảm công nợ trước nếu khoản này chưa thực thu.</span><Button onClick={model.fillRemainingDebt} size="sm" variant="secondary">Điều chỉnh công nợ còn lại</Button></div> : null}
+        {summary.total < summary.recordedPaid && summary.debt === 0 ? <div className="mt-4 space-y-3 border-t border-amber-200 pt-4">
+          <p>Chỉ ghi nhận hoàn sau khi đã trả tiền cho khách. Chọn đúng phương thức và số tiền thực tế đã hoàn; thao tác lưu thay đổi và ghi dòng hoàn vào sổ cùng lúc.</p>
+          <Button onClick={suggestRefundSplit} size="sm" variant="secondary">Gợi ý chia {formatCurrency(refundNeeded)} theo tiền đã thu</Button>
+          <div className="grid gap-3 sm:grid-cols-3">{(["CASH", "CARD", "TRANSFER"] as const).filter((method) => paidByMethod[method] > 0).map((method) => <Field hint={`Đã thu: ${formatCurrency(paidByMethod[method])}`} htmlFor={`refund-${method}`} key={method} label={method === "CASH" ? "Hoàn tiền mặt" : method === "CARD" ? "Hoàn qua thẻ" : "Hoàn chuyển khoản"}><MoneyInput id={`refund-${method}`} onChange={(value) => { setRefundAmounts((current) => ({ ...current, [method]: value })); setConfirmRefund(false); }} value={refundAmounts[method]} /></Field>)}</div>
+          <Field error={fieldErrors["refund.reason"]?.[0]} htmlFor="refundReason" label="Lý do hoàn" required><Input id="refundReason" maxLength={260} onChange={(event) => { setRefundReason(event.target.value); setConfirmRefund(false); }} value={refundReason} /></Field>
+          <div className="grid gap-3 sm:grid-cols-3">{(["CASH", "CARD", "TRANSFER"] as const).filter((method) => Number(refundAmounts[method]) > 0).map((method) => <Field error={fieldErrors["refund.referenceCode"]?.[0]} htmlFor={`refundReference-${method}`} key={method} label={`Mã giao dịch ${method === "CASH" ? "tiền mặt" : method === "CARD" ? "thẻ" : "chuyển khoản"} (nếu có)`}><Input id={`refundReference-${method}`} maxLength={100} onChange={(event) => setRefundReferences((current) => ({ ...current, [method]: event.target.value }))} value={refundReferences[method]} /></Field>)}</div>
+          <p className="font-semibold">Đã nhập hoàn {formatCurrency(refundTotal)} / cần xử lý {formatCurrency(refundNeeded)}</p>
+          {fieldErrors.refunds?.[0] ? <p className="text-[var(--danger)]">{fieldErrors.refunds[0]}</p> : null}
+          {confirmRefund ? <div className="flex flex-wrap items-center gap-2"><p className="font-semibold text-amber-900">Bạn đã trả {formatCurrency(refundTotal)} cho khách?</p><Button disabled={!refundValid || model.saving} onClick={() => void submitRefund()}>{model.saving ? "Đang lưu…" : "Xác nhận đã hoàn và lưu"}</Button><Button onClick={() => setConfirmRefund(false)} variant="secondary">Quay lại</Button></div> : <Button disabled={!refundValid || model.saving} onClick={() => setConfirmRefund(true)}>Tiếp tục ghi nhận hoàn</Button>}
+        </div> : <p className="mt-2 text-amber-900">Điều chỉnh công nợ trước. Nếu tổng mới vẫn thấp hơn tiền đã thu, biểu mẫu hoàn chênh lệch sẽ hiện ra.</p>}
+      </div> : null}
+
+      {booking?.status === "CHECKED_IN" && !disabled && summary.balance >= 0 ? <div className="mt-4 flex justify-end"><Button disabled={model.saving || model.checkingAvailability || model.invalidStayTime || !model.availableRoomIds || Boolean(model.availabilityError)} onClick={() => void model.submit()} type="button">{model.saving ? "Đang lưu…" : "Lưu thay đổi và cập nhật số dư"}</Button></div> : null}
       {booking?.status === "CHECKED_IN" && model.message ? <p className="mt-2 text-right text-sm font-semibold text-emerald-700" role="status">{model.message}</p> : null}
       {booking?.status === "CHECKED_IN" && model.error ? <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{model.error}</p> : null}
       {!booking ? <PaymentLine gross={summary.gross} paid={summary.paid} roomCount={form.roomMode === "multiple" ? Math.max(1, Number(Boolean(form.roomId)) + form.additionalRoomIds.length) : 1} /> : null}

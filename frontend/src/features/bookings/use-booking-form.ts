@@ -8,6 +8,7 @@ import { useLiveRevision } from "@/features/realtime/live-updates-provider";
 import { findCustomerDuplicates, getCustomers } from "@/features/customers/customers-api";
 import type { CustomerDuplicateItem, CustomerListItem } from "@/features/customers/types";
 import {
+  adjustBookingAndRefund,
   changeBookingStatus,
   createBooking,
   getAvailableRoomIds,
@@ -25,7 +26,7 @@ import {
   type BookingFormState,
 } from "./booking-form-state";
 import { calculateSuggestedRoomRevenue } from "./booking-pricing";
-import type { BookingDetail, BookingOptions } from "./types";
+import type { BookingDetail, BookingOptions, BookingRefundInput } from "./types";
 
 function getDefaultChannel(channels: BookingOptions["channels"]) {
   return channels.find((channel) => channel.code === "DIRECT")
@@ -192,12 +193,20 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
     const discount = Number(form.discountAmount) || 0;
     const paid = (Number(form.cashAmount) || 0) + (Number(form.cardAmount) || 0) + (Number(form.transferAmount) || 0);
     const gross = room + service + surcharge - discount;
+    const total = gross + (Number(form.previousDebt) || 0);
+    const recordedPaid = booking?.paidAmount ?? paid;
+    const debt = Number(form.debtAmount) || 0;
     return {
       gross,
       paid,
+      total,
+      recordedPaid,
+      debt,
+      balance: total - recordedPaid - debt,
+      savedTotal: booking ? booking.previousDebt + booking.grossRevenue : undefined,
       averageRate: gross >= 0 ? room / Math.max(Number(form.billedNights) || 1, 1) : 0,
     };
-  }, [form]);
+  }, [booking, form]);
 
   function updateField<K extends keyof BookingFormState>(field: K, value: BookingFormState[K]) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -230,7 +239,7 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
       }
 
       next.billedNights = calculateNights(next.checkInAt, next.checkOutAt);
-      return withSuggestedRoomRevenue(next);
+      return bookingId ? next : withSuggestedRoomRevenue(next);
     });
     clearFieldErrors("checkInAt", "checkOutAt", "billedNights");
   }
@@ -238,7 +247,11 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
   function moveStayToNow(now: string) {
     setMessage(undefined);
     setError(undefined);
-    setForm((current) => withSuggestedRoomRevenue({
+    setForm((current) => bookingId ? {
+      ...current,
+      checkInAt: now,
+      checkOutAt: calculateCheckOutAt(now, current.checkOutAt, current.billedNights),
+    } : withSuggestedRoomRevenue({
       ...current,
       checkInAt: now,
       checkOutAt: calculateCheckOutAt(now, current.checkOutAt, current.billedNights),
@@ -249,7 +262,11 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
   function updateStayNights(value: string) {
     setMessage(undefined);
     setError(undefined);
-    setForm((current) => withSuggestedRoomRevenue({
+    setForm((current) => bookingId ? {
+      ...current,
+      billedNights: value,
+      checkOutAt: calculateCheckOutAt(current.checkInAt, current.checkOutAt, value),
+    } : withSuggestedRoomRevenue({
       ...current,
       billedNights: value,
       checkOutAt: calculateCheckOutAt(current.checkInAt, current.checkOutAt, value),
@@ -265,16 +282,17 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
         ? options.channels.find((channel) => String(channel.id) === value)
         : undefined;
       const directChannel = selectedChannel?.category === "OFFLINE";
-      return withSuggestedRoomRevenue({
+      const next = {
         ...current,
         [field]: value,
         entryMode: field === "channelId" && current.entryMode !== "WALK_IN"
           ? selectedChannel?.category === "ONLINE" ? "ONLINE" : "ADVANCE"
           : current.entryMode,
-        roomRevenue: field === "channelId" && !directChannel ? "" : current.roomRevenue,
+        roomRevenue: field === "channelId" && !directChannel && !bookingId ? "" : current.roomRevenue,
         externalBookingCode: directChannel ? "" : current.externalBookingCode,
         additionalRoomIds: field === "roomId" ? current.additionalRoomIds.filter((id) => id !== value) : current.additionalRoomIds,
-      });
+      };
+      return bookingId ? next : withSuggestedRoomRevenue(next);
     });
     clearFieldErrors(field, "roomRevenue", "externalBookingCode");
   }
@@ -334,6 +352,40 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
       : { ...next, roomRevenue: String(suggestedRevenue) };
   }
 
+  function applySuggestedRoomRevenue() {
+    setForm((current) => withSuggestedRoomRevenue(current));
+    setMessage(undefined);
+    setError(undefined);
+    clearFieldErrors("roomRevenue");
+  }
+
+  function recordAdditionalCharge(kind: "serviceRevenue" | "surchargeAmount", amount: string, description: string) {
+    const value = Number(amount);
+    const line = `${kind === "serviceRevenue" ? "Dịch vụ" : "Phụ thu"}: ${description.trim()} (+${value.toLocaleString("vi-VN")} đ)`;
+    if (!Number.isSafeInteger(value) || value <= 0 || !description.trim() || [form.note.trim(), line].filter(Boolean).join("\n").length > 1000) return false;
+    setForm((current) => ({
+      ...current,
+      [kind]: String((Number(current[kind]) || 0) + value),
+      note: [current.note.trim(), line].filter(Boolean).join("\n"),
+    }));
+    setMessage(undefined);
+    setError(undefined);
+    clearFieldErrors(kind, "note");
+    return true;
+  }
+
+  function fillRemainingDebt() {
+    setForm((current) => {
+      const gross = (Number(current.roomRevenue) || 0) + (Number(current.serviceRevenue) || 0)
+        + (Number(current.surchargeAmount) || 0) - (Number(current.discountAmount) || 0);
+      const total = gross + (Number(current.previousDebt) || 0);
+      return { ...current, debtAmount: String(Math.max(0, total - (booking?.paidAmount ?? 0))) };
+    });
+    setMessage(undefined);
+    setError(undefined);
+    clearFieldErrors("debtAmount");
+  }
+
   async function refreshBooking() {
     if (!bookingId) return undefined;
     const loaded = await getBooking(bookingId);
@@ -355,7 +407,7 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
     }
   }
 
-  async function submit() {
+  async function submit(refunds?: BookingRefundInput[]) {
     if (remoteChangeAvailable) {
       setError("Đặt phòng đã thay đổi ở nơi khác. Tải phiên bản mới trước khi lưu.");
       return;
@@ -379,13 +431,13 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
       }
       const request = toBookingRequest(form);
       const saved = bookingId
-        ? await updateBooking(bookingId, request)
+        ? refunds ? await adjustBookingAndRefund(bookingId, request, refunds) : await updateBooking(bookingId, request)
         : await createBooking(request);
       setBooking(saved);
       setForm(formFromBooking(saved));
       setRemoteChangeAvailable(false);
       setMessage(bookingId
-        ? "Đã lưu thay đổi đặt phòng."
+        ? refunds ? `Đã lưu thay đổi và ghi nhận hoàn ${refunds.reduce((sum, refund) => sum + refund.amount, 0).toLocaleString("vi-VN")} đ.` : "Đã lưu thay đổi đặt phòng."
         : saved.groupCode
           ? `Đã tạo nhóm ${saved.groupCode} gồm ${form.additionalRoomIds.length + 1} phòng và hóa đơn nháp.`
           : `${saved.bookingMode === "WALK_IN" ? "Đã nhận phòng" : "Đã tạo đặt phòng"} ${saved.bookingCode} và hóa đơn nháp ${saved.invoiceNumber ?? ""}.`);
@@ -508,6 +560,10 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
     updateEntryMode,
     updateRoomMode,
     toggleRoom,
+    applySuggestedRoomRevenue,
+    suggestedRoomRevenue: calculateSuggestedRoomRevenue(form, options),
+    recordAdditionalCharge,
+    fillRemainingDebt,
     refreshBooking,
     acceptRemoteChanges,
     submit,

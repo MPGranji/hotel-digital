@@ -24,7 +24,7 @@ export function PaymentSection({ model, readOnly = false }: Readonly<{ model: Fo
   const liveRevision = useLiveRevision();
   const { booking, refreshBooking } = model;
   const [items, setItems] = useState<PaymentItem[]>([]);
-  const [amount, setAmount] = useState("");
+  const [amountDraft, setAmountDraft] = useState({ version: "", value: "" });
   const [method, setMethod] = useState<PaymentMethod>("CASH");
   const [referenceCode, setReferenceCode] = useState("");
   const [note, setNote] = useState("");
@@ -45,10 +45,11 @@ export function PaymentSection({ model, readOnly = false }: Readonly<{ model: Fo
       .catch((reason) => { if (active) setLoadError(getApiErrorMessage(reason, "Không thể tải lịch sử thanh toán.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [bookingId, liveRevision]);
+  }, [bookingId, booking?.version, liveRevision]);
 
   if (!booking) return null;
   const currentBooking = booking;
+  const amount = amountDraft.version === currentBooking.version ? amountDraft.value : "";
 
   const totalToSettle = currentBooking.previousDebt + currentBooking.grossRevenue;
   const payableAmount = Math.max(totalToSettle - currentBooking.debtAmount, 0);
@@ -59,7 +60,7 @@ export function PaymentSection({ model, readOnly = false }: Readonly<{ model: Fo
   const depositStatus = currentBooking.paidAmount > 0 ? "Cần hoàn cọc" : loading ? "Đang kiểm tra cọc…" : hasRefund ? "Đã hoàn cọc" : loadError ? "Chưa kiểm tra được cọc" : "Không có cọc";
 
   function fillRemainingAmount() {
-    setAmount(String(amountToCollect));
+    setAmountDraft({ version: currentBooking.version, value: String(amountToCollect) });
     setError(undefined);
     setFieldErrors((current) => {
       if (!current.amount) return current;
@@ -100,7 +101,7 @@ export function PaymentSection({ model, readOnly = false }: Readonly<{ model: Fo
       const [payments, refreshed] = await Promise.all([getPayments(currentBooking.id), refreshBooking()]);
       setItems(payments);
       const remaining = refreshed ? Math.max(refreshed.previousDebt + refreshed.grossRevenue - refreshed.paidAmount - refreshed.debtAmount, 0) : 0;
-      setAmount(remaining > 0 ? String(remaining) : "");
+      setAmountDraft({ version: refreshed?.version ?? "", value: remaining > 0 ? String(remaining) : "" });
       setReferenceCode("");
       setNote("");
     } catch (reason) {
@@ -118,7 +119,7 @@ export function PaymentSection({ model, readOnly = false }: Readonly<{ model: Fo
         {!cancelled ? <MoneyValue label="Tổng cần thu" value={totalToSettle} valueClass="text-[var(--primary)]" /> : null}
         <MoneyValue label={cancelled ? "Cọc chưa hoàn" : "Đã thu"} value={currentBooking.paidAmount} valueClass={cancelled && currentBooking.paidAmount > 0 ? "text-amber-700" : "text-emerald-700"} />
         {!cancelled && currentBooking.debtAmount > 0 ? <MoneyValue label="Đã ghi công nợ" value={currentBooking.debtAmount} valueClass="text-[#7b5f3a]" /> : null}
-        {!closed ? <MoneyValue label="Cần thu khi trả phòng" value={amountToCollect} valueClass={amountToCollect > 0 ? "text-amber-700" : "text-emerald-700"} /> : null}
+        {!closed ? <MoneyValue label="Còn phải thu" value={amountToCollect} valueClass={amountToCollect > 0 ? "text-amber-700" : "text-emerald-700"} /> : null}
         <p className="flex items-center justify-between gap-2 sm:px-4"><span className="font-medium text-slate-600">Trạng thái:</span><b className={cancelled ? currentBooking.paidAmount > 0 ? "text-amber-700" : "text-emerald-700" : paymentStatusClass(currentBooking.paidAmount, totalToSettle, currentBooking.debtAmount)}>{cancelled ? depositStatus : paymentStatusLabel(currentBooking.paidAmount, totalToSettle, currentBooking.debtAmount)}</b></p>
       </div>
 
@@ -128,10 +129,10 @@ export function PaymentSection({ model, readOnly = false }: Readonly<{ model: Fo
 
       {!closed && !readOnly && amountToCollect > 0 ? (
         <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] pb-4"><p className="text-sm text-[var(--muted)]">Đã nhận đủ tiền từ khách? Điền nhanh số còn phải thu:</p><Button className="border-[#a9c7ce] bg-[var(--nav-active)] font-semibold text-[var(--primary-strong)] hover:bg-[#d2e4e7]" disabled={saving} onClick={fillRemainingAmount} size="sm" type="button" variant="secondary">Điền đủ {formatCurrency(amountToCollect)}</Button></div>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] pb-4"><p className="text-sm text-[var(--muted)]">Chọn thu đủ hoặc nhập một phần đã thực nhận từ khách.</p><Button className="border-[#a9c7ce] bg-[var(--nav-active)] font-semibold text-[var(--primary-strong)] hover:bg-[#d2e4e7]" disabled={saving || blockedByBookingEdit} onClick={fillRemainingAmount} size="sm" type="button" variant="secondary">Điền đủ {formatCurrency(amountToCollect)}</Button></div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(160px,0.8fr)_minmax(190px,0.9fr)_minmax(190px,1fr)_minmax(220px,1.2fr)_auto] xl:items-end">
             <Field error={fieldErrors.amount?.[0]} htmlFor="paymentAmount" label="Số tiền thu" required>
-              <MoneyInput id="paymentAmount" onChange={setAmount} value={amount} />
+              <MoneyInput id="paymentAmount" onChange={(value) => setAmountDraft({ version: currentBooking.version, value })} value={amount} />
             </Field>
             <Field error={fieldErrors.method?.[0]} htmlFor="paymentMethodRecord" label="Phương thức" required>
               <Select id="paymentMethodRecord" onChange={(event) => setMethod(event.target.value as PaymentMethod)} value={method}>
@@ -158,7 +159,7 @@ export function PaymentSection({ model, readOnly = false }: Readonly<{ model: Fo
           <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full min-w-[650px] text-left text-sm">
               <thead className="bg-[var(--sidebar)] text-xs text-[var(--muted)]"><tr><th className="px-4 py-3">Thời gian</th><th className="px-4 py-3">Phương thức</th><th className="px-4 py-3">Mã / Ghi chú</th><th className="px-4 py-3 text-right">Số tiền</th></tr></thead>
-              <tbody className="divide-y divide-slate-100">{items.map((payment) => <tr key={payment.id}><td className="px-4 py-3">{formatDateTime(payment.paidAt)}</td><td className="px-4 py-3">{methodLabels[payment.method]}</td><td className="px-4 py-3 text-slate-500"><p className={payment.amount < 0 ? "font-semibold text-amber-800" : ""}>{payment.amount < 0 ? "Hoàn cọc" : payment.referenceCode || "Khoản thu"}</p>{payment.note ? <p className="text-xs">{payment.note}</p> : null}</td><td className={`px-4 py-3 text-right font-semibold ${payment.amount < 0 ? "text-amber-800" : "text-emerald-700"}`}>{formatCurrency(payment.amount)}</td></tr>)}</tbody>
+              <tbody className="divide-y divide-slate-100">{items.map((payment) => <tr key={payment.id}><td className="px-4 py-3">{formatDateTime(payment.paidAt)}</td><td className="px-4 py-3">{methodLabels[payment.method]}</td><td className="px-4 py-3 text-slate-500"><p className={payment.amount < 0 ? "font-semibold text-amber-800" : ""}>{payment.amount < 0 ? payment.note?.startsWith("Hoàn chênh lệch:") ? "Hoàn chênh lệch" : "Hoàn cọc" : payment.referenceCode || "Khoản thu"}</p>{payment.note ? <p className="text-xs">{payment.note}</p> : null}</td><td className={`px-4 py-3 text-right font-semibold ${payment.amount < 0 ? "text-amber-800" : "text-emerald-700"}`}>{formatCurrency(payment.amount)}</td></tr>)}</tbody>
             </table>
           </div>
         )}

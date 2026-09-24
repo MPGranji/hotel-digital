@@ -78,7 +78,10 @@ internal static class BookingMutation
         AddIfChanged(fields, "ServiceRevenue", current.ServiceRevenue, request.ServiceRevenue);
         AddIfChanged(fields, "SurchargeAmount", current.SurchargeAmount, request.SurchargeAmount);
         AddIfChanged(fields, "DiscountAmount", current.DiscountAmount, request.DiscountAmount);
+        AddIfChanged(fields, "DiscountReason", current.DiscountReason, Clean(request.DiscountReason));
+        AddIfChanged(fields, "PreviousDebt", current.PreviousDebt, request.PreviousDebt);
         AddIfChanged(fields, "DebtAmount", current.DebtAmount, request.DebtAmount);
+        AddIfChanged(fields, "Note", current.Note, Clean(request.Note));
         return [.. fields];
     }
 

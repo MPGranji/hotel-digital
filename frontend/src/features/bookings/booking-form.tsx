@@ -61,7 +61,7 @@ export function BookingForm({ bookingId, initialRoomId, initialCheckInDate, init
           <OperationSection disabled={Boolean(closed)} model={model} />
           {!closed ? (
             <div className="flex justify-end border-t border-slate-200 pt-5">
-              <Button className="w-full md:w-auto" disabled={model.saving || model.checkingAvailability || model.invalidStayTime || !model.availableRoomIds || Boolean(model.availabilityError)} type="submit">
+                <Button className="w-full md:w-auto" disabled={model.saving || model.checkingAvailability || model.invalidStayTime || !model.availableRoomIds || Boolean(model.availabilityError) || (Boolean(model.booking) && model.summary.balance < 0)} type="submit">
                 {model.saving ? "Đang lưu…" : model.booking ? "Lưu thay đổi" : model.form.entryMode === "WALK_IN" ? "Nhận phòng ngay" : model.form.entryMode === "ONLINE" ? "Lưu đặt phòng online" : "Lưu đặt phòng"}
               </Button>
             </div>

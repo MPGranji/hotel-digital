@@ -37,6 +37,10 @@ public sealed record BookingWriteRequest(
 
 public sealed record BookingStatusRequest(string Version);
 
+public sealed record BookingRefundInput(decimal Amount, string Method, string Reason, string? ReferenceCode);
+
+public sealed record BookingAdjustmentRequest(BookingWriteRequest Booking, IReadOnlyList<BookingRefundInput> Refunds);
+
 public sealed record BookingDeleteRequest(string Version);
 
 public sealed record BookingListItem(

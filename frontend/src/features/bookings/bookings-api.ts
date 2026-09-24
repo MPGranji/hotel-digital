@@ -1,6 +1,6 @@
 import { apiRequest } from "@/lib/api-client";
 import type { PagedResult } from "@/types/api";
-import type { BookingDetail, BookingListItem, BookingOperationsSnapshot, BookingOptions, BookingWriteRequest } from "./types";
+import type { BookingDetail, BookingListItem, BookingOperationsSnapshot, BookingOptions, BookingRefundInput, BookingWriteRequest } from "./types";
 
 const jsonHeaders = { "Content-Type": "application/json" };
 
@@ -29,6 +29,14 @@ export function updateBooking(id: number, request: BookingWriteRequest) {
     method: "PUT",
     headers: jsonHeaders,
     body: JSON.stringify(request),
+  });
+}
+
+export function adjustBookingAndRefund(id: number, booking: BookingWriteRequest, refunds: BookingRefundInput[]) {
+  return apiRequest<BookingDetail>(`/api/bookings/${id}/adjust-and-refund`, {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ booking, refunds }),
   });
 }
 

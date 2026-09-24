@@ -71,6 +71,17 @@ public static class BookingEndpoints
             return await queries.GetAsync(id, cancellationToken);
         });
 
+        group.MapPost("/{id:long}/adjust-and-refund", async (
+            long id,
+            BookingAdjustmentRequest request,
+            BookingCommandService commands,
+            BookingQueryService queries,
+            CancellationToken cancellationToken) =>
+        {
+            await commands.UpdateWithRefundAsync(id, request.Booking, request.Refunds, cancellationToken);
+            return await queries.GetAsync(id, cancellationToken);
+        });
+
         group.MapDelete("/{id:long}", async (
             long id,
             [FromBody] BookingDeleteRequest request,

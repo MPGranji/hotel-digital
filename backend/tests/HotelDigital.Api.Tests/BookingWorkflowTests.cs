@@ -226,6 +226,119 @@ public sealed class BookingWorkflowTests
     }
 
     [Fact]
+    public async Task Update_with_refund_reduces_charge_and_records_each_actual_refund_method()
+    {
+        await using var db = await CreateContextAsync(channelCategory: "OFFLINE");
+        var service = CreateService(db);
+        var id = await service.CreateAsync(
+            CreateRequest("RESERVATION") with { CashAmount = 100_000, CardAmount = 100_000 },
+            CancellationToken.None);
+        var booking = await db.Bookings.SingleAsync(x => x.BookingId == id);
+        booking.Version = [1, 2, 3, 4, 5, 6, 7, 8];
+        await db.SaveChangesAsync();
+
+        await service.UpdateWithRefundAsync(id,
+            CreateRequest("RESERVATION") with { RoomRevenue = 100_000, Version = Convert.ToBase64String(booking.Version) },
+            [new BookingRefundInput(50_000, "CASH", "Giảm tiền phòng", null),
+             new BookingRefundInput(50_000, "CARD", "Giảm tiền phòng", "REV-01")],
+            CancellationToken.None);
+
+        var payments = await db.Payments.Where(x => x.BookingId == id).ToListAsync();
+        Assert.Equal(100_000, booking.RoomRevenue);
+        Assert.Equal(100_000, payments.Sum(x => x.Amount));
+        Assert.Equal(50_000, booking.CashAmount);
+        Assert.Equal(50_000, booking.CardAmount);
+        Assert.Equal(2, payments.Count(x => x.Amount < 0));
+        Assert.All(payments.Where(x => x.Amount < 0), x => Assert.Contains("Giảm tiền phòng", x.Note));
+    }
+
+    [Fact]
+    public async Task Update_with_refund_rejects_amount_that_does_not_match_overpayment()
+    {
+        await using var db = await CreateContextAsync(channelCategory: "OFFLINE");
+        var service = CreateService(db);
+        var id = await service.CreateAsync(
+            CreateRequest("RESERVATION") with { CashAmount = 200_000 }, CancellationToken.None);
+        var booking = await db.Bookings.SingleAsync(x => x.BookingId == id);
+        booking.Version = [1, 2, 3, 4, 5, 6, 7, 8];
+        await db.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<RequestValidationException>(() => service.UpdateWithRefundAsync(id,
+            CreateRequest("RESERVATION") with { RoomRevenue = 100_000, Version = Convert.ToBase64String(booking.Version) },
+            [new BookingRefundInput(90_000, "CASH", "Giảm tiền phòng", null)], CancellationToken.None));
+
+        Assert.Contains("refunds", exception.Errors.Keys);
+        Assert.Equal(500_000, booking.RoomRevenue);
+        Assert.All(db.Payments, x => Assert.True(x.Amount > 0));
+    }
+
+    [Fact]
+    public async Task Update_can_reduce_debt_without_refunding_when_paid_amount_still_fits()
+    {
+        await using var db = await CreateContextAsync(channelCategory: "OFFLINE");
+        var service = CreateService(db);
+        var id = await service.CreateAsync(
+            CreateRequest("RESERVATION") with { CashAmount = 100_000, DebtAmount = 300_000 },
+            CancellationToken.None);
+        var booking = await db.Bookings.SingleAsync(x => x.BookingId == id);
+        booking.Version = [1, 2, 3, 4, 5, 6, 7, 8];
+        await db.SaveChangesAsync();
+
+        await service.UpdateAsync(id,
+            CreateRequest("RESERVATION") with
+            {
+                RoomRevenue = 250_000,
+                DebtAmount = 150_000,
+                Version = Convert.ToBase64String(booking.Version)
+            }, CancellationToken.None);
+
+        Assert.Equal(250_000, booking.RoomRevenue);
+        Assert.Equal(150_000, booking.DebtAmount);
+        Assert.Single(db.Payments);
+    }
+
+    [Fact]
+    public async Task Update_with_refund_requires_debt_to_be_cleared_first()
+    {
+        await using var db = await CreateContextAsync(channelCategory: "OFFLINE");
+        var service = CreateService(db);
+        var id = await service.CreateAsync(
+            CreateRequest("RESERVATION") with { CashAmount = 200_000, DebtAmount = 100_000 },
+            CancellationToken.None);
+        var booking = await db.Bookings.SingleAsync(x => x.BookingId == id);
+        booking.Version = [1, 2, 3, 4, 5, 6, 7, 8];
+        await db.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<RequestValidationException>(() => service.UpdateWithRefundAsync(id,
+            CreateRequest("RESERVATION") with { RoomRevenue = 100_000, DebtAmount = 100_000, Version = Convert.ToBase64String(booking.Version) },
+            [new BookingRefundInput(200_000, "CASH", "Giảm tiền phòng", null)], CancellationToken.None));
+
+        Assert.Contains("debtAmount", exception.Errors.Keys);
+        Assert.All(db.Payments, x => Assert.True(x.Amount > 0));
+    }
+
+    [Fact]
+    public async Task Update_with_refund_cannot_exceed_collected_amount_for_method()
+    {
+        await using var db = await CreateContextAsync(channelCategory: "OFFLINE");
+        var service = CreateService(db);
+        var id = await service.CreateAsync(
+            CreateRequest("RESERVATION") with { CashAmount = 50_000, CardAmount = 150_000 },
+            CancellationToken.None);
+        var booking = await db.Bookings.SingleAsync(x => x.BookingId == id);
+        booking.Version = [1, 2, 3, 4, 5, 6, 7, 8];
+        await db.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<RequestValidationException>(() => service.UpdateWithRefundAsync(id,
+            CreateRequest("RESERVATION") with { RoomRevenue = 100_000, Version = Convert.ToBase64String(booking.Version) },
+            [new BookingRefundInput(100_000, "CASH", "Giảm tiền phòng", null)], CancellationToken.None));
+
+        Assert.Contains("refunds", exception.Errors.Keys);
+        Assert.Equal(500_000, booking.RoomRevenue);
+        Assert.Equal(2, db.Payments.Count());
+    }
+
+    [Fact]
     public async Task Checked_in_booking_can_add_service_and_surcharge_before_checkout()
     {
         await using var db = await CreateContextAsync(channelCategory: "OFFLINE");

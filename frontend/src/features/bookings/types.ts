@@ -35,6 +35,13 @@ export interface BookingWriteRequest {
   version: string | null;
 }
 
+export interface BookingRefundInput {
+  amount: number;
+  method: "CASH" | "CARD" | "TRANSFER";
+  reason: string;
+  referenceCode: string;
+}
+
 export interface BookingDetail extends Omit<BookingWriteRequest, "newCustomer"> {
   id: number;
   bookingCode: string;
