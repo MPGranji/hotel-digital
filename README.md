@@ -56,6 +56,8 @@ docker compose --env-file backend/.env -f compose.yaml up -d --build
 
 Frontend chạy tại `http://localhost:3000`; API chạy tại `http://localhost:5080`. Endpoint `/health` kiểm tra tiến trình API; `/health/database` yêu cầu nhân viên đăng nhập và kiểm tra kết nối thật đến Azure SQL. API từ chối khởi động nếu thiếu `HOTEL_AUTH_SIGNING_SECRET`.
 
+Trên Vercel, đặt biến môi trường server-side `HOTEL_API_ORIGIN` thành origin HTTPS của App Service đang chạy API rồi redeploy frontend. Rewrite `/backend/*` dùng biến này; nếu chưa đặt, nó tiếp tục trỏ đến `hotel-digital-api-mpgranji.azurewebsites.net` cũ.
+
 ## Cập nhật dữ liệu realtime
 
 Sau khi một thao tác ghi vào Azure SQL hoàn tất, API gửi tín hiệu SignalR tới các phiên nhân viên. Các tab đang mở tự tải lại dữ liệu cho lịch phòng, khách, booking, hóa đơn, sổ thu và màn hình vận hành. Biểu mẫu booking đang sửa sẽ báo có phiên bản mới để nhân viên tự chọn tải lại; nội dung chưa lưu không bị thay thế. Khi mất kết nối, web tự nối lại và đối chiếu dữ liệu khi tab được mở lại hoặc sau mỗi phút. Nếu gửi tín hiệu lỗi, thao tác ghi vẫn thành công; lần đối chiếu kế tiếp sẽ đồng bộ dữ liệu.
