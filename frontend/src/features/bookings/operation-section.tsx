@@ -109,7 +109,7 @@ export function OperationSection({ model, disabled }: Readonly<{ model: FormMode
 
   return (
     <div>
-      <SectionTitle>5. Ghi chú và chứng từ</SectionTitle>
+      <SectionTitle>{booking ? "5. Ghi chú và chứng từ" : "4. Ghi chú và chứng từ"}</SectionTitle>
       <div>
         <Field error={fieldErrors.note?.[0]} htmlFor="note" label="Ghi chú đặt phòng">
           <Textarea disabled={disabled} id="note" onChange={(event) => updateField("note", event.target.value)} rows={2} value={form.note} />
