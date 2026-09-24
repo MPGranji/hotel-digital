@@ -101,17 +101,33 @@ public sealed class BookingWorkflowTests
     }
 
     [Fact]
-    public async Task Group_booking_rejects_mixed_room_types_with_one_shared_price()
+    public async Task Group_booking_accepts_mixed_room_types_and_distributes_total_guests()
     {
         await using var db = await CreateContextAsync(channelCategory: "OFFLINE");
         db.RoomTypes.Add(new RoomType { RoomTypeId = 2, Code = "DLX", Name = "Deluxe", Capacity = 2, IsActive = true });
         db.Rooms.Add(new Room { RoomId = 2, RoomNumber = "201", RoomTypeId = 2, IsActive = true, CountsTowardOccupancy = true });
         await db.SaveChangesAsync();
 
-        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() => CreateService(db).CreateAsync(
-            CreateRequest("RESERVATION") with { AdditionalRoomIds = [2] }, CancellationToken.None));
+        await CreateService(db).CreateAsync(
+            CreateRequest("RESERVATION") with { AdditionalRoomIds = [2], GuestCount = 3 }, CancellationToken.None);
 
-        Assert.Equal("multi_room_type_mismatch", exception.Code);
+        var bookings = await db.Bookings.OrderBy(x => x.RoomId).ToListAsync();
+        Assert.Equal(2, bookings.Count);
+        Assert.Equal(new short?[] { 2, 1 }, bookings.Select(x => x.GuestCount));
+        Assert.Single(bookings.Select(x => x.GroupCode).Distinct());
+    }
+
+    [Fact]
+    public async Task Group_booking_rejects_total_guests_above_combined_capacity()
+    {
+        await using var db = await CreateContextAsync(channelCategory: "OFFLINE");
+        db.Rooms.Add(new Room { RoomId = 2, RoomNumber = "102", RoomTypeId = 1, IsActive = true, CountsTowardOccupancy = true });
+        await db.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<RequestValidationException>(() => CreateService(db).CreateAsync(
+            CreateRequest("RESERVATION") with { AdditionalRoomIds = [2], GuestCount = 5 }, CancellationToken.None));
+
+        Assert.Contains("guestCount", exception.Errors.Keys);
         Assert.Empty(db.Bookings);
     }
 

@@ -14,11 +14,9 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
   const selectedRoomIds = [form.roomId, ...form.additionalRoomIds].filter(Boolean);
   const selectedRooms = options.rooms.filter((room) => selectedRoomIds.includes(String(room.id)));
   const guestCapacity = selectedRooms.length > 0
-    ? Math.min(...selectedRooms.map((room) => room.capacity))
+    ? selectedRooms.reduce((total, room) => total + room.capacity, 0)
     : undefined;
-  const firstSelectedRoom = options.rooms.find((room) => String(room.id) === selectedRoomIds[0]);
-  const availableRooms = options.rooms.filter((room) => availableRoomIds?.includes(room.id)
-    && (form.roomMode !== "multiple" || !firstSelectedRoom || room.roomTypeCode === firstSelectedRoom.roomTypeCode));
+  const availableRooms = options.rooms.filter((room) => availableRoomIds?.includes(room.id));
   const selectedChannel = options.channels.find((channel) => String(channel.id) === form.channelId);
   const showExternalBookingCode = selectedChannel
     && selectedChannel.category !== "OFFLINE";
@@ -31,8 +29,8 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
   ];
 
   return (
-    <div>
-      <SectionTitle>1. Thời gian, phòng và kênh đặt</SectionTitle>
+    <div className="booking-section">
+      <SectionTitle>1. Thông tin lưu trú</SectionTitle>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <div className="md:col-span-2 xl:col-span-3">
           <p className="mb-2 text-sm font-medium text-[var(--foreground)]">Khách đặt phòng như thế nào?</p>
@@ -53,31 +51,24 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
             })}
           </div>
         </div>
-        <Field error={fieldErrors.checkInAt?.[0]} htmlFor="checkInAt" label="Ngày giờ đến" required>
+        <div className="md:col-span-2 xl:col-span-3"><h3 className="border-b border-[var(--border)] pb-2 text-sm font-semibold text-[var(--primary-strong)]">Thời gian ở</h3></div>
+        <Field error={fieldErrors.checkInAt?.[0]} htmlFor="checkInAt" label="Ngày giờ nhận phòng" required>
           <Input disabled={disabled} id="checkInAt" onChange={(event) => updateStayDate("checkInAt", event.target.value)} type="datetime-local" value={form.checkInAt} />
         </Field>
-        <Field error={fieldErrors.checkOutAt?.[0] ?? (invalidStayTime ? "Ngày giờ đi phải sau ngày giờ đến." : undefined)} htmlFor="checkOutAt" label="Ngày giờ đi" required>
+        <Field error={fieldErrors.checkOutAt?.[0] ?? (invalidStayTime ? "Ngày giờ đi phải sau ngày giờ đến." : undefined)} htmlFor="checkOutAt" label="Ngày giờ trả phòng" required>
           <Input disabled={disabled} id="checkOutAt" onChange={(event) => updateStayDate("checkOutAt", event.target.value)} type="datetime-local" value={form.checkOutAt} />
         </Field>
         <Field error={fieldErrors.billedNights?.[0]} htmlFor="billedNights" label="Số đêm tính tiền" required>
           <Input disabled={disabled} id="billedNights" min="1" onChange={(event) => updateStayNights(event.target.value)} type="number" value={form.billedNights} />
         </Field>
-        <Field
-          error={fieldErrors.guestCount?.[0]}
-          hint={form.roomMode === "multiple" && !booking ? "Áp dụng cho từng phòng trong nhóm; có thể để trống nếu chưa xác định." : guestCapacity ? `Tối đa ${guestCapacity} người; có thể để trống nếu chưa xác định.` : "Có thể để trống nếu chưa xác định."}
-          htmlFor="guestCount"
-          label={form.roomMode === "multiple" && !booking ? "Số khách mỗi phòng" : "Số khách trong phòng"}
-        >
-          <Input disabled={disabled} id="guestCount" max={guestCapacity} min="1" onChange={(event) => updateField("guestCount", event.target.value)} placeholder="Chưa nhập" type="number" value={form.guestCount} />
-        </Field>
-
         {!booking ? <div className="md:col-span-2 xl:col-span-3">
-          <p className="mb-1.5 text-sm font-medium text-[var(--foreground)]">Số phòng cần đặt</p>
+          <h3 className="mb-3 border-b border-[var(--border)] pb-2 text-sm font-semibold text-[var(--primary-strong)]">Phòng và số khách</h3>
+          <p className="mb-1.5 text-sm font-medium text-[var(--foreground)]">Đặt mấy phòng?</p>
           <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-1">
             <button aria-pressed={form.roomMode === "single"} className={`rounded-md px-4 py-2 text-sm font-medium ${form.roomMode === "single" ? "bg-white text-[var(--primary)] shadow-sm" : "text-[var(--muted)]"}`} onClick={() => updateRoomMode("single")} type="button">Một phòng</button>
             <button aria-pressed={form.roomMode === "multiple"} className={`rounded-md px-4 py-2 text-sm font-medium ${form.roomMode === "multiple" ? "bg-white text-[var(--primary)] shadow-sm" : "text-[var(--muted)]"}`} onClick={() => updateRoomMode("multiple")} type="button">Nhiều phòng</button>
           </div>
-          {form.roomMode === "multiple" ? <p className="mt-2 text-xs text-[var(--muted)]">Chọn các phòng cùng hạng. Giá và tiền cọc bên dưới áp dụng cho từng phòng; mỗi phòng có một booking và hóa đơn riêng.</p> : null}
+          {form.roomMode === "multiple" ? <p className="mt-2 text-sm text-[var(--muted)]">Chọn tối đa 10 phòng bất kỳ còn trống. Số khách là tổng cả nhóm; hệ thống chia khách vào từng phòng theo sức chứa. Mỗi phòng có đặt phòng và hóa đơn riêng.</p> : null}
         </div> : booking.groupCode ? <p className="md:col-span-2 xl:col-span-3 rounded-lg bg-[var(--nav-active)] px-4 py-3 text-sm text-[var(--primary-strong)]">Đặt phòng này thuộc nhóm <b>{booking.groupCode}</b>.</p> : null}
 
         <div className={`md:col-span-2 xl:col-span-3 ${form.roomMode === "single" || booking ? "max-w-2xl" : ""}`}>
@@ -100,16 +91,28 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
                 {availableRooms.length === 0 ? <p className="px-2 py-5 text-center text-sm text-slate-500">Không còn phòng phù hợp trong khoảng thời gian này.</p> : <div className="grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {availableRooms.map((room) => {
                     const selected = selectedRoomIds.includes(String(room.id));
-                    return <button aria-pressed={selected} className={`flex min-h-16 items-center gap-3 rounded-lg border p-3 text-left transition-colors ${selected ? "border-[var(--primary)] bg-[var(--nav-active)] ring-1 ring-[var(--primary)]" : "border-[var(--border)] bg-white hover:border-[var(--primary)] hover:bg-[var(--sidebar)]"}`} disabled={disabled} key={room.id} onClick={() => toggleRoom(String(room.id))} type="button">
+                    return <button aria-pressed={selected} className={`flex min-h-16 items-center gap-3 rounded-lg border p-3 text-left transition-colors ${selected ? "border-[var(--primary)] bg-[var(--nav-active)] ring-1 ring-[var(--primary)]" : "border-[var(--border)] bg-white hover:border-[var(--primary)] hover:bg-[var(--sidebar)]"}`} disabled={disabled || (!selected && selectedRoomIds.length >= 10)} key={room.id} onClick={() => toggleRoom(String(room.id))} type="button">
                       <span className={`flex size-5 shrink-0 items-center justify-center rounded border ${selected ? "border-[var(--primary)] bg-[var(--primary)] text-white" : "border-[var(--border-strong)] bg-white"}`}>{selected ? <Check size={14} /> : null}</span>
                       <span><b className="block text-slate-900">Phòng {room.roomNumber}</b><span className="text-xs text-slate-500">{room.roomTypeName}</span></span>
                     </button>;
                   })}
                 </div>}
               </div>
+              {selectedRooms.length ? <p className="mt-3 text-sm font-medium text-[var(--primary-strong)]">Đã chọn: {selectedRooms.map((room) => room.roomNumber).join(", ")} · Sức chứa {guestCapacity} khách</p> : null}
             </Field>
           )}
         </div>
+
+        <Field
+          error={fieldErrors.guestCount?.[0]}
+          hint={guestCapacity ? `Tối đa ${guestCapacity} người theo sức chứa ${selectedRooms.length > 1 ? "của các phòng đã chọn" : "phòng đã chọn"}. Để trống nếu chưa xác định.` : "Chọn phòng để xem sức chứa. Có thể để trống nếu chưa xác định."}
+          htmlFor="guestCount"
+          label={form.roomMode === "multiple" && !booking ? "Tổng số khách của tất cả phòng" : "Số khách trong phòng"}
+        >
+          <Input disabled={disabled} id="guestCount" max={guestCapacity} min="1" onChange={(event) => updateField("guestCount", event.target.value)} placeholder="Nhập số khách" type="number" value={form.guestCount} />
+        </Field>
+
+        <div className="md:col-span-2 xl:col-span-3"><h3 className="border-b border-[var(--border)] pb-2 text-sm font-semibold text-[var(--primary-strong)]">Nguồn đặt phòng</h3></div>
 
         <Field error={fieldErrors.channelId?.[0]} hint={form.entryMode === "ONLINE" ? "Chọn đúng kênh để lưu nguồn và mã đặt phòng bên ngoài." : "Ví dụ: tại quầy, qua điện thoại hoặc đại lý."} htmlFor="channelId" label="Kênh đặt phòng">
           <SearchableSelect disabled={disabled || form.entryMode === "WALK_IN"} id="channelId" onChange={(value) => updateStayOption("channelId", value)} options={availableChannels.map((channel) => ({ value: String(channel.id), label: channel.name, searchText: `${channel.code} ${channel.category}` }))} placeholder="Chọn kênh" searchPlaceholder="Nhập tên hoặc mã kênh…" value={form.channelId} />

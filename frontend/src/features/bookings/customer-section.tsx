@@ -10,8 +10,9 @@ export function CustomerSection({ model, disabled }: Readonly<{ model: FormModel
   const { form, customers, duplicateCustomers, customerSearch, customerSearchError, checkingCustomerSearch, fieldErrors, setCustomerSearch, retryCustomerSearch, chooseDuplicateCustomer, confirmNewCustomer, updateField } = model;
 
   return (
-    <div>
+    <div className="booking-section">
       <SectionTitle>2. Khách hàng</SectionTitle>
+      <p className="mb-4 text-sm text-[var(--muted)]">Chọn hồ sơ có sẵn hoặc nhập thông tin người đại diện cho đặt phòng này.</p>
       <div className="mb-4 flex flex-wrap gap-5 text-sm">
         <label className="flex items-center gap-2">
           <input checked={form.customerMode === "existing"} disabled={disabled} name="customerMode" onChange={() => updateField("customerMode", "existing")} type="radio" />

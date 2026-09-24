@@ -55,8 +55,9 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
   }
 
   return (
-    <div className="scroll-mt-6" id="booking-finance">
+    <div className="booking-section scroll-mt-6" id="booking-finance">
       <SectionTitle>3. Tiền phòng và chi phí</SectionTitle>
+      {!booking && form.roomMode === "multiple" ? <p className="mb-4 rounded-lg border border-[#bdd1cb] bg-[var(--nav-active)] px-4 py-3 text-sm text-[var(--primary-strong)]">Các khoản bên dưới áp dụng <b>cho mỗi phòng</b>. Nếu chọn nhiều hạng phòng, hãy kiểm tra mức giá chung và sửa tiền phòng trên từng booking sau khi tạo nếu giá khác nhau.</p> : null}
       <div className={`grid gap-4 ${booking ? "max-w-2xl" : "md:grid-cols-3"}`}>
         <Field error={fieldErrors.roomRevenue?.[0]} hint={usesCounterRate ? "Tự tính theo bảng giá tại quầy; bạn vẫn có thể điều chỉnh." : "Nhập tiền phòng theo giá của kênh đặt."} htmlFor="roomRevenue" label={!booking && form.roomMode === "multiple" ? "Tiền phòng mỗi phòng" : "Tiền phòng"} required>
           <MoneyInput disabled={disabled} id="roomRevenue" onChange={(value) => updateField("roomRevenue", value)} value={form.roomRevenue} />
@@ -123,7 +124,7 @@ export function FinanceSection({ model, disabled }: Readonly<{ model: FormModel;
       {booking?.status === "CHECKED_IN" && !disabled ? <div className="mt-4 flex justify-end"><Button disabled={model.saving || model.checkingAvailability || model.invalidStayTime || !model.availableRoomIds || Boolean(model.availabilityError)} onClick={() => void model.submit()} type="button">{model.saving ? "Đang lưu…" : "Lưu chi phí"}</Button></div> : null}
       {booking?.status === "CHECKED_IN" && model.message ? <p className="mt-2 text-right text-sm font-semibold text-emerald-700" role="status">{model.message}</p> : null}
       {booking?.status === "CHECKED_IN" && model.error ? <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{model.error}</p> : null}
-      {!booking ? <PaymentLine gross={summary.gross} paid={summary.paid} /> : null}
+      {!booking ? <PaymentLine gross={summary.gross} paid={summary.paid} roomCount={form.roomMode === "multiple" ? Math.max(1, Number(Boolean(form.roomId)) + form.additionalRoomIds.length) : 1} /> : null}
     </div>
   );
 }
@@ -132,12 +133,12 @@ function getPaymentError(fieldErrors: Record<string, string[]>) {
   return fieldErrors.cashAmount?.[0] ?? fieldErrors.cardAmount?.[0] ?? fieldErrors.transferAmount?.[0];
 }
 
-function PaymentLine({ gross, paid }: Readonly<{ gross: number; paid: number }>) {
+function PaymentLine({ gross, paid, roomCount }: Readonly<{ gross: number; paid: number; roomCount: number }>) {
   return (
     <div className="mt-5 flex justify-end">
       <div className="grid w-full overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--sidebar)] text-sm sm:w-auto sm:grid-cols-2 sm:divide-x sm:divide-[var(--border)]">
-        <PaymentValue label="Tổng tiền" value={gross} valueClass="text-[var(--primary)]" />
-        <PaymentValue label="Đã thu" value={paid} valueClass={paid > 0 ? "text-[#24544d]" : "text-[var(--foreground)]"} />
+        <PaymentValue label={roomCount > 1 ? "Tổng tiền cả nhóm" : "Tổng tiền"} value={gross * roomCount} valueClass="text-[var(--primary)]" />
+        <PaymentValue label={roomCount > 1 ? "Đã thu cả nhóm" : "Đã thu"} value={paid * roomCount} valueClass={paid > 0 ? "text-[#24544d]" : "text-[var(--foreground)]"} />
       </div>
     </div>
   );

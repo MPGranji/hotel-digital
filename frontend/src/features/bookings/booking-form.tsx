@@ -48,7 +48,7 @@ export function BookingForm({ bookingId, initialRoomId, initialCheckInDate, init
         title={model.booking ? `${readOnly ? "Xem" : "Đặt phòng"} ${model.booking.bookingCode}` : "Tạo đặt phòng"}
       />
       <BookingStatusControls key={model.booking?.id ?? "new"} model={model} readOnly={readOnly} />
-      <form onSubmit={(event) => { event.preventDefault(); void model.submit(); }}>
+      <form className="booking-form" onSubmit={(event) => { event.preventDefault(); void model.submit(); }}>
         <Panel className="space-y-7">
           {model.message ? <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">{model.message}</p> : null}
           {model.error ? <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{model.error}</p> : null}

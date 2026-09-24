@@ -95,6 +95,41 @@ body {
   outline: none;
 }
 
+.booking-form .booking-section {
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: #fbfcfc;
+  padding: 1rem;
+}
+
+.booking-form input:not([type="radio"]),
+.booking-form select,
+.booking-form textarea {
+  border-color: var(--border-strong);
+  background-color: #fff;
+  box-shadow: 0 1px 2px rgb(20 49 59 / 8%);
+}
+
+.booking-form input:not([type="radio"]):focus,
+.booking-form select:focus,
+.booking-form textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgb(40 87 103 / 14%);
+}
+
+.booking-form input:disabled,
+.booking-form select:disabled,
+.booking-form textarea:disabled {
+  background-color: var(--surface-muted);
+  box-shadow: none;
+}
+
+@media (min-width: 640px) {
+  .booking-form .booking-section {
+    padding: 1.25rem;
+  }
+}
+
 @layer base {
   a {
     color: inherit;

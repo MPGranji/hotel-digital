@@ -33,13 +33,12 @@ public sealed class BookingCommandService(
             var roomIds = new[] { request.RoomId }.Concat(request.AdditionalRoomIds ?? []).Distinct().ToArray();
             var selectedRooms = await db.Rooms.AsNoTracking()
                 .Where(x => roomIds.Contains(x.RoomId) && x.IsActive && x.CountsTowardOccupancy && x.RoomType.IsActive)
-                .Select(x => new { x.RoomId, x.RoomTypeId })
+                .Select(x => new { x.RoomId, x.RoomType.Capacity })
                 .ToListAsync(token);
             if (selectedRooms.Count != roomIds.Length)
                 throw new BusinessRuleException("room_unavailable", "Một hoặc nhiều phòng không tồn tại hoặc đã ngừng hoạt động.");
-            if (selectedRooms.Select(x => x.RoomTypeId).Distinct().Count() > 1)
-                throw new BusinessRuleException("multi_room_type_mismatch", "Đặt nhiều phòng trong một lượt chỉ hỗ trợ các phòng cùng hạng để áp dụng đúng giá cho từng phòng.");
-            await EnsureGuestCountFitsAsync(request.GuestCount, roomIds, token);
+            var capacities = selectedRooms.ToDictionary(x => x.RoomId, x => (int)x.Capacity);
+            var guestsByRoom = DistributeGuests(request.GuestCount, roomIds, capacities);
             foreach (var roomId in roomIds)
                 await EnsureRoomAvailableAsync(roomId, request.CheckInAt, request.CheckOutAt, null, token);
 
@@ -63,6 +62,7 @@ public sealed class BookingCommandService(
                 if (request.CustomerId.HasValue) item.CustomerId = request.CustomerId.Value; else item.Customer = newCustomer!;
                 BookingMutation.Apply(item, request, includeInitialPayments: true);
                 item.RoomId = roomId;
+                item.GuestCount = guestsByRoom[roomId];
                 item.GroupCode = groupCode;
                 item.Status = request.BookingMode == "WALK_IN" ? "CHECKED_IN" : "BOOKED";
                 return item;
@@ -398,6 +398,35 @@ public sealed class BookingCommandService(
         {
             ["guestCount"] = [$"Số khách mỗi phòng không được vượt quá sức chứa {smallestCapacity.Value} người của phòng đã chọn."]
         });
+    }
+
+    private static Dictionary<int, short?> DistributeGuests(
+        short? totalGuests,
+        IReadOnlyList<int> roomIds,
+        IReadOnlyDictionary<int, int> capacities)
+    {
+        var counts = roomIds.ToDictionary(id => id, _ => 0);
+        if (!totalGuests.HasValue)
+            return counts.ToDictionary(x => x.Key, _ => (short?)null);
+
+        if (totalGuests.Value > capacities.Values.Sum())
+            throw new RequestValidationException(new Dictionary<string, string[]>
+            {
+                ["guestCount"] = [$"Tổng số khách không được vượt quá sức chứa {capacities.Values.Sum()} người của các phòng đã chọn."]
+            });
+
+        var remaining = totalGuests.Value;
+        while (remaining > 0)
+        {
+            foreach (var roomId in roomIds)
+            {
+                if (remaining == 0) break;
+                if (counts[roomId] >= capacities[roomId]) continue;
+                counts[roomId]++;
+                remaining--;
+            }
+        }
+        return counts.ToDictionary(x => x.Key, x => x.Value == 0 ? (short?)null : (short)x.Value);
     }
 
     private async Task EnsureNewCustomerIdentityAvailableAsync(string? identityDocument, CancellationToken token)
