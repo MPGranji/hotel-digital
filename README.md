@@ -1,262 +1,71 @@
-# Hotel Digital
+# Hotel Digital — Số hóa vận hành khách sạn
 
-Web vận hành chuyển đổi số khách sạn, được tổ chức thành hai ứng dụng triển khai độc lập:
+Hotel Digital là hệ thống web hỗ trợ một khách sạn tại TP.HCM quản lý đặt phòng, phòng, khách hàng, thanh toán và theo dõi hoạt động kinh doanh trên cùng một nguồn dữ liệu.
 
-- `frontend`: Next.js App Router, triển khai trên Vercel.
-- `backend`: ASP.NET Core Web API, triển khai trên Azure App Service.
+**Xem sản phẩm:** [Web vận hành](https://hotel-digital.vercel.app/) · [Báo cáo Power BI](https://app.powerbi.com/view?r=eyJrIjoiNjNiYWY2NWItMzIwNC00NjMwLTk2NGItZTRkMzkxZmQzN2RjIiwidCI6IjZhYzJhZDA2LTY5MmMtNDY2My1iN2FmLWE5ZmYyYTg2NmQwYyIsImMiOjEwfQ%3D%3D&pageName=34db4ea7000e0452673c)
 
-Azure SQL là nguồn dữ liệu duy nhất. Frontend không kết nối trực tiếp database và không giữ mật khẩu SQL.
+## Vấn đề
 
-## Cấu trúc
+Thông tin đặt phòng, lưu trú và doanh thu trước đây được ghi chép thủ công rồi chuyển giữa các bộ phận. Khi doanh thu thực tế không đạt KPI dù nhân viên cho rằng đã hoàn thành chỉ tiêu, khách sạn khó tổng hợp dữ liệu và truy ra nguyên nhân chênh lệch. Phân tích dữ liệu tháng 6–10/2024 trong báo cáo dự án cho thấy công suất phòng bình quân là **46,22%**, giảm còn **17,83%** vào tháng 10.
 
-```text
-hotel-digital/
-├── frontend/                # Next.js, giao diện vận hành
-├── backend/                 # ASP.NET Core, nghiệp vụ và Azure SQL
-├── docs/                    # Kiến trúc và hướng dẫn phát triển
-├── infra/                   # Ghi chú/cấu hình triển khai
-├── .editorconfig
-└── .gitignore
-```
+## Mục tiêu
 
-## Chạy frontend
+- Tập trung dữ liệu đặt phòng, khách, phòng, kênh bán và các khoản thu để giảm thao tác ghi chép, đối chiếu thủ công.
+- Giúp nhân viên xử lý ca trực, đặt/nhận/trả phòng và theo dõi tình trạng phòng; giúp quản lý xem doanh thu, công suất và cơ cấu nguồn khách.
+- Tạo cơ sở đối chiếu KPI và đánh giá mục tiêu tăng doanh thu **từ 20%** sau triển khai trên cùng kỳ gốc và cách tính.
 
-```powershell
-cd frontend
-npm install
-npm run dev
-```
+## Kiến trúc giải pháp
 
-Mở `http://localhost:3000`.
+![Sơ đồ kiến trúc Hotel Digital](assets/readme/kien-truc-ver4.png)
 
-Web dùng màn hình đăng nhập nội bộ. Tài khoản local/test là `admin` / `admin`; API kiểm tra thông tin đăng nhập rồi cấp token có hạn 8 giờ. Khách hàng không cần tài khoản để nhân viên tạo hồ sơ hoặc đặt phòng cho họ. Production bắt buộc đặt `HOTEL_ADMIN_PASSWORD` khác `admin` và `HOTEL_AUTH_SIGNING_SECRET` (chuỗi bí mật tối thiểu 32 byte) trong `backend/.env` hoặc cấu hình tương đương trên host.
+Giao diện **Next.js** triển khai trên **Vercel** gọi **ASP.NET Core API** trên **Azure App Service**. API xử lý nghiệp vụ và lưu dữ liệu tập trung trong **Azure SQL**. **SignalR** báo thay đổi để các màn hình vận hành tải lại dữ liệu. **Power BI** được nhúng vào web để xem báo cáo quản trị; báo cáo dùng mô hình Import nên phụ thuộc lịch làm mới, không cập nhật tức thời theo SignalR.
 
-`/dashboard` chỉ nhúng báo cáo Power BI Publish to web công khai, không yêu cầu đăng nhập Microsoft. Báo cáo hiện dùng model Import và chỉ làm mới theo lịch; phần đồng bộ SignalR của các màn hình vận hành không làm mới số liệu Power BI.
+## Giao diện web
 
-## Chạy API
+Web phục vụ các nghiệp vụ từ tạo đặt phòng, tra cứu sổ đặt phòng đến quản lý phòng, bảng giá, khách hàng, kênh bán và hóa đơn.
 
-Cần .NET 10 SDK. Sao chép `backend/src/HotelDigital.Api/appsettings.Local.example.json` thành `appsettings.Local.json`, điền chuỗi kết nối dành cho local rồi chạy:
+### Đăng nhập
 
-```powershell
-dotnet restore backend/HotelDigital.Api.slnx
-dotnet run --project backend/src/HotelDigital.Api
-```
+![Màn hình đăng nhập Hotel Digital](assets/readme/dang-nhap-ver4.png)
 
-Không commit mật khẩu, access token hoặc connection string thật.
+Nhân viên đăng nhập để truy cập không gian làm việc nội bộ.
 
-## Chạy toàn bộ bằng Docker
+### Ca trực hôm nay
 
-Docker Compose đóng gói và chạy cả frontend lẫn API. Frontend chờ container API được khởi động và cả hai container tự khởi động lại khi Docker restart.
+![Màn hình chính Ca trực hôm nay](assets/readme/ca-truc-hom-nay-ver4.png)
 
-Sao chép `backend/.env.example` thành `backend/.env`, sau đó điền connection string của Azure SQL, mật khẩu admin mới và bí mật ký token:
+Màn hình chính tập hợp các lượt cần xử lý, khách đến, khách đi, khách đang ở và các lượt sắp đến.
 
-```powershell
-docker compose --env-file backend/.env -f compose.yaml up -d --build
-```
+### Hiện trạng phòng theo ngày
 
-Frontend chạy tại `http://localhost:3000`; API chạy tại `http://localhost:5080`. Endpoint `/health` kiểm tra tiến trình API; `/health/database` yêu cầu nhân viên đăng nhập và kiểm tra kết nối thật đến Azure SQL. API từ chối khởi động nếu thiếu `HOTEL_AUTH_SIGNING_SECRET`.
+![Lịch hiện trạng phòng theo ngày](assets/readme/hien-trang-phong-theo-ngay-ver4.png)
 
-Trên Vercel, đặt biến môi trường server-side `HOTEL_API_ORIGIN` thành origin HTTPS của App Service đang chạy API rồi redeploy frontend. Rewrite `/backend/*` dùng biến này; nếu chưa đặt, nó tiếp tục trỏ đến `hotel-digital-api-mpgranji.azurewebsites.net` cũ.
+Lịch hiển thị từng phòng theo ngày với trạng thái trống, đã đặt, đang ở hoặc bảo trì. Nhân viên có thể lọc theo hạng, tầng và chuyển sang lịch theo giờ để kiểm tra thời điểm phòng sẵn sàng.
 
-## Cập nhật dữ liệu realtime
+### Tạo đặt phòng
 
-Sau khi một thao tác ghi vào Azure SQL hoàn tất, API gửi tín hiệu SignalR tới các phiên nhân viên. Các tab đang mở tự tải lại dữ liệu cho lịch phòng, khách, booking, hóa đơn, sổ thu và màn hình vận hành. Biểu mẫu booking đang sửa sẽ báo có phiên bản mới để nhân viên tự chọn tải lại; nội dung chưa lưu không bị thay thế. Khi mất kết nối, web tự nối lại và đối chiếu dữ liệu khi tab được mở lại hoặc sau mỗi phút. Nếu gửi tín hiệu lỗi, thao tác ghi vẫn thành công; lần đối chiếu kế tiếp sẽ đồng bộ dữ liệu.
+![Biểu mẫu tạo đặt phòng trên web](assets/readme/tao-dat-phong-ver4.png)
 
-Chạy API một instance có thể dùng SignalR trực tiếp. Khi chạy nhiều instance hoặc cần dịch vụ quản lý kết nối, tạo Azure SignalR Service và cấu hình `Azure__SignalR__ConnectionString` (trong Compose: `HOTEL_SIGNALR_CONNECTION_STRING`) bằng secret của môi trường. Không đưa connection string vào image hay Git. Cấu hình origin frontend trong `Cors:AllowedOrigins` và bảo đảm proxy/App Service cho phép WebSocket. Hub `/hubs/updates` yêu cầu token đăng nhập như API.
+Nhân viên chọn hình thức đặt, thời gian lưu trú, phòng và kênh đặt trước khi ghi nhận khách và thanh toán.
 
-Môi trường Azure hiện dùng App Service Linux F1 và Azure SQL free offer, chỉ phục vụ thử nghiệm với số ít phiên. F1 giới hạn 5 WebSocket; SQL được đặt tự tạm dừng khi dùng hết hạn mức miễn phí trong tháng. Vercel Hobby dành cho dự án cá nhân, phi thương mại. Trước khi dùng thật cho nhân viên, cần chốt gói hạ tầng phù hợp và thu hồi mã Power BI Publish to web đang công khai.
+### Quản lý bảng giá
 
-Sau một thời gian không truy cập, Azure SQL serverless có thể cần khoảng một phút để tự hoạt động lại. API cho phép tối thiểu 60 giây để mở kết nối, còn web chờ tối đa 90 giây cho lệnh đọc; thao tác ghi không được web tự gửi lại. Nếu đã dùng hết hạn mức SQL miễn phí trong tháng, database tự tạm dừng và các màn hình dữ liệu sẽ không hoạt động cho đến khi hạn mức được làm mới.
+![Bảng giá tại quầy theo ngày trong tuần](assets/readme/bang-gia-ver4.png)
 
-Màn hình ca trực `/operations` tự đồng bộ qua API và SignalR. Mục `/dashboard` chỉ hiển thị Power BI đang dùng model Import; iframe không biến báo cáo này thành realtime. Muốn chính báo cáo Power BI cập nhật thường xuyên cần thay đổi semantic model và cấu hình làm mới trong Power BI Service.
+Bảng giá tại quầy có thời gian hiệu lực và mức giá riêng theo từng ngày trong tuần.
 
-Connection string chỉ được truyền vào container lúc chạy, không được ghi vào image hoặc commit vào Git. Kết nối đã lưu trong DataGrip không tự động được ứng dụng hoặc container sử dụng.
+## Dashboard Power BI
 
-Để các container khởi động hoàn toàn tự động, connection string phải dùng cơ chế không cần đăng nhập tương tác, chẳng hạn tài khoản SQL hoặc service principal. `Active Directory Device Code Flow` vẫn yêu cầu đăng nhập lại sau khi container API được tạo mới.
+[Báo cáo Power BI](https://app.powerbi.com/view?r=eyJrIjoiNjNiYWY2NWItMzIwNC00NjMwLTk2NGItZTRkMzkxZmQzN2RjIiwidCI6IjZhYzJhZDA2LTY5MmMtNDY2My1iN2FmLWE5ZmYyYTg2NmQwYyIsImMiOjEwfQ%3D%3D&pageName=34db4ea7000e0452673c) có hai trang: **Tổng quan kinh doanh** và **Theo dõi phòng**.
 
-### Nhập dữ liệu lịch sử A26
+### Tổng quan kinh doanh
 
-Importer chỉ đọc sheet `A26 Pham Ngu Lao`, chọn các dòng `CHECKOUT` có `Số hóa đơn` (mã chốt tiền), và mặc định chỉ chạy kiểm tra:
+![Dashboard Tổng quan kinh doanh](assets/readme/powerbi-tong-quan-ver4.png)
 
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --file "<đường-dẫn-file-xlsx>"
-```
+Trang tổng quan theo dõi giá trị booking, tiền phòng, tiền đã thu, công suất và đêm phòng; các biểu đồ cho thấy xu hướng theo tháng và đóng góp của hạng phòng, nhóm kênh.
 
-Sau khi xem kết quả dry-run, thêm `--commit` để nhập các dòng hợp lệ. Dòng có tiền âm, ngày không hợp lệ hoặc trùng phòng được giữ ngoài database và liệt kê theo số dòng nguồn. Importer dùng `InvoiceNumber` để bỏ qua booking đã nhập, không ghi file Excel hoặc dữ liệu khách vào repository.
+### Theo dõi phòng
 
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --file "<đường-dẫn-file-xlsx>" --env-file backend/.env --commit
-```
+![Dashboard Theo dõi phòng](assets/readme/powerbi-theo-doi-phong-ver4.png)
 
-Nếu database chưa có migration web foundation, có thể áp dụng script đã duyệt trong cùng phiên đăng nhập rồi import:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --file "<đường-dẫn-file-xlsx>" --env-file backend/.env --schema-script database/04_web_foundation.sql --commit
-```
-
-Để chỉ áp dụng một SQL migration đã duyệt mà không chạy importer:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/05_pham_ngu_lao_prices.sql --schema-only --commit
-```
-
-Sau migration giá, áp dụng phần vòng đời khách hàng, booking nhóm và hóa đơn:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/06_customer_groups_invoices.sql --schema-only --commit
-```
-
-Áp dụng ma trận phòng và lịch bảo trì:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/07_room_maintenance.sql --schema-only --commit
-```
-
-Tạo kênh mặc định cho khách đặt trực tiếp tại quầy:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/08_offline_default_channel.sql --schema-only --commit
-```
-
-Thêm lịch sử giao dịch thanh toán và chuyển các khoản thu hiện có sang bảng mới:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/09_payments.sql --schema-only --commit
-```
-
-Áp dụng bảng giá phòng theo ngày thường/cuối tuần và thời gian hiệu lực:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/10_room_rate_schedules.sql --schema-only --commit
-```
-
-Mở rộng bảng giá thành từng ngày từ Thứ 2 đến Chủ nhật:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/11_room_rate_weekdays.sql --schema-only --commit
-```
-
-Chỉ giữ bảng giá tại quầy; booking từ OTA/đối tác nhập tiền phòng theo số tiền trên kênh:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/12_counter_rates_only.sql --schema-only --commit
-```
-
-Chuẩn hóa tên kênh trực tiếp thành “Tại quầy”:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/13_plain_counter_channel_name.sql --schema-only --commit
-```
-
-Điền quốc tịch còn thiếu cho dữ liệu khách hàng A26 lịch sử:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/14_backfill_customer_nationalities.sql --schema-only --commit
-```
-
-Bật lịch sử phiên bản bảng giá, khóa chống khoảng ngày chồng nhau và view phục vụ báo cáo:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/15_room_rate_versioning.sql --schema-only --commit
-```
-
-View `hotel.vwRoomRateVersionTimeline` cung cấp toàn bộ phiên bản hiện tại và lịch sử để dùng trực tiếp trong báo cáo/BI.
-
-Cập nhật read model Dashboard để tính bảo trì, tách công suất thực tế/dự báo và gắn tiền thu theo `Payment.PaidAt`:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/16_dashboard_read_models.sql --schema-only --commit
-```
-
-Script tạo hoặc cập nhật `vRoomStatus`, `vRoomNight`, `vSellableRoomDay`, `vPaymentFact` và các view tổng hợp Dashboard. Thanh toán lịch sử không có ngày thu gốc được đánh dấu bằng `vPaymentFact.IsPaidAtEstimated`.
-
-Loại bỏ kênh `UNKNOWN` cùng booking, thanh toán và hóa đơn lỗi liên quan; hồ sơ khách chỉ bị xóa khi không còn booking hợp lệ nào khác:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/18_remove_unknown_channel.sql --schema-only --commit
-```
-
-Chuẩn hóa nhóm kênh thành đúng ba loại `OFFLINE`, `ONLINE`, `TRAVEL_AGENCY` trong khi vẫn giữ các mã kênh chi tiết:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/19_channel_categories.sql --schema-only --commit
-```
-
-Xóa mã kênh `OFFLINE`/`Tại quầy` không sử dụng; nhóm `OFFLINE` và các mã trực tiếp thực tế vẫn được giữ:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/20_remove_unused_counter_channel.sql --schema-only --commit
-```
-
-Chuẩn hóa mã nguồn legacy thành mã vận hành ổn định, giữ nguyên `ChannelID` và quan hệ booking:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/21_canonical_channel_codes.sql --schema-only --commit
-```
-
-Gộp hai bucket online lịch sử vào một mã `ONLINE`, giữ nguyên toàn bộ booking và dữ liệu tài chính:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/22_merge_online_channels.sql --schema-only --commit
-```
-
-Sửa ngày thu ước tính của thanh toán lịch sử: workbook nguồn không có timestamp thanh toán, nên dùng ngày checkout thay cho ngày import database:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/23_correct_estimated_payment_dates.sql --schema-only --commit
-```
-
-Tách booking đặt trước/nhận phòng tại quầy, bổ sung chỉ mục cho màn hình vận hành và Power BI DirectQuery:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script database/24_booking_mode_invoice_performance.sql --schema-only --commit
-```
-
-Trước khi bật thao tác hoàn cọc, áp dụng migration cho dòng hoàn tiền âm trong sổ thu. Script chỉ đổi constraint của `hotel.Payment` và chặn cập nhật/xóa trực tiếp qua principal `hotel_app`:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --schema-script backend/migrations/27_deposit_refunds.sql --schema-only --commit
-```
-
-Đối chiếu dấu vân tay dữ liệu (chỉ số lượng và tổng tiền, không in dữ liệu khách) trước và sau migration:
-
-```powershell
-dotnet run --project backend/tools/HotelDigital.A26Importer -- --env-file backend/.env --verify-only
-```
-
-## Phạm vi triển khai hiện tại
-
-### Cấu trúc dashboard đã chốt
-
-- File Power BI hiện có **2 trang**: `Tổng quan kinh doanh` và `Theo dõi phòng`. `/dashboard` chỉ nhúng báo cáo này; `/operations` phục vụ theo dõi dữ liệu vận hành mới.
-- Trang web nội bộ `/operations` (`Khách & phòng`) được giữ riêng để hiển thị trạng thái từng phòng, khách hiện tại và booking kế tiếp.
-- `Khách & phòng` không được tính là trang Power BI. File Power BI hiện tại vẫn chứa tên và số điện thoại khách, nên link Publish to web công khai cũng làm lộ các trường này.
-
-- Đặt phòng/check-in/check-out.
-- Sổ đặt phòng.
-- CRUD phòng/hạng phòng và kênh đặt phòng theo cơ chế ngừng hoạt động thay vì xóa lịch sử.
-- Khách hàng có dò trùng, gộp hồ sơ và ngừng sử dụng.
-- Một lượt có thể đặt nhiều phòng cùng mã nhóm.
-- Quản lý hóa đơn nháp/đã phát hành/đã hủy, liên kết với booking.
-- Sổ thu tiền chỉ ghi nhận khoản thu nội bộ (tiền mặt, thẻ, chuyển khoản); không kết nối cổng thanh toán hoặc ngân hàng. Trạng thái chưa thu/thu một phần/đã thu đủ được tự tính từ các khoản đã ghi.
-- Đăng nhập nhân viên bằng tài khoản web và ghi audit cho các thao tác dữ liệu.
-
-Màn hình vận hành `Khách & phòng` đã được tích hợp vào web tại `/operations` và dùng dữ liệu trực tiếp từ API. Báo cáo quản trị tại `/dashboard` phụ thuộc vào lần refresh của Power BI.
-
-## Đăng nhập quản trị nội bộ
-
-Màn hình đăng nhập dùng được trong cả môi trường local và triển khai. API giới hạn 5 lần thử đăng nhập mỗi phút theo địa chỉ IP.
-
-Production cần `Authentication:SigningSecret` tối thiểu 32 byte và `Authentication:AdminPassword` khác `admin` cho API. Thiếu hai giá trị này, API sẽ không khởi động.
-
-## Database cho web
-
-Sau các script schema và view nền, chạy migration audit:
-
-```powershell
-sqlcmd -S "<server>" -d "<database>" -E -I -b -i database/04_web_foundation.sql
-```
-
-API không tự chạy migration. SQL script đã duyệt vẫn là nguồn quản lý schema.
-
-Các feature phải tuân theo ranh giới frontend/backend và Definition of Done trong kế hoạch triển khai đã được duyệt.
+Trang theo dõi phòng cho biết phòng trống, đã đặt, đang có khách và tình trạng thanh toán trong kỳ lọc.
