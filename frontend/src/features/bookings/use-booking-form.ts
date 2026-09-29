@@ -26,6 +26,10 @@ import {
   type BookingFormState,
 } from "./booking-form-state";
 import { calculateSuggestedRoomRevenue } from "./booking-pricing";
+import { joinNote, splitNote, type ChargeKind, type ChargeLine } from "./charge-notes";
+
+/** Which existing charge a save replaces: a listed line, or the undescribed part of a total. */
+export type ChargeEditTarget = { index: number } | { unlisted: ChargeKind; amount: number };
 import type { BookingDetail, BookingOptions, BookingRefundInput } from "./types";
 
 function getDefaultChannel(channels: BookingOptions["channels"]) {
@@ -78,6 +82,12 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
   const availableRoomIds = currentAvailability?.ids;
   const availabilityError = currentAvailability?.error;
   const checkingAvailability = canCheckAvailability && !currentAvailability;
+  // A saved booking only needs a fresh availability check when its room or stay times change,
+  // so adding a charge for an in-house guest is not blocked by a slow or failing availability lookup.
+  const savedStay = booking ? formFromBooking(booking) : undefined;
+  const stayChanged = !savedStay || form.roomId !== savedStay.roomId || form.checkInAt !== savedStay.checkInAt || form.checkOutAt !== savedStay.checkOutAt;
+  const availabilityReady = !checkingAvailability && Boolean(availableRoomIds) && !availabilityError;
+  const canSave = !saving && !invalidStayTime && (!stayChanged || availabilityReady);
 
   useEffect(() => {
     let active = true;
@@ -359,19 +369,71 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
     clearFieldErrors("roomRevenue");
   }
 
-  function recordAdditionalCharge(kind: "serviceRevenue" | "surchargeAmount", amount: string, description: string) {
-    const value = Number(amount);
-    const line = `${kind === "serviceRevenue" ? "Dịch vụ" : "Phụ thu"}: ${description.trim()} (+${value.toLocaleString("vi-VN")} đ)`;
-    if (!Number.isSafeInteger(value) || value <= 0 || !description.trim() || [form.note.trim(), line].filter(Boolean).join("\n").length > 1000) return false;
-    setForm((current) => ({
-      ...current,
-      [kind]: String((Number(current[kind]) || 0) + value),
-      note: [current.note.trim(), line].filter(Boolean).join("\n"),
-    }));
+  /**
+   * Adds a charge, or replaces the one named by `target` (a listed line, or the part of a total that has no line),
+   * keeping the service/surcharge totals in step. Returns an error message, or undefined on success.
+   */
+  function recordAdditionalCharge(kind: ChargeKind, quantity: string, unitPrice: string, description: string, target?: ChargeEditTarget) {
+    const count = Number(quantity);
+    const price = Number(unitPrice);
+    const text = description.trim();
+    if (!text) return "Chọn hoặc nhập nội dung khoản phát sinh.";
+    if (!Number.isSafeInteger(count) || count < 1 || count > 999) return "Số lượng phải từ 1 đến 999.";
+    if (!Number.isSafeInteger(price) || price <= 0) return "Nhập đơn giá lớn hơn 0.";
+    if (!Number.isSafeInteger(count * price)) return "Thành tiền vượt giới hạn cho phép.";
+    const { text: noteText, charges } = splitNote(form.note);
+    const previous = target && "index" in target ? charges[target.index] : target ? { kind: target.unlisted, amount: target.amount } : undefined;
+    const next: ChargeLine = { kind, description: text, quantity: count, amount: count * price };
+    const nextCharges = target && "index" in target ? charges.map((charge, index) => (index === target.index ? next : charge)) : [...charges, next];
+    const nextNote = joinNote(noteText, nextCharges);
+    if (nextNote.length > 1000) return "Đã đạt giới hạn 1.000 ký tự cho ghi chú và các khoản phát sinh. Hãy rút gọn nội dung.";
+    setForm((current) => {
+      const totals = { serviceRevenue: Number(current.serviceRevenue) || 0, surchargeAmount: Number(current.surchargeAmount) || 0 };
+      if (previous) totals[previous.kind] = Math.max(0, totals[previous.kind] - previous.amount);
+      totals[kind] += next.amount;
+      return { ...current, serviceRevenue: String(totals.serviceRevenue), surchargeAmount: String(totals.surchargeAmount), note: nextNote };
+    });
     setMessage(undefined);
     setError(undefined);
-    clearFieldErrors(kind, "note");
-    return true;
+    clearFieldErrors("serviceRevenue", "surchargeAmount", "note");
+    return undefined;
+  }
+
+  function removeAdditionalCharge(index: number) {
+    setForm((current) => {
+      const { text, charges } = splitNote(current.note);
+      const removed = charges[index];
+      if (!removed) return current;
+      return {
+        ...current,
+        [removed.kind]: String(Math.max(0, (Number(current[removed.kind]) || 0) - removed.amount)),
+        note: joinNote(text, charges.filter((_, position) => position !== index)),
+      };
+    });
+    setMessage(undefined);
+    setError(undefined);
+  }
+
+  /** Drops the part of a total that has no itemised line, leaving only the listed charges. */
+  function removeUnlistedCharge(kind: ChargeKind) {
+    setForm((current) => {
+      const listed = splitNote(current.note).charges.filter((charge) => charge.kind === kind).reduce((sum, charge) => sum + charge.amount, 0);
+      return { ...current, [kind]: String(Math.min(Number(current[kind]) || 0, listed)) };
+    });
+    setMessage(undefined);
+    setError(undefined);
+  }
+
+  /** Early departure: ends the stay now and re-prices the room when a counter rate applies. */
+  function endStayNow(now: string) {
+    setMessage(undefined);
+    setError(undefined);
+    setForm((current) => withSuggestedRoomRevenue({ ...current, checkOutAt: now, billedNights: calculateNights(current.checkInAt, now) }));
+    clearFieldErrors("checkOutAt", "billedNights", "roomRevenue");
+  }
+
+  function updateNoteText(text: string) {
+    updateField("note", joinNote(text, splitNote(form.note).charges));
   }
 
   function fillRemainingDebt() {
@@ -563,6 +625,11 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
     applySuggestedRoomRevenue,
     suggestedRoomRevenue: calculateSuggestedRoomRevenue(form, options),
     recordAdditionalCharge,
+    removeAdditionalCharge,
+    removeUnlistedCharge,
+    endStayNow,
+    canSave,
+    updateNoteText,
     fillRemainingDebt,
     refreshBooking,
     acceptRemoteChanges,

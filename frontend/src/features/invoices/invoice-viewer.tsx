@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { getBooking } from "@/features/bookings/bookings-api";
+import { chargeKindLabel, chargeUnitPrice, splitNote, type ChargeKind } from "@/features/bookings/charge-notes";
 import type { BookingDetail } from "@/features/bookings/types";
 import { getApiErrorMessage } from "@/lib/api-client";
 import { useLiveRevision } from "@/features/realtime/live-updates-provider";
@@ -20,6 +21,21 @@ interface ChargeLine {
   description: string;
   amount: number;
   subtract?: boolean;
+}
+
+/** One invoice line per recorded charge, plus a line for any part of the total entered without a description. */
+function itemizeCharges(booking: BookingDetail, kind: ChargeKind, fallbackDescription: string): ChargeLine[] {
+  const total = booking[kind];
+  if (total <= 0) return [];
+  const label = chargeKindLabel(kind);
+  const lines = splitNote(booking.note ?? "").charges
+    .filter((charge) => charge.kind === kind)
+    .map((charge) => ({ label, description: charge.quantity > 1 ? `${charge.description} (${charge.quantity} × ${formatCurrency(chargeUnitPrice(charge))})` : charge.description, amount: charge.amount }));
+  const listed = lines.reduce((sum, line) => sum + line.amount, 0);
+  // Descriptions no longer match the saved total (edited by hand): fall back to a single line so the invoice still adds up.
+  if (listed > total) return [{ label, description: fallbackDescription, amount: total }];
+  const unlisted = total - listed;
+  return unlisted > 0 ? [...lines, { label, description: lines.length > 0 ? "Khác" : fallbackDescription, amount: unlisted }] : lines;
 }
 
 export function InvoiceViewer({ invoice, onClose }: Readonly<{ invoice: InvoiceItem; onClose: () => void }>) {
@@ -41,8 +57,8 @@ export function InvoiceViewer({ invoice, onClose }: Readonly<{ invoice: InvoiceI
       description: `${booking.roomTypeName} · ${booking.billedNights} đêm × ${formatCurrency(booking.averageRoomRate)}`,
       amount: booking.roomRevenue,
     },
-    ...(booking.serviceRevenue > 0 ? [{ label: "Dịch vụ", description: "Dịch vụ trong thời gian lưu trú", amount: booking.serviceRevenue }] : []),
-    ...(booking.surchargeAmount > 0 ? [{ label: "Phụ thu", description: "Phụ thu đặt phòng", amount: booking.surchargeAmount }] : []),
+    ...itemizeCharges(booking, "serviceRevenue", "Dịch vụ trong thời gian lưu trú"),
+    ...itemizeCharges(booking, "surchargeAmount", "Phụ thu đặt phòng"),
     ...(booking.discountAmount > 0 ? [{
       label: "Giảm giá",
       description: booking.discountReason || booking.promotionCode || "Giảm giá đặt phòng",
@@ -109,7 +125,7 @@ export function InvoiceViewer({ invoice, onClose }: Readonly<{ invoice: InvoiceI
                 <tr><th className="px-4 py-3">Nội dung</th><th className="px-4 py-3">Diễn giải</th><th className="px-4 py-3 text-right">Thành tiền</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {chargeLines.map((line) => <tr key={line.label}>
+                {chargeLines.map((line, index) => <tr key={`${index}-${line.label}`}>
                   <td className="px-4 py-3 font-semibold">{line.label}</td>
                   <td className="px-4 py-3 text-slate-600">{line.description}</td>
                   <td className="px-4 py-3 text-right font-medium">{line.subtract ? "− " : ""}{formatCurrency(line.amount)}</td>

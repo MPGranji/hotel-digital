@@ -22,6 +22,8 @@ interface SearchableSelectProps {
   disabled?: boolean;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
+  /** When set, typed text that matches no option is offered as its own choice, labelled by this function. */
+  createOptionLabel?: (query: string) => string;
 }
 
 function normalize(value: string) {
@@ -43,6 +45,7 @@ export function SearchableSelect({
   disabled,
   searchValue,
   onSearchChange,
+  createOptionLabel,
 }: Readonly<SearchableSelectProps>) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -54,8 +57,11 @@ export function SearchableSelect({
   const visibleOptions = useMemo(() => {
     const normalizedQuery = normalize(query);
     if (!normalizedQuery || selectedOption?.label === query) return options;
-    return options.filter((option) => normalize(`${option.label} ${option.searchText ?? ""}`).includes(normalizedQuery));
-  }, [options, query, selectedOption?.label]);
+    const matches = options.filter((option) => normalize(`${option.label} ${option.searchText ?? ""}`).includes(normalizedQuery));
+    const exactMatch = options.some((option) => normalize(option.label) === normalizedQuery);
+    if (!createOptionLabel || exactMatch) return matches;
+    return [{ value: query.trim(), label: createOptionLabel(query.trim()), inputValue: query.trim() }, ...matches];
+  }, [options, query, selectedOption?.label, createOptionLabel]);
 
   useEffect(() => {
     function closeWhenClickingOutside(event: MouseEvent) {

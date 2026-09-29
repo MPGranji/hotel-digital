@@ -7,6 +7,7 @@ import { SectionTitle } from "@/components/ui/page";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { formFromBooking } from "./booking-form-state";
+import { splitNote } from "./charge-notes";
 import type { useBookingForm } from "./use-booking-form";
 
 type FormModel = ReturnType<typeof useBookingForm>;
@@ -30,7 +31,7 @@ function hotelNow() {
 
 export function BookingStatusControls({ model, readOnly }: Readonly<{ model: FormModel; readOnly: boolean }>) {
   const router = useRouter();
-  const { booking, form, saving, changeStatus, discardChanges, moveStayToNow } = model;
+  const { booking, form, saving, changeStatus, discardChanges, moveStayToNow, endStayNow } = model;
   const [pendingAction, setPendingAction] = useState<StatusAction>();
   const [confirmClose, setConfirmClose] = useState(false);
   if (!booking) return null;
@@ -43,6 +44,9 @@ export function BookingStatusControls({ model, readOnly }: Readonly<{ model: For
   const stayHasPassed = booking.status === "BOOKED" && booking.checkOutAt <= now;
   const canCheckIn = booking.status === "BOOKED" && booking.checkInAt.slice(0, 10) <= now.slice(0, 10) && booking.checkOutAt > now;
   const needsTimeAdjustment = booking.status === "BOOKED" && !canCheckIn;
+  // Include departures earlier on the same day so the room can be released at the actual check-out time.
+  const leavingEarly = booking.status === "CHECKED_IN" && booking.checkOutAt.slice(0, 16) > now.slice(0, 16);
+  const stayEndedNow = leavingEarly && form.checkOutAt !== savedForm.checkOutAt && form.checkOutAt <= now.slice(0, 16);
   const stayMovedToNow = needsTimeAdjustment && form.checkInAt !== savedForm.checkInAt && form.checkInAt <= now && form.checkOutAt > now;
   const blocked = saving || hasUnsavedChanges || model.remoteChangeAvailable;
 
@@ -92,6 +96,10 @@ export function BookingStatusControls({ model, readOnly }: Readonly<{ model: For
       <div><p className="text-sm font-bold">{stayMovedToNow ? "Lịch mới chưa được lưu" : stayHasPassed ? "Lịch ở đã qua" : "Khách đến sớm hơn ngày đặt"}</p><p className="mt-0.5 text-sm">{stayMovedToNow ? "Kiểm tra giờ đi, phòng trống và tiền phòng bên dưới, rồi bấm Lưu thay đổi trước khi nhận phòng." : stayHasPassed ? "Nếu khách vừa đến, chuyển lịch về hiện tại rồi kiểm tra và lưu lại. Nếu khách không đến, dùng nút đánh dấu ở trên." : "Chuyển lịch về hiện tại nếu muốn nhận phòng sớm; kiểm tra và lưu lại trước khi nhận phòng."}</p></div>
       <Button className="shrink-0 border-[var(--border-strong)] bg-white font-bold text-[var(--primary-strong)] hover:bg-[var(--sidebar)]" disabled={saving} onClick={() => moveStayToNow(hotelNow().slice(0, 16))} variant="secondary">{stayMovedToNow ? "Cập nhật giờ hiện tại" : "Chuyển lịch về hiện tại"}</Button>
     </div> : null}
+    {leavingEarly && !readOnly && (pendingAction === "check-out" || stayEndedNow) ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#bdd1cb] bg-[var(--nav-active)] px-4 py-3 text-[var(--primary-strong)]">
+      <div><p className="text-sm font-bold">{stayEndedNow ? "Đã đặt giờ đi là bây giờ, chưa lưu" : `Khách trả phòng sớm hơn lịch (${formatDateTime(booking.checkOutAt)})?`}</p><p className="mt-0.5 text-sm">{stayEndedNow ? `Số đêm tính tiền: ${form.billedNights}. Kiểm tra tiền phòng ở mục 3, bấm Lưu thay đổi rồi trả phòng.` : "Đặt giờ đi là bây giờ để tính lại số đêm và tiền phòng (theo bảng giá tại quầy nếu có)."}</p></div>
+      {!stayEndedNow ? <Button className="shrink-0 border-[var(--border-strong)] bg-white font-bold text-[var(--primary-strong)] hover:bg-[var(--sidebar)]" disabled={saving} onClick={() => { endStayNow(hotelNow().slice(0, 16)); setPendingAction(undefined); }} variant="secondary">Khách trả phòng ngay</Button> : null}
+    </div> : null}
     {confirmClose ? <div className="mt-4 rounded-lg border border-[#d8c6a7] bg-[#faf4e9] p-4" role="group" aria-label="Đóng khi còn thay đổi chưa lưu">
       <p className="text-sm font-semibold text-[#755b2e]">Bạn có thay đổi chưa lưu. Bỏ thay đổi và đóng?</p>
       <div className="mt-3 flex flex-wrap gap-2"><Button onClick={closeAndDiscard} variant="secondary">Bỏ thay đổi và đóng</Button><Button onClick={() => setConfirmClose(false)} variant="ghost">Tiếp tục sửa</Button></div>
@@ -105,14 +113,15 @@ export function BookingStatusControls({ model, readOnly }: Readonly<{ model: For
 }
 
 export function OperationSection({ model, disabled }: Readonly<{ model: FormModel; disabled: boolean }>) {
-  const { form, booking, fieldErrors, updateField } = model;
+  const { form, booking, fieldErrors } = model;
+  const note = splitNote(form.note);
 
   return (
     <div>
       <SectionTitle>{booking ? "5. Ghi chú và chứng từ" : "4. Ghi chú và chứng từ"}</SectionTitle>
       <div>
-        <Field error={fieldErrors.note?.[0]} htmlFor="note" label="Ghi chú đặt phòng">
-          <Textarea disabled={disabled} id="note" onChange={(event) => updateField("note", event.target.value)} rows={2} value={form.note} />
+        <Field error={fieldErrors.note?.[0]} hint={note.charges.length > 0 ? "Các khoản dịch vụ/phụ thu được liệt kê riêng ở mục Tiền phòng và chi phí." : undefined} htmlFor="note" label="Ghi chú đặt phòng">
+          <Textarea disabled={disabled} id="note" onChange={(event) => model.updateNoteText(event.target.value)} rows={2} value={note.text} />
         </Field>
       </div>
 
