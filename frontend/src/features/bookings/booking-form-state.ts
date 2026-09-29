@@ -167,7 +167,10 @@ export function calculateNights(checkInAt: string, checkOutAt: string) {
   const start = new Date(`${checkInAt}Z`);
   const end = new Date(`${checkOutAt}Z`);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return "1";
-  return String(Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000)));
+  // Room nights follow hotel calendar dates; a late departure is charged separately when applicable.
+  const startDay = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+  const endDay = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
+  return String(Math.max(1, Math.round((endDay - startDay) / 86_400_000)));
 }
 
 export function calculateCheckOutAt(checkInAt: string, currentCheckOutAt: string, billedNights: string) {
