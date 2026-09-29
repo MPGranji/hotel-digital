@@ -39,6 +39,29 @@ public sealed class BookingOperationsTests
         Assert.Equal(120_000, result.Items.Single(x => x.Id == 1).PreviousDebt);
     }
 
+    [Fact]
+    public async Task External_codes_suggest_distinct_saved_values_from_selected_channel()
+    {
+        var options = new DbContextOptionsBuilder<HotelDbContext>()
+            .UseInMemoryDatabase($"booking-external-codes-{Guid.NewGuid():N}")
+            .Options;
+        await using var db = new HotelDbContext(options);
+        db.Bookings.AddRange(
+            new Booking { BookingId = 1, ChannelId = 11, ExternalBookingCode = "COMP-100" },
+            new Booking { BookingId = 2, ChannelId = 11, ExternalBookingCode = "COMP-100" },
+            new Booking { BookingId = 3, ChannelId = 11, ExternalBookingCode = "COMP-200" },
+            new Booking { BookingId = 4, ChannelId = 9, ExternalBookingCode = "COMP-300" },
+            new Booking { BookingId = 5, ChannelId = 11, ExternalBookingCode = null });
+        await db.SaveChangesAsync();
+
+        var service = new BookingQueryService(db);
+        var codes = await service.GetExternalBookingCodesAsync(11, "COMP-1", CancellationToken.None);
+        var allCodes = await service.GetExternalBookingCodesAsync(11, null, CancellationToken.None);
+
+        Assert.Equal(["COMP-100"], codes);
+        Assert.Equal(["COMP-100", "COMP-200"], allCodes);
+    }
+
     private static Booking Booking(long id, string status, DateTime checkIn, DateTime checkOut, decimal previousDebt = 0) => new()
     {
         BookingId = id,

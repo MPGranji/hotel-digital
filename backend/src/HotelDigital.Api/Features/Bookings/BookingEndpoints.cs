@@ -35,6 +35,9 @@ public static class BookingEndpoints
         group.MapGet("/options", (BookingQueryService service, CancellationToken cancellationToken) =>
             service.GetOptionsAsync(cancellationToken));
 
+        group.MapGet("/external-codes", (int channelId, string? search, BookingQueryService service, CancellationToken cancellationToken) =>
+            service.GetExternalBookingCodesAsync(channelId, search, cancellationToken));
+
         group.MapGet("/operations", (BookingQueryService service, CancellationToken cancellationToken) =>
             service.GetOperationsAsync(cancellationToken));
 

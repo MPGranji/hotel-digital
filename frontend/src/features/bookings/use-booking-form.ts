@@ -11,6 +11,7 @@ import {
   adjustBookingAndRefund,
   changeBookingStatus,
   createBooking,
+  getExternalBookingCodes,
   getAvailableRoomIds,
   getBooking,
   getBookingOptions,
@@ -48,6 +49,7 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
   const [form, setForm] = useState<BookingFormState>(createInitialBookingForm);
   const [booking, setBooking] = useState<BookingDetail>();
   const [options, setOptions] = useState<BookingOptions>({ rooms: [], channels: [] });
+  const [externalCodeResult, setExternalCodeResult] = useState<{ key: string; codes?: string[]; error?: string }>();
   const [customerSearchResult, setCustomerSearchResult] = useState<{ key: string; items?: CustomerListItem[]; error?: string }>();
   const [customerSearchReloadKey, setCustomerSearchReloadKey] = useState(0);
   const [duplicateCustomers, setDuplicateCustomers] = useState<CustomerDuplicateItem[]>([]);
@@ -70,6 +72,11 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
   const customerSearchKey = `${customerSearch}|${customerSearchReloadKey}`;
   const currentCustomerSearch = customerSearchResult?.key === customerSearchKey ? customerSearchResult : undefined;
   const customers = currentCustomerSearch?.items ?? [];
+  const externalCodeChannel = options.channels.find((channel) => String(channel.id) === form.channelId);
+  const externalCodeKey = `${form.channelId}|${form.externalBookingCode.trim()}|${liveRevision}`;
+  const currentExternalCodes = externalCodeResult?.key === externalCodeKey ? externalCodeResult : undefined;
+  const externalBookingCodes = currentExternalCodes?.codes ?? [];
+  const externalCodeError = currentExternalCodes?.error;
   const customerSearchError = currentCustomerSearch?.error;
   const checkingCustomerSearch = form.customerMode === "existing" && !currentCustomerSearch;
   const availabilityKey = `${form.checkInAt}|${form.checkOutAt}|${bookingId ?? "new"}|${availabilityReloadKey}|${liveRevision}`;
@@ -158,6 +165,19 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
     }, 300);
     return () => { active = false; window.clearTimeout(timer); };
   }, [customerSearch, customerSearchKey, form.customerMode]);
+
+  useEffect(() => {
+    if (!externalCodeChannel || externalCodeChannel.category === "OFFLINE") return;
+    let active = true;
+    const controller = new AbortController();
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(READ_TIMEOUT_MS)]);
+    const timer = window.setTimeout(() => {
+      void getExternalBookingCodes(externalCodeChannel.id, form.externalBookingCode.trim(), signal)
+        .then((codes) => { if (active) setExternalCodeResult({ key: externalCodeKey, codes }); })
+        .catch((reason) => { if (active && !controller.signal.aborted) setExternalCodeResult({ key: externalCodeKey, error: getApiErrorMessage(reason, "Không thể tải mã đã lưu.") }); });
+    }, form.externalBookingCode ? 250 : 0);
+    return () => { active = false; window.clearTimeout(timer); controller.abort(); };
+  }, [externalCodeChannel, externalCodeKey, form.externalBookingCode]);
 
   useEffect(() => {
     if (bookingId || form.customerMode !== "new" || duplicateCheckConfirmed || !hasDuplicateSignal(form.phone, form.email, form.identityDocument)) return;
@@ -590,6 +610,8 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
     form,
     booking,
     options,
+    externalBookingCodes,
+    externalCodeError,
     customers,
     duplicateCustomers,
     customerSearch,

@@ -156,6 +156,22 @@ public sealed class BookingQueryService(HotelDbContext db)
         return new BookingOptions(rooms, channels);
     }
 
+    public async Task<IReadOnlyList<string>> GetExternalBookingCodesAsync(int channelId, string? search, CancellationToken cancellationToken)
+    {
+        var query = db.Bookings.AsNoTracking()
+            .Where(x => x.ChannelId == channelId && x.ExternalBookingCode != null && x.ExternalBookingCode != "");
+        var term = search?.Trim();
+        if (!string.IsNullOrEmpty(term))
+            query = query.Where(x => x.ExternalBookingCode!.Contains(term));
+
+        return await query
+            .Select(x => x.ExternalBookingCode!)
+            .Distinct()
+            .OrderBy(code => code)
+            .Take(30)
+            .ToListAsync(cancellationToken);
+    }
+
     private static IReadOnlyList<BookingRoomRateOption> GetRates(
         int roomTypeId,
         string roomTypeCode,

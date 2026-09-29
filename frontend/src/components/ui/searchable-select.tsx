@@ -24,6 +24,9 @@ interface SearchableSelectProps {
   onSearchChange?: (value: string) => void;
   /** When set, typed text that matches no option is offered as its own choice, labelled by this function. */
   createOptionLabel?: (query: string) => string;
+  /** Keep typed text as the value, even before an existing option is selected. */
+  allowCustomValue?: boolean;
+  maxLength?: number;
 }
 
 function normalize(value: string) {
@@ -46,6 +49,8 @@ export function SearchableSelect({
   searchValue,
   onSearchChange,
   createOptionLabel,
+  allowCustomValue,
+  maxLength,
 }: Readonly<SearchableSelectProps>) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -76,7 +81,8 @@ export function SearchableSelect({
     if (onSearchChange) onSearchChange(nextSearch);
     else setInternalSearch(nextSearch);
 
-    if (value && nextSearch !== selectedOption?.label) onChange("");
+    if (allowCustomValue) onChange(nextSearch);
+    else if (value && nextSearch !== selectedOption?.label) onChange("");
     setActiveIndex(0);
     setOpen(true);
   }
@@ -121,6 +127,7 @@ export function SearchableSelect({
         className="min-h-10 w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-blue-200"
         disabled={disabled}
         id={id}
+        maxLength={maxLength}
         onChange={(event) => changeSearch(event.target.value)}
         onFocus={() => {
           if (searchValue === undefined && selectedOption) setInternalSearch(selectedOption.inputValue ?? selectedOption.label);

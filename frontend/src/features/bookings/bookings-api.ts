@@ -8,6 +8,11 @@ export function getBookingOptions() {
   return apiRequest<BookingOptions>("/api/bookings/options");
 }
 
+export function getExternalBookingCodes(channelId: number, search: string, signal?: AbortSignal) {
+  const params = new URLSearchParams({ channelId: String(channelId), search });
+  return apiRequest<string[]>(`/api/bookings/external-codes?${params}`, { signal });
+}
+
 export function getBooking(id: number) {
   return apiRequest<BookingDetail>(`/api/bookings/${id}`);
 }
