@@ -319,7 +319,7 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
           ? selectedChannel?.category === "ONLINE" ? "ONLINE" : "ADVANCE"
           : current.entryMode,
         roomRevenue: field === "channelId" && !directChannel && !bookingId ? "" : current.roomRevenue,
-        externalBookingCode: directChannel ? "" : current.externalBookingCode,
+        externalBookingCode: (field === "channelId" && value !== current.channelId) || directChannel ? "" : current.externalBookingCode,
         additionalRoomIds: field === "roomId" ? current.additionalRoomIds.filter((id) => id !== value) : current.additionalRoomIds,
       };
       return bookingId ? next : withSuggestedRoomRevenue(next);
@@ -339,7 +339,7 @@ export function useBookingForm(bookingId?: number, initialRoomId?: number, initi
       ...current,
       entryMode,
       channelId: channel ? String(channel.id) : "",
-      externalBookingCode: entryMode === "ONLINE" ? current.externalBookingCode : "",
+      externalBookingCode: entryMode === current.entryMode ? current.externalBookingCode : "",
       checkInAt: entryMode === "WALK_IN" ? walkInCheckIn : current.checkInAt,
       checkOutAt: entryMode === "WALK_IN" ? walkInCheckOut : current.checkOutAt,
       billedNights: entryMode === "WALK_IN" ? "1" : current.billedNights,

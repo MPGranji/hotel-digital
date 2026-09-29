@@ -6,6 +6,11 @@ import type { useBookingForm } from "./use-booking-form";
 
 type FormModel = ReturnType<typeof useBookingForm>;
 
+const onlineCmsCodes = [
+  "Booked_BK", "Booked_Ag", "Booked_BNB", "Booked_CTV", "Booked_Web", "Booked_FB",
+  "Booked_WK", "Booked_Ex", "Booked_LK", "Booked_TA", "Booked_KL",
+];
+
 export function StaySection({ model, disabled }: Readonly<{ model: FormModel; disabled: boolean }>) {
   const {
     form, booking, options, externalBookingCodes, externalCodeError, availableRoomIds, availabilityError, invalidStayTime, checkingAvailability, fieldErrors,
@@ -20,6 +25,10 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
   const selectedChannel = options.channels.find((channel) => String(channel.id) === form.channelId);
   const showExternalBookingCode = selectedChannel
     && selectedChannel.category !== "OFFLINE";
+  const externalCodeOptions = [...new Set([
+    ...(selectedChannel?.category === "ONLINE" ? onlineCmsCodes : []),
+    ...externalBookingCodes,
+  ])];
   const availableChannels = options.channels.filter((channel) =>
     form.entryMode === "ONLINE" ? channel.category === "ONLINE" : channel.category !== "ONLINE");
   const entryModes = [
@@ -118,7 +127,7 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
           <SearchableSelect disabled={disabled || form.entryMode === "WALK_IN"} id="channelId" onChange={(value) => updateStayOption("channelId", value)} options={availableChannels.map((channel) => ({ value: String(channel.id), label: channel.name, searchText: `${channel.code} ${channel.category}` }))} placeholder="Chọn kênh" searchPlaceholder="Nhập tên hoặc mã kênh…" value={form.channelId} />
         </Field>
         {showExternalBookingCode ? (
-          <Field error={fieldErrors.externalBookingCode?.[0]} hint={externalCodeError ?? "Chọn mã đã lưu, hoặc nhập mã mới nếu chưa có."} htmlFor="externalBookingCode" label={`Mã đặt phòng từ ${selectedChannel.name}`}>
+          <Field error={fieldErrors.externalBookingCode?.[0]} hint={externalCodeError ?? "Chọn mã CMS có sẵn, hoặc nhập mã mới nếu chưa có."} htmlFor="externalBookingCode" label={`Mã CMS / mã đặt phòng từ ${selectedChannel.name}`}>
             <SearchableSelect
               allowCustomValue
               createOptionLabel={(code) => `Dùng mã mới: ${code}`}
@@ -126,9 +135,9 @@ export function StaySection({ model, disabled }: Readonly<{ model: FormModel; di
               id="externalBookingCode"
               maxLength={100}
               onChange={(value) => updateField("externalBookingCode", value)}
-              options={externalBookingCodes.map((code) => ({ value: code, label: code }))}
-              placeholder={`Nhập mã do ${selectedChannel.name} cung cấp`}
-              searchPlaceholder="Tìm mã đã lưu hoặc nhập mã mới…"
+              options={externalCodeOptions.map((code) => ({ value: code, label: code }))}
+              placeholder="Chọn mã có sẵn hoặc nhập mã mới"
+              searchPlaceholder="Tìm mã CMS hoặc nhập mã mới…"
               searchValue={form.externalBookingCode}
               value={form.externalBookingCode}
             />
